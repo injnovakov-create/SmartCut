@@ -113,16 +113,20 @@ with col1:
             new_items.append(add_item(name, "Страница", 2, h, d, "1д", mat_korpus, val_fl_korpus))
             new_items.append(add_item(name, "Дъно/Таван", 2, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus))
             new_items.append(add_item(name, "Гръб (Фазер)", 1, h - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма"))
+            
+            # КОРИГИРАНА ФОРМУЛА ЗА ФУГИТЕ НА ГОРНИЯ ШКАФ
             if vrati_orientacia == "Вертикални":
                 h_vrata = h - fuga_obshto
-                w_vrata = w - fuga_obshto if vrati_broi == 1 else (w/2) - (fuga_obshto/2)
+                w_vrata = w - fuga_obshto if vrati_broi == 1 else (w/2) - fuga_obshto
             else:
                 w_vrata = w - fuga_obshto
-                h_vrata = h - fuga_obshto if vrati_broi == 1 else (h/2) - (fuga_obshto/2)
+                h_vrata = h - fuga_obshto if vrati_broi == 1 else (h/2) - fuga_obshto
+                
             new_items.append(add_item(name, "Врата", vrati_broi, h_vrata, w_vrata, "4 страни", mat_lice, val_fl_lice))
             
         else:
-            w_vrata_dvoina = (w/2) - (fuga_obshto/2)
+            # КОРИГИРАНА ФОРМУЛА ЗА ФУГИТЕ НА ДОЛНИЯ РЕД
+            w_vrata_dvoina = (w/2) - fuga_obshto
             w_vrata_edinichna = w - fuga_obshto
 
             if tip == "Шкаф Мивка":
@@ -399,7 +403,6 @@ if st.button("Генерирай чертеж на плочите"):
             for idx, b_parts in enumerate(boards):
                 st.write(f"**Плоча {idx+1} ({mat_name})**")
                 
-                # Тук кодът е разделен на няколко реда, за да не се реже при копиране!
                 svg = f'<svg viewBox="0 0 {board_l} {board_w}" style="background-color:#f9f9f9; border:2px solid #333; margin-bottom: 20px; width: 100%; max-width: 900px;">'
                 svg += f'<rect x="{trim}" y="{trim}" width="{use_l}" height="{use_w}" fill="none" stroke="red" stroke-width="4" stroke-dasharray="20,20"/>'
                 

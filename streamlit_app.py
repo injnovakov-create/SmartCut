@@ -6,7 +6,7 @@ from PIL import Image
 # Настройки на страницата
 st.set_page_config(page_title="SMART CUT: Витя-М", layout="wide")
 
-# --- CSS ЗА СБИТ ДИЗАЙН И СИНЬО-ЗЕЛЕНИ АКЦЕНТИ ---
+# --- CSS ЗА СБИТ ДИЗАЙН, СИНЬО-ЗЕЛЕНИ АКЦЕНТИ И СПЕЦИАЛНО ЗАГЛАВИЕ ---
 st.markdown("""
 <style>
 /* Намаляване на празното пространство горе и долу */
@@ -14,7 +14,7 @@ st.markdown("""
     padding-top: 1.5rem !important;
     padding-bottom: 1.5rem !important;
 }
-/* Сбиване на заглавията */
+/* Сбиване на заглавията (h1, h2, h3, h4, h5) */
 h1, h2, h3, h4, h5 {
     padding-top: 0.3rem !important;
     padding-bottom: 0.3rem !important;
@@ -25,7 +25,7 @@ hr {
     margin-top: 0.8rem !important;
     margin-bottom: 0.8rem !important;
 }
-/* Оцветяване на бутоните в синьо-зелено (Teal) */
+/* Стилизиране на бутоните в синьо-зелено (Teal) */
 .stButton>button {
     background-color: #008080 !important; 
     color: white !important;
@@ -38,7 +38,7 @@ hr {
 .stButton>button:hover {
     background-color: #005959 !important; /* По-тъмно при минаване с мишката */
 }
-/* Лек синьо-зелен фон за страничното меню, за да се открои */
+/* Лек синьо-зелен фон за страничното меню */
 [data-testid="stSidebar"] {
     background-color: #f0fafa !important;
 }
@@ -49,8 +49,16 @@ hr {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🛠️ SMART CUT")
-st.markdown("<p style='font-size: 18px; color: gray; margin-top: -15px; margin-bottom: 15px;'><i>оптимизирай умно</i></p>", unsafe_allow_html=True)
+# --- СПЕЦИАЛНО ЗАГЛАВИЕ СМАРТ CUT ---
+st.markdown("""
+<h1 style='font-size: 28px;'>
+  🛠️ SMART 
+  <span style='color: #FF0000; font-weight: bold; font-style: italic; text-decoration: underline wavy; margin-left: -5px;'>
+    CUT
+  </span>
+</h1>
+<p style='font-size: 18px; color: gray; margin-top: -10px; margin-bottom: 20px;'><i>оптимизирай умно</i></p>
+""", unsafe_allow_html=True)
 
 if 'order_list' not in st.session_state:
     st.session_state.order_list = []
@@ -157,6 +165,7 @@ with col1:
             new_items.append(add_item(name, "Дъно/Таван", 2, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus))
             new_items.append(add_item(name, "Гръб (Фазер)", 1, h - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма"))
             
+            # Закръгляне надолу (int) при делене на вратите
             if vrati_orientacia == "Вертикални":
                 h_vrata = h - fuga_obshto
                 w_vrata = w - fuga_obshto if vrati_broi == 1 else int((w/2) - fuga_obshto)
@@ -167,6 +176,7 @@ with col1:
             new_items.append(add_item(name, "Врата", vrati_broi, h_vrata, w_vrata, "4 страни", mat_lice, val_fl_lice))
             
         else:
+            # Закръгляне надолу (int) при двойни врати на долен ред
             w_vrata_dvoina = int((w/2) - fuga_obshto)
             w_vrata_edinichna = w - fuga_obshto
 
@@ -246,6 +256,7 @@ with col2:
         st.subheader("💰 Финанси и Оферта")
         
         try:
+            # 1. Площ и плочи
             edited_df['Area'] = (pd.to_numeric(edited_df['L']) * pd.to_numeric(edited_df['W']) * pd.to_numeric(edited_df['Брой'])) / 1000000
             summary = edited_df.groupby('Материал')['Area'].sum()
             
@@ -309,6 +320,7 @@ with col2:
                 price_cut = st.number_input("€/бр. Разкрой", value=18.0)
                 total_cut_cost = total_boards * price_cut
                 
+            # 2. Кантове
             st.markdown("##### 2. Кантове (+10% фира)")
             def calc_edge(l, w, kant_str):
                 kant_str = str(kant_str).lower()
@@ -347,14 +359,17 @@ with col2:
             else:
                 st.write("Няма детайли за кантиране.")
 
+            # 3. Разходи и Труд
             st.markdown("##### 3. Твърди разходи и Труд")
             col_days, col_labor = st.columns(2)
             with col_days:
                 work_days_month = st.number_input("Работни дни в месеца:", value=21, min_value=1)
                 project_days = st.number_input("Дни за този проект:", value=5, min_value=1)
+                
                 monthly_expenses = 1200.0
                 daily_expense = monthly_expenses / work_days_month
                 project_overhead = daily_expense * project_days
+                
                 st.info(f"Разходи работилница (за проекта): **{project_overhead:.2f} €**")
                 
             with col_labor:
@@ -362,6 +377,7 @@ with col2:
                 project_labor = daily_labor_rate * project_days
                 st.info(f"Стойност на труда: **{project_labor:.2f} €**")
 
+            # 4. КРАЙНА СМЕТКА
             st.markdown("### 📊 Оферта и Печалба:")
             profit_margin = st.number_input("Процент печалба (%):", value=25)
             

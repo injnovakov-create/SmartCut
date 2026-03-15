@@ -35,6 +35,7 @@ def add_item(modul, detail, count, l, w, kant, material, flader, note=""):
 
 def get_abbrev(detail_name):
     d = str(detail_name).lower()
+    if "дублираща" in d: return "ДублСтр"
     if "страница" in d and "чекм" not in d: return "Стр"
     if "дъно/таван" in d: return "Д/Т"
     if "дъно" in d: return "Дън"
@@ -54,7 +55,7 @@ def get_abbrev(detail_name):
     if "страници чекм" in d:
         num = ''.join(filter(str.isdigit, d))
         return f"Сч{num}" if num else "Сч"
-    return detail_name[:4].capitalize()
+    return detail_name[:5].capitalize()
 
 # --- СТРАНИЧНО МЕНЮ ---
 with st.sidebar:
@@ -83,44 +84,80 @@ col1, col2 = st.columns([1, 2.5])
 
 with col1:
     st.subheader("📝 Добави Модул")
-    icons = {"Стандартен Долен": "🗄️", "Горен Шкаф": "⬆️", "Шкаф Мивка": "🚰", "Шкаф 3 Чекмеджета": "🔢", "Шкаф Бутилки 15см": "🍾", "Шкаф за Фурна": "🍳", "Глух Ъгъл (Долен)": "📐"}
-    tip = st.selectbox("Тип модул", options=list(icons.keys()), format_func=lambda x: f"{icons[x]} {x}")
+    icons = {
+        "Стандартен Долен": "🗄️", "Горен Шкаф": "⬆️", "Шкаф Мивка": "🚰", 
+        "Шкаф 3 Чекмеджета": "🔢", "Шкаф Бутилки 15см": "🍾", "Шкаф за Фурна": "🍳", 
+        "Глух Ъгъл (Долен)": "📐", "Глух Ъгъл (Горен)": "📐", 
+        "Дублираща страница долен": "🗂️", "Нестандартен": "🧩"
+    }
+    tip = st.selectbox("Тип модул", options=list(icons.keys()), format_func=lambda x: f"{icons.get(x, '📌')} {x}")
     
-    try:
-        if os.path.exists("sketches.jpg"):
-            img = Image.open("sketches.jpg")
-            w_img, h_img = img.size
-            step = w_img / 7 
-            cabinet_index = {"Стандартен Долен": 0, "Горен Шкаф": 1, "Шкаф Мивка": 2, "Шкаф 3 Чекмеджета": 3, "Шкаф Бутилки 15см": 4, "Шкаф за Фурна": 5, "Глух Ъгъл (Долен)": 6}
-            idx = cabinet_index[tip]
-            cropped_img = img.crop((idx * step, 0, (idx + 1) * step, h_img))
-            st.image(cropped_img, use_container_width=True)
-    except: pass
+    # Визуализация само на 7-те основни скици
+    cabinet_index = {"Стандартен Долен": 0, "Горен Шкаф": 1, "Шкаф Мивка": 2, "Шкаф 3 Чекмеджета": 3, "Шкаф Бутилки 15см": 4, "Шкаф за Фурна": 5, "Глух Ъгъл (Долен)": 6}
+    if tip in cabinet_index:
+        try:
+            if os.path.exists("sketches.jpg"):
+                img = Image.open("sketches.jpg")
+                w_img, h_img = img.size
+                step = w_img / 7 
+                idx = cabinet_index[tip]
+                cropped_img = img.crop((idx * step, 0, (idx + 1) * step, h_img))
+                st.image(cropped_img, use_container_width=True)
+        except: pass
     
     name = st.text_input("Име/№ на модула", value=tip)
     
-    default_w = 150 if tip == "Шкаф Бутилки 15см" else (1000 if tip == "Глух Ъгъл (Долен)" else 600)
-    w = st.number_input("Ширина (W) на корпуса (мм)", value=default_w)
-    
-    if tip == "Горен Шкаф":
-        h = st.number_input("Височина (H) в мм", value=720)
-        d = st.number_input("Дълбочина (D) в мм", value=300)
-        vrati_broi = st.radio("Брой врати:", [1, 2], index=1, horizontal=True)
-        vrati_orientacia = st.radio("Ориентация:", ["Вертикални", "Хоризонтални (Клапващи)"], horizontal=True)
+    # Динамични полета според типа
+    if tip == "Дублираща страница долен":
+        custom_h = st.number_input("Височина (H) мм", value=860)
+        custom_d = st.number_input("Ширина (W) мм", value=580)
+    elif tip == "Нестандартен":
+        custom_detail = st.text_input("Име на детайла", value="Нестандартен детайл")
+        colA, colB, colC = st.columns(3)
+        custom_l = colA.number_input("Дължина (L) мм", value=600)
+        custom_w = colB.number_input("Ширина (W) мм", value=300)
+        custom_count = colC.number_input("Брой", value=1, min_value=1)
+        colD, colE = st.columns(2)
+        custom_kant = colD.selectbox("Кант", ["Без", "1д", "2д", "1д+1к", "1д+2к", "2д+1к", "4 страни", "2д+2к"], index=6)
+        custom_mat_type = colE.selectbox("Вид материал", ["Корпус", "Лице", "Чекмеджета", "Фазер"])
     else:
-        d = st.number_input("Дълбочина (D) страници (мм)", value=(550 if tip == "Шкаф Мивка" else 520))
-        if tip == "Шкаф 3 Чекмеджета": runner_len = st.number_input("Дължина водач Blum (мм)", value=500, step=50)
-        elif tip == "Глух Ъгъл (Долен)":
-            st.markdown("##### Настройки за лицето:")
-            w_vrata_input = st.number_input("Ширина Врата (мм)", value=400)
-            w_gluha_input = st.number_input("Ширина Глуха част (мм)", value=600)
+        default_w = 150 if tip == "Шкаф Бутилки 15см" else (1000 if "Глух" in tip else 600)
+        w = st.number_input("Ширина (W) на корпуса (мм)", value=default_w)
+        
+        if "Горен" in tip:
+            h = st.number_input("Височина (H) в мм", value=720)
+            d = st.number_input("Дълбочина (D) в мм", value=300)
+            if tip == "Горен Шкаф":
+                vrati_broi = st.radio("Брой врати:", [1, 2], index=1, horizontal=True)
+                vrati_orientacia = st.radio("Ориентация:", ["Вертикални", "Хоризонтални (Клапващи)"], horizontal=True)
+            elif tip == "Глух Ъгъл (Горен)":
+                st.markdown("##### Настройки за лицето:")
+                w_vrata_input = st.number_input("Ширина Врата (мм)", value=400)
+                w_gluha_input = st.number_input("Ширина Глуха част (мм)", value=300)
+        else:
+            d = st.number_input("Дълбочина (D) страници (мм)", value=(550 if tip == "Шкаф Мивка" else 520))
+            if tip == "Шкаф 3 Чекмеджета": runner_len = st.number_input("Дължина водач Blum (мм)", value=500, step=50)
+            elif tip == "Глух Ъгъл (Долен)":
+                st.markdown("##### Настройки за лицето:")
+                w_vrata_input = st.number_input("Ширина Врата (мм)", value=400)
+                w_gluha_input = st.number_input("Ширина Глуха част (мм)", value=600)
 
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("➕ Добави към списъка"):
         new_items = []
         otstyp_fazer = 4; h_stranica = 742; h_shkaf_korpus = h_stranica + deb; h_vrata_standart = h_shkaf_korpus - fuga_obshto
         
-        if tip == "Горен Шкаф":
+        if tip == "Дублираща страница долен":
+            new_items.append(add_item(name, "Дублираща страница", 1, custom_h, custom_d, "4 страни", mat_lice, val_fl_lice))
+            
+        elif tip == "Нестандартен":
+            m_choice = mat_korpus; f_choice = val_fl_korpus
+            if custom_mat_type == "Лице": m_choice = mat_lice; f_choice = val_fl_lice
+            elif custom_mat_type == "Чекмеджета": m_choice = mat_chekm; f_choice = val_fl_chekm
+            elif custom_mat_type == "Фазер": m_choice = mat_fazer; f_choice = "Няма"
+            new_items.append(add_item(name, custom_detail, custom_count, custom_l, custom_w, custom_kant, m_choice, f_choice))
+            
+        elif tip == "Горен Шкаф":
             new_items.extend([
                 add_item(name, "Страница", 2, h, d, "1д", mat_korpus, val_fl_korpus),
                 add_item(name, "Дъно/Таван", 2, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
@@ -129,6 +166,15 @@ with col1:
             h_vrata = h - fuga_obshto if vrati_orientacia == "Вертикални" else (h - fuga_obshto if vrati_broi == 1 else int((h/2) - fuga_obshto))
             w_vrata = w - fuga_obshto if vrati_orientacia != "Вертикални" else (w - fuga_obshto if vrati_broi == 1 else int((w/2) - fuga_obshto))
             new_items.append(add_item(name, "Врата", vrati_broi, h_vrata, w_vrata, "4 страни", mat_lice, val_fl_lice))
+            
+        elif tip == "Глух Ъгъл (Горен)":
+            new_items.extend([
+                add_item(name, "Страница", 2, h, d, "1д", mat_korpus, val_fl_korpus),
+                add_item(name, "Дъно/Таван", 2, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
+                add_item(name, "Гръб (Фазер)", 1, h - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма"),
+                add_item(name, "Врата", 1, h - fuga_obshto, int(w_vrata_input - fuga_obshto), "4 страни", mat_lice, val_fl_lice),
+                add_item(name, "Глуха част (Чело)", 1, h - fuga_obshto, int(w_gluha_input - fuga_obshto), "4 страни", mat_lice, val_fl_lice)
+            ])
             
         else:
             w_vrata_dvoina, w_vrata_edinichna = int((w/2) - fuga_obshto), w - fuga_obshto
@@ -204,7 +250,7 @@ def get_optimized_boards(list_for_cutting):
         if mat not in materials_dict: materials_dict[mat] = []
         try:
             detail_str = str(item['Детайл'])
-            thick = "2мм" if ("врата" in detail_str.lower() or "чело" in detail_str.lower()) else "0.8мм"
+            thick = "2мм" if ("врата" in detail_str.lower() or "чело" in detail_str.lower() or "дублираща" in detail_str.lower()) else "0.8мм"
             for _ in range(int(item['Брой'])):
                 materials_dict[mat].append({
                     'name': f"{item['Модул']} {get_abbrev(detail_str)}", 
@@ -244,13 +290,10 @@ def get_optimized_boards(list_for_cutting):
     return boards_per_material, board_l, board_w, trim
 
 def generate_boards_jpeg(boards_per_mat, board_l, board_w, trim):
-    # Изтегляме сигурен шрифт, ако сървърът няма системен
     font_path = "Roboto-Regular.ttf"
     if not os.path.exists(font_path):
-        try:
-            urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf", font_path)
+        try: urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf", font_path)
         except: pass
-        
     try: font = ImageFont.truetype(font_path, 35)
     except: font = ImageFont.load_default()
 
@@ -267,22 +310,22 @@ def generate_boards_jpeg(boards_per_mat, board_l, board_w, trim):
             for p in b_parts:
                 px, py, pl, pw = p['x'] + trim, p['y'] + use_trim_y, p['l'], p['w']
                 p_kant, thick = str(p['kant']).lower(), p['thick']
-                edge_w = 12 if thick == '2мм' else 5
+                edge_w = 12 if thick == '2мм' else 6
                 
                 draw.rectangle([(px, py), (px+pl, py+pw)], outline="black", width=2)
                 
                 if "без" not in p_kant and p_kant:
                     if "4" in p_kant: draw.rectangle([(px, py), (px+pl, py+pw)], outline="black", width=edge_w)
-                    elif "2д" in p_kant:
+                    elif "2д" in p_kant or "2д+2к" in p_kant:
                         draw.line([(px, py), (px+pl, py)], fill="black", width=edge_w)
                         draw.line([(px, py+pw), (px+pl, py+pw)], fill="black", width=edge_w)
                     elif "1д" in p_kant:
                         draw.line([(px, py+pw), (px+pl, py+pw)], fill="black", width=edge_w)
+                    # Може да се добавят още комбинации при нужда
 
                 text_name = p['name'][:15]
                 text_size = f"{int(pl)}/{int(pw)}"
                 
-                # Сигурно чертане на текста
                 try:
                     bbox_n = draw.textbbox((0, 0), text_name, font=font); w_n, h_n = bbox_n[2] - bbox_n[0], bbox_n[3] - bbox_n[1]
                     bbox_s = draw.textbbox((0, 0), text_size, font=font); w_s, h_s = bbox_s[2] - bbox_s[0], bbox_s[3] - bbox_s[1]
@@ -290,7 +333,6 @@ def generate_boards_jpeg(boards_per_mat, board_l, board_w, trim):
                         draw.text((px + pl/2 - w_n/2, py + pw/2 - h_n - 5), text_name, fill="black", font=font)
                         draw.text((px + pl/2 - w_s/2, py + pw/2 + 5), text_size, fill="black", font=font)
                 except:
-                    # Резервен вариант, ако textbbox се провали
                     draw.text((px + 10, py + 10), f"{text_name}\n{text_size}", fill="black", font=font)
 
         img_byte_arr = io.BytesIO()
@@ -319,13 +361,13 @@ if st.button("Генерирай чертеж на плочите"):
                 for p in b_parts:
                     px, py, pl, pw = p['x'] + trim, p['y'] + trim, p['l'], p['w']
                     p_kant, thick = str(p['kant']).lower(), p['thick']
-                    edge_w = 12 if thick == '2мм' else 5
+                    edge_w = 12 if thick == '2мм' else 6
                     
                     svg += f'<rect x="{px}" y="{py}" width="{pl}" height="{pw}" fill="#ffffff" stroke="#000000" stroke-width="2"/>'
                     
                     if "без" not in p_kant and p_kant:
                         if "4" in p_kant: svg += f'<rect x="{px}" y="{py}" width="{pl}" height="{pw}" fill="none" stroke="#000000" stroke-width="{edge_w}"/>'
-                        elif "2д" in p_kant:
+                        elif "2д" in p_kant or "2д+2к" in p_kant:
                             svg += f'<line x1="{px}" y1="{py}" x2="{px+pl}" y2="{py}" stroke="#000000" stroke-width="{edge_w}"/>'
                             svg += f'<line x1="{px}" y1="{py+pw}" x2="{px+pl}" y2="{py+pw}" stroke="#000000" stroke-width="{edge_w}"/>'
                         elif "1д" in p_kant:
@@ -339,7 +381,7 @@ if st.button("Генерирай чертеж на плочите"):
 
 st.markdown("<br>", unsafe_allow_html=True)
 if st.session_state.order_list and st.button("🖼️ Генерирай JPEG файлове за сваляне"):
-    with st.spinner("Генериране на картинки..."):
+    with st.spinner("Подготовка на чертежите..."):
         jpeg_boards = generate_boards_jpeg(boards_per_mat, board_l, board_w, trim)
         if jpeg_boards:
             st.markdown("##### 📥 Свали JPEG чертежи:")
@@ -387,7 +429,8 @@ if st.session_state.order_list:
             if "без" in kant_str.lower() or not kant_str: continue
             l, w, count = float(row['L']), float(row['W']), int(row['Брой'])
             mat = row['Материал']
-            thickness = "2мм" if ("врата" in str(row['Детайл']).lower() or "чело" in str(row['Детайл']).lower()) else "0.8мм"
+            detail_str = str(row['Детайл']).lower()
+            thickness = "2мм" if ("врата" in detail_str or "чело" in detail_str or "дублираща" in detail_str) else "0.8мм"
             mm_per_item = calc_edge(l, w, kant_str)
             total_m = (mm_per_item * count) / 1000.0
             if total_m > 0:

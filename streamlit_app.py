@@ -140,6 +140,11 @@ with col1:
                 st.markdown("##### Настройки за лицето:")
                 w_vrata_input = st.number_input("Ширина Врата (мм)", value=400)
                 w_gluha_input = st.number_input("Ширина Глуха част (мм)", value=600)
+            
+            # --- НОВАТА ЛОГИКА ЗА ДОЛНИТЕ ВРАТИ ---
+            if tip in ["Стандартен Долен", "Шкаф Мивка"]:
+                def_vrati = 0 if w <= 500 else 1 # 0 означава първата опция (1 врата), 1 означава втората опция (2 врати)
+                vrati_broi = st.radio("Брой врати:", [1, 2], index=def_vrati, horizontal=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("➕ Добави към списъка"):
@@ -177,16 +182,19 @@ with col1:
             
         else:
             w_vrata_dvoina, w_vrata_edinichna = int((w/2) - fuga_obshto), w - fuga_obshto
+            
             if tip == "Шкаф Мивка":
+                w_izbrana = w_vrata_edinichna if vrati_broi == 1 else w_vrata_dvoina
                 new_items.extend([
                     add_item(name, "Дъно", 1, w, 480, "1д", mat_korpus, val_fl_korpus), add_item(name, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus),
-                    add_item(name, "Бленда", 3, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus), add_item(name, "Врата", 2, h_vrata_standart, w_vrata_dvoina, "4 страни", mat_lice, val_fl_lice)
+                    add_item(name, "Бленда", 3, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus), add_item(name, "Врата", vrati_broi, h_vrata_standart, w_izbrana, "4 страни", mat_lice, val_fl_lice)
                 ])
             elif tip == "Стандартен Долен":
+                w_izbrana = w_vrata_edinichna if vrati_broi == 1 else w_vrata_dvoina
                 new_items.extend([
                     add_item(name, "Дъно", 1, w, d, "1д", mat_korpus, val_fl_korpus), add_item(name, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus),
                     add_item(name, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus), add_item(name, "Рафт", 1, w-(2*deb), d - 10, "1д", mat_korpus, val_fl_korpus),
-                    add_item(name, "Врата", 2, h_vrata_standart, w_vrata_dvoina, "4 страни", mat_lice, val_fl_lice), add_item(name, "Гръб (Фазер)", 1, h_shkaf_korpus - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма")
+                    add_item(name, "Врата", vrati_broi, h_vrata_standart, w_izbrana, "4 страни", mat_lice, val_fl_lice), add_item(name, "Гръб (Фазер)", 1, h_shkaf_korpus - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма")
                 ])
             elif tip == "Шкаф Бутилки 15см":
                 new_items.extend([
@@ -230,7 +238,6 @@ with col2:
     st.subheader("📋 Списък за разкрой (Редактируем)")
     if st.session_state.order_list:
         df = pd.DataFrame(st.session_state.order_list)
-        # Коригирано спрямо точното подреждане
         cols_order = ["Плоскост", "№", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
         df = df[cols_order]
         
@@ -461,7 +468,7 @@ if st.session_state.order_list:
         st.markdown("##### 3. Твърди разходи и Труд")
         col_days, col_labor = st.columns(2)
         with col_days:
-            project_days = st.number_input("Дни за този проект:", value=5, min_value=1)
+            project_days = st.number_input("Дни за този проект:", value=15, min_value=1)
             project_overhead = (project_days / 15.0) * 300.0
             st.info(f"Стандартен разход 'Наем/Консумативи' (за {project_days} дни): **{project_overhead:.2f} €**")
             

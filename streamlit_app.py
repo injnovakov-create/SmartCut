@@ -5,7 +5,7 @@ import pandas as pd
 st.set_page_config(page_title="SmartCut: Витя-М", layout="wide")
 
 st.title("🛠️ SmartCut: Конструктор на Модули")
-st.info("Интерактивна таблица: Кликни два пъти върху клетка, за да редактираш. Маркирай ред вляво и натисни Delete, за да го изтриеш.")
+st.info("Интерактивна таблица: Кликни два пъти върху клетка за редакция. Маркирай ред вляво и натисни Delete (Кошче) за изтриване.")
 
 if 'order_list' not in st.session_state:
     st.session_state.order_list = []
@@ -51,6 +51,7 @@ with col1:
     name = st.text_input("Име/№ на модула", value=tip)
     w = st.number_input("Ширина (W) в мм", value=600)
     
+    runner_len = 500
     if tip == "Шкаф 3 Чекмеджета":
         runner_len = st.number_input("Дължина водач Blum (мм)", value=500, step=50)
         
@@ -67,4 +68,13 @@ with col1:
 
         if tip == "Шкаф Мивка":
             new_items.append(add_item(name, "Дъно", 1, w, 480, "1д", flader))
-            new_items.append(add_item(
+            new_items.append(add_item(name, "Страница", 2, h_stranica, d, "1д", flader))
+            new_items.append(add_item(name, "Бленда", 3, w-(2*deb), 112, "1д", flader))
+            new_items.append(add_item(name, "Врата", 2, h_vrata_standart, w_vrata, "4 страни", flader))
+            
+        elif tip == "Стандартен Долен":
+            new_items.append(add_item(name, "Дъно", 1, w, 520, "1д", flader))
+            new_items.append(add_item(name, "Страница", 2, h_stranica, d, "1д", flader))
+            new_items.append(add_item(name, "Бленда", 2, w-(2*deb), 112, "1д", flader))
+            new_items.append(add_item(name, "Рафт", 1, w-(2*deb), 510, "1д", flader))
+            new_items.append(add_item

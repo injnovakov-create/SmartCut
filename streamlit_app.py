@@ -233,4 +233,14 @@ if st.button("Генерирай чертеж на плочите"):
             
             for idx, b_parts in enumerate(boards):
                 st.write(f"**Плоча {idx+1} ({mat_name})**")
-                svg = f'<svg viewBox="0 0 {board_l} {board_w}" style="background-color:#f9f9f9; border:2px solid #333; margin-bottom: 20px; width: 100%; max-width: 900px;"><rect x="{trim}" y="{trim}" width
+                svg = f'<svg viewBox="0 0 {board_l} {board_w}" style="background-color:#f9f9f9; border:2px solid #333; margin-bottom: 20px; width: 100%; max-width: 900px;"><rect x="{trim}" y="{trim}" width="{use_l}" height="{use_w}" fill="none" stroke="red" stroke-width="4" stroke-dasharray="20,20"/>'
+                for p in b_parts:
+                    px, py, pl, pw, name = p['x'] + trim, p['y'] + trim, p['l'], p['w'], p['name']
+                    # Ако е бяло правим фона леко сивкав, ако е друго - кафеникаво дървесно за красота
+                    fill_color = "#e0f7fa" if "бял" in mat_name.lower() else "#ffe0b2"
+                    stroke_color = "#006064" if "бял" in mat_name.lower() else "#e65100"
+                    
+                    svg += f'<rect x="{px}" y="{py}" width="{pl}" height="{pw}" fill="{fill_color}" stroke="{stroke_color}" stroke-width="4"/><text x="{px + pl/2}" y="{py + pw/2}" font-size="35" fill="#333" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-weight="bold">{name}</text><text x="{px + pl/2}" y="{py + pw/2 + 45}" font-size="30" fill="#333" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif">{pl} x {pw}</text>'
+                svg += '</svg>'
+                st.markdown(svg, unsafe_allow_html=True)
+            st.markdown("---")

@@ -1,8 +1,9 @@
 import streamlit as st
 import pandas as pd
 import os
-from PIL import Image, ImageDraw, ImageFont
 import io
+import urllib.request
+from PIL import Image, ImageDraw, ImageFont
 
 # Настройки на страницата
 st.set_page_config(page_title="SMART CUT: Витя-М", layout="wide")
@@ -243,12 +244,20 @@ def get_optimized_boards(list_for_cutting):
     return boards_per_material, board_l, board_w, trim
 
 def generate_boards_jpeg(boards_per_mat, board_l, board_w, trim):
+    # Изтегляме сигурен шрифт, ако сървърът няма системен
+    font_path = "Roboto-Regular.ttf"
+    if not os.path.exists(font_path):
+        try:
+            urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf", font_path)
+        except: pass
+        
+    try: font = ImageFont.truetype(font_path, 35)
+    except: font = ImageFont.load_default()
+
     images_bytes = {}
     for mat_name, boards in boards_per_mat.items():
         final_image = Image.new('RGB', (board_l, board_w * len(boards) + 50 * len(boards)), "white")
         draw = ImageDraw.Draw(final_image)
-        try: font = ImageFont.truetype("arial.ttf", 35)
-        except: font = None 
 
         for idx, b_parts in enumerate(boards):
             board_y_offset = idx * (board_w + 50)
@@ -273,12 +282,16 @@ def generate_boards_jpeg(boards_per_mat, board_l, board_w, trim):
                 text_name = p['name'][:15]
                 text_size = f"{int(pl)}/{int(pw)}"
                 
-                if font:
+                # Сигурно чертане на текста
+                try:
                     bbox_n = draw.textbbox((0, 0), text_name, font=font); w_n, h_n = bbox_n[2] - bbox_n[0], bbox_n[3] - bbox_n[1]
                     bbox_s = draw.textbbox((0, 0), text_size, font=font); w_s, h_s = bbox_s[2] - bbox_s[0], bbox_s[3] - bbox_s[1]
                     if pl > max(w_n, w_s) + 10 and pw > h_n + h_s + 15:
                         draw.text((px + pl/2 - w_n/2, py + pw/2 - h_n - 5), text_name, fill="black", font=font)
                         draw.text((px + pl/2 - w_s/2, py + pw/2 + 5), text_size, fill="black", font=font)
+                except:
+                    # Резервен вариант, ако textbbox се провали
+                    draw.text((px + 10, py + 10), f"{text_name}\n{text_size}", fill="black", font=font)
 
         img_byte_arr = io.BytesIO()
         final_image.save(img_byte_arr, format='JPEG')
@@ -311,115 +324,4 @@ if st.button("Генерирай чертеж на плочите"):
                     svg += f'<rect x="{px}" y="{py}" width="{pl}" height="{pw}" fill="#ffffff" stroke="#000000" stroke-width="2"/>'
                     
                     if "без" not in p_kant and p_kant:
-                        if "4" in p_kant: svg += f'<rect x="{px}" y="{py}" width="{pl}" height="{pw}" fill="none" stroke="#000000" stroke-width="{edge_w}"/>'
-                        elif "2д" in p_kant:
-                            svg += f'<line x1="{px}" y1="{py}" x2="{px+pl}" y2="{py}" stroke="#000000" stroke-width="{edge_w}"/>'
-                            svg += f'<line x1="{px}" y1="{py+pw}" x2="{px+pl}" y2="{py+pw}" stroke="#000000" stroke-width="{edge_w}"/>'
-                        elif "1д" in p_kant:
-                            svg += f'<line x1="{px}" y1="{py+pw}" x2="{px+pl}" y2="{py+pw}" stroke="#000000" stroke-width="{edge_w}"/>'
-                    
-                    svg += f'<text x="{px + pl/2}" y="{py + pw/2 - 15}" font-size="30" fill="black" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-weight="bold">{p["name"]}</text>'
-                    svg += f'<text x="{px + pl/2}" y="{py + pw/2 + 25}" font-size="35" fill="black" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif">{int(pl)}/{int(pw)}</text>'
-                
-                svg += '</svg>'
-                st.markdown(svg, unsafe_allow_html=True)
-
-st.markdown("<br>", unsafe_allow_html=True)
-if st.session_state.order_list and st.button("🖼️ Генерирай JPEG файлове за сваляне"):
-    with st.spinner("Генериране на картинки..."):
-        jpeg_boards = generate_boards_jpeg(boards_per_mat, board_l, board_w, trim)
-        if jpeg_boards:
-            st.markdown("##### 📥 Свали JPEG чертежи:")
-            for mat_name, img_bytes in jpeg_boards.items():
-                st.download_button(label=f"🖼️ Свали чертеж ({mat_name})", data=img_bytes, file_name=f"razkroi_{mat_name}.jpeg", mime="image/jpeg")
-        else: st.error("Трябва да добавиш Pillow в requirements.txt в GitHub проекта!")
-
-# --- ФИНАНСОВ КАЛКУЛАТОР ---
-st.markdown("---")
-st.subheader("💰 Финанси и Оферта")
-
-if st.session_state.order_list:
-    try:
-        edited_df = pd.DataFrame(st.session_state.order_list)
-        edited_df['Area'] = (pd.to_numeric(edited_df['L']) * pd.to_numeric(edited_df['W']) * pd.to_numeric(edited_df['Брой'])) / 1000000
-        summary = edited_df.groupby('Материал')['Area'].sum()
-        total_boards_final = sum(len(boards) for boards in boards_per_mat.values())
-        
-        st.markdown("##### 1. Материали и Разкрой")
-        col_mats, col_prices = st.columns([1, 1])
-        
-        total_material_cost = 0.0
-        with col_mats:
-            for mat_name, area in summary.items(): st.write(f"- **{mat_name}:** {area:.2f} м²")
-            st.write(f"- **Брой плочи за разкрой:** {total_boards_final} бр.")
-            
-        with col_prices:
-            for mat_name, area in summary.items():
-                price = st.number_input(f"€/м² {mat_name}", value=25.0, key=f"p_{mat_name}")
-                total_material_cost += area * price
-            price_cut = st.number_input("€/бр. Разкрой", value=18.0)
-            total_cut_cost = total_boards_final * price_cut
-            
-        st.markdown("##### 2. Кантове (+10% фира)")
-        def calc_edge(l, w, kant_str):
-            kant_str = str(kant_str).lower(); mm = 0
-            if "без" in kant_str: return 0
-            if "1д" in kant_str: mm += l
-            if "2д" in kant_str: mm += 2 * l
-            if "4" in kant_str: mm += 2 * (l + w)
-            return mm
-            
-        edge_dict = {}
-        for _, row in edited_df.iterrows():
-            kant_str = str(row['Кант'])
-            if "без" in kant_str.lower() or not kant_str: continue
-            l, w, count = float(row['L']), float(row['W']), int(row['Брой'])
-            mat = row['Материал']
-            thickness = "2мм" if ("врата" in str(row['Детайл']).lower() or "чело" in str(row['Детайл']).lower()) else "0.8мм"
-            mm_per_item = calc_edge(l, w, kant_str)
-            total_m = (mm_per_item * count) / 1000.0
-            if total_m > 0:
-                key = (mat, thickness)
-                edge_dict[key] = edge_dict.get(key, 0) + total_m
-        
-        total_edge_cost = 0.0
-        if edge_dict:
-            col_e1, col_e2 = st.columns([1, 1])
-            with col_e2: edge_price_per_m = st.number_input("€/л.м. Кант", value=1.0)
-            with col_e1:
-                for (mat, thick), meters in edge_dict.items():
-                    meters_with_margin = meters * 1.10
-                    cost = meters_with_margin * edge_price_per_m
-                    total_edge_cost += cost
-                    st.write(f"- **{mat} ({thick}):** {meters_with_margin:.1f} л.м.")
-        else: st.write("Няма детайли за кантиране.")
-
-        st.markdown("##### 3. Твърди разходи и Труд")
-        col_days, col_labor = st.columns(2)
-        with col_days:
-            work_days_month = st.number_input("Работни дни в месеца:", value=21, min_value=1)
-            project_days = st.number_input("Дни за този проект:", value=5, min_value=1)
-            monthly_expenses = 1200.0
-            daily_expense = monthly_expenses / work_days_month
-            project_overhead = daily_expense * project_days
-            st.info(f"Разходи работилница (за проекта): **{project_overhead:.2f} €**")
-            
-        with col_labor:
-            daily_labor_rate = st.number_input("Надница на ден (€):", value=100.0)
-            project_labor = daily_labor_rate * project_days
-            st.info(f"Стойност на труда: **{project_labor:.2f} €**")
-
-        st.markdown("### 📊 Оферта и Печалба:")
-        profit_margin = st.number_input("Процент печалба (%):", value=25)
-        
-        total_materials_all = total_material_cost + total_cut_cost + total_edge_cost
-        subtotal = total_materials_all + project_overhead + project_labor
-        final_price = subtotal * (1 + (profit_margin / 100))
-        net_profit = final_price - subtotal
-        
-        st.write(f"Себестойност (Материал + Разкрой/Кант + Разходи + Труд): **{subtotal:.2f} €**")
-        st.success(f"Оферта към клиент: **{final_price:.2f} €**")
-        st.write(f"🌟 **Чиста печалба за фирмата:** {net_profit:.2f} €")
-        
-    except: st.warning("Въведи валидни числа в таблицата, за да се изчислят финансите.")
-else: st.info("Списъкът е празен. Добави първия си модул, за да видиш финансите.")
+                        if "4" in

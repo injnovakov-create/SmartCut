@@ -2,108 +2,75 @@ import streamlit as st
 import pandas as pd
 
 # Настройки на страницата
-st.set_page_config(page_title="Витя-М: Поръчка за Разкрой", layout="wide")
+st.set_page_config(page_title="Витя-М: Софтуер за Мебели", layout="wide")
 
 st.markdown("""
     <style>
-    .main { background-color: #f8f9fa; }
-    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #007bff; color: white; font-weight: bold; }
+    .main { background-color: #f5f5f5; }
+    .stButton>button { width: 100%; background-color: #ff4b4b; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🏭 Витя-М: Генератор за Разкрой")
+st.title("🛠️ Витя-М: Конструктор на Модули v1.0")
+st.info("Добре дошъл, Викторе! Тук твоите скици стават готови таблици за разкрой.")
 
-# Инициализиране на паметта за списъка
+# Инициализиране на списъка с детайли, ако не съществува
 if 'order_list' not in st.session_state:
     st.session_state.order_list = []
 
-# --- ПОМОЩНА ФУНКЦИЯ (Гарантира, че няма да има KeyError) ---
-def suzdai_red(ploskost, no, detail, l, w, flader, br, d1, d2, sh1, sh2, zabelejka):
-    return {
-        "Плоскост": ploskost,
-        "№": no,
-        "Детайл": detail,
-        "Дължина": int(l),
-        "Ширина": int(w),
-        "Фладер": flader,
-        "Бр": int(br),
-        "Д1": d1,
-        "Д2": d2,
-        "Ш1": sh1,
-        "Ш2": sh2,
-        "Забележка": zabelejka
-    }
-
-# --- СТРАНИЧНО МЕНЮ ---
+# --- СТРАНИЧНО МЕНЮ (НАСТРОЙКИ) ---
 with st.sidebar:
-    st.header("⚙️ Настройки")
-    dekor = st.text_input("Плоскост (Декор)", value="U899")
-    deb_pdch = st.number_input("Дебелина ПДЧ (мм)", value=18)
-    fuga = st.number_input("Фуга (мм)", value=4)
-    kraka_h = st.number_input("Височина крака (мм)", value=100)
-    plot_h = st.number_input("Дебелина плот (мм)", value=38)
+    st.header("⚙️ Глобални Настройки")
+    st.write("Промени тези стойности и всички сметки ще се обновят.")
+    deb = st.number_input("Дебелина ПДЧ (мм)", value=18)
+    fuga = st.number_input("Фуга на врати (мм)", value=4)
+    kraka = st.number_input("Височина крака (мм)", value=100)
+    plot = st.number_input("Дебелина плот (мм)", value=38)
     
-    st.divider()
-    if st.button("🗑️ ИЗЧИСТИ ВСИЧКО"):
+    if st.button("Изчисти цялата поръчка"):
         st.session_state.order_list = []
         st.rerun()
 
-# --- ОСНОВЕН ЕКРАН ---
+# --- ОСНОВЕН ИНТЕРФЕЙС ---
 col1, col2 = st.columns([1, 2])
 
 with col1:
-    st.subheader("➕ Добави Модул")
-    tip = st.selectbox("Тип модул", ["Шкаф Мивка", "Горен Шкаф", "Чекмедже (Каса)"])
-    modul_no = st.text_input("№ / Име на модула", value="1")
+    st.subheader("📝 Добави нов модул")
+    tip = st.selectbox("Избери тип", ["Шкаф Мивка", "Горен Шкаф", "Чекмедже (Kasa)"])
     
-    w_input = st.number_input("Ширина (W)", value=600)
-    h_input = st.number_input("Височина (H)", value=870)
-    d_input = st.number_input("Дълбочина (D)", value=550)
+    name = st.text_input("Име на модула (напр. Долен 1)", value=tip)
+    w = st.number_input("Ширина (W) в мм", value=600)
+    h = st.number_input("Височина (H) в мм", value=870)
+    d = st.number_input("Дълбочина (D) в мм", value=550)
 
-    if st.button("🚀 ГЕНЕРИРАЙ ДЕТАЙЛИ"):
+    if st.button("➕ Добави към списъка"):
         new_items = []
-        
         if tip == "Шкаф Мивка":
-            h_str = h_input - kraka_h - plot_h
-            # Параметри: Плоскост, №, Детайл, Дължина, Ширина, Фладер, Бр, Д1, Д2, Ш1, Ш2, Забележка
-            new_items.append(suzdai_red(dekor, modul_no, "ДЪНО", w_input, d_input, 1, 1, 1, "", "", "", tip))
-            new_items.append(suzdai_red(dekor, modul_no, "СТР", h_str, d_input, 1, 2, 1, "", "", "", tip))
-            new_items.append(suzdai_red(dekor, modul_no, "БЛЕНДА", w_input-(2*deb_pdch), 112, 1, 2, 1, "", "", "", tip))
-            new_items.append(suzdai_red(dekor, modul_no, "ВР", h_str+15, (w_input/2)-(fuga/2), 1, 2, 1, 1, 1, 1, "Лице 2мм"))
-
+            # Логика Виктор
+            h_stranica = h - kraka - plot
+            new_items.append({"Детайл": f"Дъно ({name})", "Брой": 1, "L": w, "W": d, "Кант": "1д (0.8)"})
+            new_items.append({"Детайл": f"Страница ({name})", "Брой": 2, "L": h_stranica, "W": d, "Кант": "1д (0.8)"})
+            new_items.append({"Детайл": f"Бленда ({name})", "Брой": 2, "L": w-(2*deb), "W": 112, "Кант": "1д (0.8)"})
+            new_items.append({"Детайл": f"Врата ({name})", "Брой": 2, "L": h_stranica+15, "W": (w/2)-(fuga/2), "Кант": "2д+2к (2.0)"})
+        
         elif tip == "Горен Шкаф":
-            new_items.append(suzdai_red(dekor, modul_no, "СТР", h_input, d_input, 1, 2, 1, 1, 1, "", tip))
-            new_items.append(suzdai_red(dekor, modul_no, "ДЪНО/Т", w_input-(2*deb_pdch), d_input, 1, 2, 1, "", "", "", tip))
-            new_items.append(suzdai_red(dekor, modul_no, "РАФТ", w_input-(2*deb_pdch), d_input-10, 1, 1, 1, "", "", "", "Вътрешен"))
-            new_items.append(suzdai_red(dekor, modul_no, "ВР", h_input-fuga, (w_input/2)-(fuga/2), 1, 2, 1, 1, 1, 1, "Лице 2мм"))
-
-        elif tip == "Чекмедже (Каса)":
-            kasa_w = (w_input - 36) - 26 # Светъл отвор минус 26мм за водачи
-            new_items.append(suzdai_red(dekor, modul_no, "ЧЕЛО Ч", kasa_w - 36, 150, 1, 2, 1, "", "", "", "Каса"))
-            new_items.append(suzdai_red(dekor, modul_no, "СТР Ч", d_input - 10, 150, 1, 2, 1, "", "", "", "Каса"))
-
-        # Добавяме новите детайли към общия списък
+            new_items.append({"Детайл": f"Страница ({name})", "Брой": 2, "L": h, "W": d, "Кант": "2д+1к (0.8)"})
+            new_items.append({"Детайл": f"Дъно/Таван ({name})", "Брой": 2, "L": w-(2*deb), "W": d, "Кант": "1д (0.8)"})
+            new_items.append({"Детайл": f"Рафт ({name})", "Брой": 1, "L": w-(2*deb), "W": d-10, "Кант": "1д (0.8)"})
+            new_items.append({"Детайл": f"Врата ({name})", "Брой": 2, "L": h-fuga, "W": (w/2)-(fuga/2), "Кант": "2д+2к (2.0)"})
+            
         st.session_state.order_list.extend(new_items)
-        st.rerun()
+        st.success("Добавено!")
 
 with col2:
-    st.subheader("📝 Текуща поръчка")
+    st.subheader("📋 Списък за разкрой (Word/Excel готовност)")
     if st.session_state.order_list:
         df = pd.DataFrame(st.session_state.order_list)
+        st.table(df)
         
-        # Подреждаме колоните ТОЧНО като в твоя Excel
-        columns_order = ["Плоскост", "№", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
-        df = df[columns_order]
-        
-        # Показваме таблицата
-        st.dataframe(df, use_container_width=True, hide_index=True)
-        
-        # Смятане на площ
-        area = (df['Дължина'] * df['Ширина'] * df['Бр']).sum() / 1000000
-        st.info(f"📊 **Обща площ ПДЧ:** {area:.2f} m² | **Ориентировъчно плоскости:** {area/5.8:.1f} бр.")
-        
-        # Експорт бутон
-        csv = df.to_csv(index=False).encode('utf-8-sig')
-        st.download_button("💾 СВАЛИ КАТО EXCEL (CSV)", csv, "razkroi_vitya.csv", "text/csv")
+        # Изчисляване на площ
+        total_m2 = (df['L'] * df['W'] * df['Брой']).sum() / 1000000
+        st.metric("Обща площ ПДЧ", f"{total_m2:.2f} м2")
+        st.write("💡 Можеш да копираш тази таблица директно в Word или Excel.")
     else:
-        st.write("Списъкът е празен. Добави първия модул отляво.")
+        st.write("Списъкът е празен. Добави модул отляво.")

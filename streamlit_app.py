@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
 import os
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
+import io
 
 # Настройки на страницата
 st.set_page_config(page_title="SMART CUT: Витя-М", layout="wide")
@@ -251,132 +252,257 @@ with col2:
     else:
         st.info("Списъкът е празен. Добави първия си модул!")
 
-# --- ВИЗУАЛИЗАЦИЯ НА РАЗКРОЯ ---
+# --- ПОМОЩНА ФУНКЦИЯ ЗА СБИРАНЕ НА ДЕТАЙЛИ ЗА РАЗКРОЙ ---
+def get_optimized_boards(list_for_cutting):
+    kerf, trim, board_l, board_w = 8, 8, 2800, 2070
+    use_l, use_w = board_l - 2*trim, board_w - 2*trim
+    
+    materials_dict = {}
+    for item in list_for_cutting:
+        mat = item.get('Материал', 'Неизвестен')
+        if mat not in materials_dict: materials_dict[mat] = []
+        try:
+            # Запазваме цялата информация, за да можем да чертаем канта
+            flader_item = item.get('Фладер', 'Няма')
+            kant_item = item.get('Кант', 'Без')
+            for _ in range(int(item['Брой'])):
+                materials_dict[mat].append({
+                    'name': f"{item['Модул']} - {item['Детайл']}", 
+                    'l': float(item['L']), 
+                    'w': float(item['W']),
+                    'flader': flader_item,
+                    'kant': kant_item
+                })
+        except: pass
+        
+    boards_per_material = {}
+    total_board_count = 0
+    
+    for mat_name, parts in materials_dict.items():
+        parts.sort(key=lambda x: (x['w'], x['l']), reverse=True)
+        boards, current_board = [], []
+        curr_x, curr_y, shelf_h = 0, 0, 0
+        
+        for p in parts:
+            part_l, part_w = p['l'], p['w']
+            if curr_x + part_l <= use_l:
+                if shelf_h == 0: shelf_h = part_w
+                if curr_y + part_w <= use_w:
+                    current_board.append({'x': curr_x, 'y': curr_y, 'l': part_l, 'w': part_w, 'name': p['name'], 'kant': p['kant']})
+                    curr_x += part_l + kerf
+                else:
+                    boards.append(current_board)
+                    current_board = [{'x': 0, 'y': 0, 'l': part_l, 'w': part_w, 'name': p['name'], 'kant': p['kant']}]
+                    curr_x = part_l + kerf
+                    curr_y = 0
+                    shelf_h = part_w
+            else:
+                curr_x = 0
+                curr_y += shelf_h + kerf
+                shelf_h = part_w
+                if curr_y + part_w <= use_w:
+                    current_board.append({'x': curr_x, 'y': curr_y, 'l': part_l, 'w': part_w, 'name': p['name'], 'kant': p['kant']})
+                    curr_x += part_l + kerf
+                else:
+                    boards.append(current_board)
+                    current_board = [{'x': 0, 'y': 0, 'l': part_l, 'w': part_w, 'name': p['name'], 'kant': p['kant']}]
+                    curr_x = part_l + kerf
+                    curr_y = 0
+                    shelf_h = part_w
+                    
+        if current_board: boards.append(current_board)
+        boards_per_material[mat_name] = boards
+        total_board_count += len(boards)
+        
+    return boards_per_material, total_board_count, board_l, board_w, trim
+
+# --- ПОМОЩНА ФУНКЦИЯ ЗА СВАЛЯНЕ НА JPEG ---
+def generate_boards_jpeg(list_for_cutting):
+    kerf, trim, board_l, board_w = 8, 8, 2800, 2070
+    use_l, use_w = board_l - 2*trim, board_w - 2*trim
+    
+    # Режем плочите наново, за да ги чертаем за JPEG
+    materials_dict = {}
+    for item in list_for_cutting:
+        mat = item.get('Материал', 'Неизвестен')
+        if mat not in materials_dict: materials_dict[mat] = []
+        try:
+            flader_item = item.get('Фладер', 'Няма')
+            kant_item = item.get('Кант', 'Без')
+            for _ in range(int(item['Брой'])):
+                materials_dict[mat].append({
+                    'name': f"{item['Модул']} - {item['Детайл']}", 
+                    'l': float(item['L']), 
+                    'w': float(item['W']),
+                    'flader': flader_item,
+                    'kant': kant_item
+                })
+        except: pass
+
+    images_bytes = {}
+
+    for mat_name, parts in materials_dict.items():
+        parts.sort(key=lambda x: (x['w'], x['l']), reverse=True)
+        boards, current_board = [], []
+        curr_x, curr_y, shelf_h = 0, 0, 0
+        
+        for p in parts:
+            part_l, part_w = p['l'], p['w']
+            if curr_x + part_l <= use_l:
+                if shelf_h == 0: shelf_h = part_w
+                if curr_y + part_w <= use_w:
+                    current_board.append({'x': curr_x, 'y': curr_y, 'l': part_l, 'w': part_w, 'name': p['name'], 'kant': p['kant']})
+                    curr_x += part_l + kerf
+                else:
+                    boards.append(current_board)
+                    current_board = [{'x': 0, 'y': 0, 'l': part_l, 'w': part_w, 'name': p['name'], 'kant': p['kant']}]
+                    curr_x = part_l + kerf
+                    curr_y = 0
+                    shelf_h = part_w
+            else:
+                curr_x = 0
+                curr_y += shelf_h + kerf
+                shelf_h = part_w
+                if curr_y + part_w <= use_w:
+                    current_board.append({'x': curr_x, 'y': curr_y, 'l': part_l, 'w': part_w, 'name': p['name'], 'kant': p['kant']})
+                    curr_x += part_l + kerf
+                else:
+                    boards.append(current_board)
+                    current_board = [{'x': 0, 'y': 0, 'l': part_l, 'w': part_w, 'name': p['name'], 'kant': p['kant']}]
+                    curr_x = part_l + kerf
+                    curr_y = 0
+                    shelf_h = part_w
+                    
+        if current_board: boards.append(current_board)
+        
+        # Чертаем всяка плоча на Pillow Image
+        final_image = Image.new('RGB', (board_l, board_w * len(boards) + 50 * len(boards)), "white")
+        draw = ImageDraw.Draw(final_image)
+        
+        try: font_size = 40; font = ImageFont.truetype("arial.ttf", font_size)
+        except: font_size = 40; font = None 
+
+        for idx, b_parts in enumerate(boards):
+            board_y_offset = idx * (board_w + 50)
+            use_trim_y = trim + board_y_offset
+            
+            # Разкроен габарит (Червена линия)
+            draw.rectangle([(trim, use_trim_y), (board_l - trim, board_w + board_y_offset - trim)], outline="red", width=5)
+            
+            for p in b_parts:
+                px, py, pl, pw, part_name, kant_val = p['x'] + trim, p['y'] + use_trim_y, p['l'], p['w'], p['name'], p['kant']
+                p_kant = kant_val.lower()
+                
+                thin = 2 # Стандартен контур
+                thick = 10 # Удебелен контур за кант
+                
+                # Стандартен Ч/Б контур
+                draw.rectangle([(px, py), (px+pl, py+pw)], outline="black", width=thin)
+                
+                # Удебеляване само на ръбовете с кант
+                if "без" in p_kant or not p_kant: pass
+                elif "4" in p_kant:
+                    draw.rectangle([(px, py), (px+pl, py+pw)], outline="black", width=thick)
+                elif "2д" in p_kant:
+                    # Двете L-страни thick (assume horizontal in visualization coords)
+                    draw.line([(px, py), (px+pl, py)], fill="black", width=thick)
+                    draw.line([(px, py+pw), (px+pl, py+pw)], fill="black", width=thick)
+                elif "1д" in p_kant:
+                    # Едната L-страна thick (assume bottom edge)
+                    draw.line([(px, py+pw), (px+pl, py+pw)], fill="black", width=thick)
+
+                # Текст (Име на детайла)
+                clean_name = part_name.split(' - ')[1][:15] if ' - ' in part_name else part_name[:15]
+                text_label = f"{clean_name} {int(pl)}x{int(pw)}"
+                
+                if font:
+                    text_bbox = draw.textbbox((0, 0), text_label, font=font)
+                    text_w, text_h = text_bbox[2] - text_bbox[0], text_bbox[3] - text_bbox[1]
+                    
+                    if pl > text_w + 20 and pw > text_h + 20:
+                        text_x, text_y = px + pl/2 - text_w/2, py + pw/2 - text_h/2
+                        draw.text((text_x, text_y), text_label, fill="black", font=font)
+
+        # Конвертираме PIL Image в JPEG bytes
+        img_byte_arr = io.BytesIO()
+        final_image.save(img_byte_arr, format='JPEG')
+        images_bytes[mat_name] = img_byte_arr.getvalue()
+
+    return images_bytes
+
+# --- ВИЗУАЛИЗАЦИЯ НА РАЗКРОЯ (ЧЕРНО-БЯЛА) ---
 st.markdown("---")
-st.subheader("✂️ Визуализация на разкроя")
+st.subheader("✂️ Визуализация на разкроя (Технически Чертеж)")
+
+boards_per_mat, total_boards_final, board_l, board_w, trim = get_optimized_boards(st.session_state.order_list)
 
 if st.button("Генерирай чертеж на плочите"):
     if not st.session_state.order_list:
         st.warning("Добави детайли, за да генерираш разкрой!")
     else:
-        kerf, trim, board_l, board_w = 8, 8, 2800, 2070
-        use_l, use_w = board_l - 2*trim, board_w - 2*trim
-        
-        materials_dict = {}
-        for item in st.session_state.order_list:
-            mat = item.get('Материал', 'Неизвестен')
-            if mat not in materials_dict: materials_dict[mat] = []
-            try:
-                for _ in range(int(item['Брой'])):
-                    materials_dict[mat].append({'name': f"{item['Модул']} - {item['Детайл']}", 'l': float(item['L']), 'w': float(item['W'])})
-            except: pass
-        
-        for mat_name, parts in materials_dict.items():
-            st.markdown(f"#### 🪵 Материал: {mat_name}")
-            parts.sort(key=lambda x: (x['w'], x['l']), reverse=True)
-            boards, current_board = [], []
-            curr_x, curr_y, shelf_h = 0, 0, 0
-            
-            for p in parts:
-                part_l, part_w = p['l'], p['w']
-                if curr_x + part_l <= use_l:
-                    if shelf_h == 0: shelf_h = part_w
-                    if curr_y + part_w <= use_w:
-                        current_board.append({'x': curr_x, 'y': curr_y, 'l': part_l, 'w': part_w, 'name': p['name']})
-                        curr_x += part_l + kerf
-                    else:
-                        boards.append(current_board)
-                        current_board = [{'x': 0, 'y': 0, 'l': part_l, 'w': part_w, 'name': p['name']}]
-                        curr_x = part_l + kerf
-                        curr_y = 0
-                        shelf_h = part_w
-                else:
-                    curr_x = 0
-                    curr_y += shelf_h + kerf
-                    shelf_h = part_w
-                    if curr_y + part_w <= use_w:
-                        current_board.append({'x': curr_x, 'y': curr_y, 'l': part_l, 'w': part_w, 'name': p['name']})
-                        curr_x += part_l + kerf
-                    else:
-                        boards.append(current_board)
-                        current_board = [{'x': 0, 'y': 0, 'l': part_l, 'w': part_w, 'name': p['name']}]
-                        curr_x = part_l + kerf
-                        curr_y = 0
-                        shelf_h = part_w
-                        
-            if current_board: boards.append(current_board)
-            st.success(f"Нужни плочи от '{mat_name}': {len(boards)} бр.")
+        for mat_name, boards in boards_per_mat.items():
+            st.markdown(f"#### 🪵 Материал: {mat_name} (Ч/Б)")
+            st.success(f"Нужни плочи: {len(boards)} бр.")
             
             for idx, b_parts in enumerate(boards):
                 st.write(f"**Плоча {idx+1} ({mat_name})**")
                 
-                svg = f'<svg viewBox="0 0 {board_l} {board_w}" style="background-color:#f9f9f9; border:2px solid #333; margin-bottom: 20px; width: 100%; max-width: 900px;">'
-                svg += f'<rect x="{trim}" y="{trim}" width="{use_l}" height="{use_w}" fill="none" stroke="red" stroke-width="4" stroke-dasharray="20,20"/>'
+                # SVG ЧЕРТЕЖ ЧЕРНО-БЯЛ С ДЕБЕЛ КАНТ
+                svg = f'<svg viewBox="0 0 {board_l} {board_w}" style="background-color:#ffffff; border:2px solid #333; margin-bottom: 20px; width: 100%; max-width: 900px;">'
+                # Разкроен габарит (Червена пунктирана линия)
+                use_l_svg, use_w_svg = board_l - 2*trim, board_w - 2*trim
+                svg += f'<rect x="{trim}" y="{trim}" width="{use_l_svg}" height="{use_w_svg}" fill="none" stroke="red" stroke-width="4" stroke-dasharray="20,20"/>'
                 
                 for p in b_parts:
-                    px, py, pl, pw, name = p['x'] + trim, p['y'] + trim, p['l'], p['w'], p['name']
-                    fill_color = "#e0f7fa" if "бял" in mat_name.lower() else "#ffe0b2"
-                    stroke_color = "#006064" if "бял" in mat_name.lower() else "#e65100"
+                    px, py, pl, pw, part_name, kant_val = p['x'] + trim, p['y'] + trim, p['l'], p['w'], p['name'], p['kant']
+                    p_kant = kant_val.lower()
                     
-                    svg += f'<rect x="{px}" y="{py}" width="{pl}" height="{pw}" fill="{fill_color}" stroke="{stroke_color}" stroke-width="4"/>'
-                    svg += f'<text x="{px + pl/2}" y="{py + pw/2}" font-size="35" fill="#333" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-weight="bold">{name}</text>'
-                    svg += f'<text x="{px + pl/2}" y="{py + pw/2 + 45}" font-size="30" fill="#333" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif">{pl} x {pw}</text>'
+                    thin = 2 # Стандартен контур
+                    thick = 10 # Удебелен контур за кант
+                    
+                    # Стандартен Ч/Б контур
+                    svg += f'<rect x="{px}" y="{py}" width="{pl}" height="{pw}" fill="#ffffff" stroke="#000000" stroke-width="{thin}"/>'
+                    
+                    # Удебеляване само на ръбовете с кант
+                    if "без" in p_kant or not p_kant: pass
+                    elif "4" in p_kant:
+                        svg += f'<rect x="{px}" y="{py}" width="{pl}" height="{pw}" fill="none" stroke="#000000" stroke-width="{thick}"/>'
+                    elif "2д" in p_kant:
+                        # Двете L-страни thick (assume horizontal in visualization coords)
+                        svg += f'<line x1="{px}" y1="{py}" x2="{px+pl}" y2="{py}" stroke="#000000" stroke-width="{thick}"/>'
+                        svg += f'<line x1="{px}" y1="{py+pw}" x2="{px+pl}" y2="{py+pw}" stroke="#000000" stroke-width="{thick}"/>'
+                    elif "1д" in p_kant:
+                        # Едната L-страна thick (assume bottom edge)
+                        svg += f'<line x1="{px}" y1="{py+pw}" x2="{px+pl}" y2="{py+pw}" stroke="#000000" stroke-width="{thick}"/>'
+                    
+                    svg += f'<text x="{px + pl/2}" y="{py + pw/2}" font-size="35" fill="black" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-weight="bold">{pl}</text>'
+                    svg += f'<text x="{px + pl/2}" y="{py + pw/2 + 45}" font-size="35" fill="black" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-weight="bold">{pw}</text>'
                 
                 svg += '</svg>'
                 st.markdown(svg, unsafe_allow_html=True)
 
-# --- ФИНАНСОВ КАЛКУЛАТОР (НАЙ-ДОЛУ) ---
+# --- ЕКСПОРТ В JPEG ---
+st.markdown("<br>", unsafe_allow_html=True)
+if st.session_state.order_list and st.button("🖼️ Генерирай JPEG файлове за сваляне"):
+    # Трябва да инсталираш Pillow: създай requirements.txt с Pillow вътре в GitHub
+    with st.spinner("Генериране на картинки..."):
+        jpeg_boards = generate_boards_jpeg(st.session_state.order_list)
+        if jpeg_boards:
+            st.markdown("##### 📥 Свали JPEG чертежи:")
+            for mat_name, img_bytes in jpeg_boards.items():
+                st.download_button(label=f"🖼️ Свали чертеж ({mat_name})", data=img_bytes, file_name=f"razkroi_{mat_name}.jpeg", mime="image/jpeg")
+        else:
+            st.error("Трябва да добавиш Pillow в requirements.txt в GitHub проекта!")
+
+# --- ФИНАНСОВ КАЛКУЛАТОР (НАЙ-ДОЛУ, НА ЦЯЛ ЕКРАН) ---
 st.markdown("---")
 st.subheader("💰 Финанси и Оферта")
 
 if st.session_state.order_list:
     try:
-        # Използваме директно edited_df, която се създава в таблицата по-горе
+        boards_calc, total_boards_final, _, _, _ = get_optimized_boards(edited_df.to_dict('records'))
         edited_df['Area'] = (pd.to_numeric(edited_df['L']) * pd.to_numeric(edited_df['W']) * pd.to_numeric(edited_df['Брой'])) / 1000000
         summary = edited_df.groupby('Материал')['Area'].sum()
-        
-        kerf, trim, board_l, board_w = 8, 8, 2800, 2070
-        use_l, use_w = board_l - 2*trim, board_w - 2*trim
-        total_boards = 0
-        
-        for mat_name, parts_df in edited_df.groupby('Материал'):
-            parts = []
-            for _, row in parts_df.iterrows():
-                try:
-                    for _ in range(int(row['Брой'])):
-                        parts.append({'l': float(row['L']), 'w': float(row['W'])})
-                except: pass
-            parts.sort(key=lambda x: (x['w'], x['l']), reverse=True)
-            boards, current_board = [], []
-            curr_x, curr_y, shelf_h = 0, 0, 0
-            for p in parts:
-                part_l, part_w = p['l'], p['w']
-                if curr_x + part_l <= use_l:
-                    if shelf_h == 0: shelf_h = part_w
-                    if curr_y + part_w <= use_w:
-                        current_board.append(1)
-                        curr_x += part_l + kerf
-                    else:
-                        boards.append(current_board)
-                        current_board = [1]
-                        curr_x = part_l + kerf
-                        curr_y = 0
-                        shelf_h = part_w
-                else:
-                    curr_x = 0
-                    curr_y += shelf_h + kerf
-                    shelf_h = part_w
-                    if curr_y + part_w <= use_w:
-                        current_board.append(1)
-                        curr_x += part_l + kerf
-                    else:
-                        boards.append(current_board)
-                        current_board = [1]
-                        curr_x = part_l + kerf
-                        curr_y = 0
-                        shelf_h = part_w
-            if current_board: boards.append(current_board)
-            total_boards += len(boards)
         
         st.markdown("##### 1. Материали и Разкрой")
         col_mats, col_prices = st.columns([1, 1])
@@ -385,7 +511,7 @@ if st.session_state.order_list:
         with col_mats:
             for mat_name, area in summary.items():
                 st.write(f"- **{mat_name}:** {area:.2f} м²")
-            st.write(f"- **Брой плочи за разкрой:** {total_boards} бр.")
+            st.write(f"- **Брой плочи за разкрой:** {total_boards_final} бр.")
             
         with col_prices:
             for mat_name, area in summary.items():
@@ -393,9 +519,8 @@ if st.session_state.order_list:
                 total_material_cost += area * price
             
             price_cut = st.number_input("€/бр. Разкрой", value=18.0)
-            total_cut_cost = total_boards * price_cut
+            total_cut_cost = total_boards_final * price_cut
             
-        # 2. Кантове
         st.markdown("##### 2. Кантове (+10% фира)")
         def calc_edge(l, w, kant_str):
             kant_str = str(kant_str).lower()
@@ -434,17 +559,14 @@ if st.session_state.order_list:
         else:
             st.write("Няма детайли за кантиране.")
 
-        # 3. Разходи и Труд
         st.markdown("##### 3. Твърди разходи и Труд")
         col_days, col_labor = st.columns(2)
         with col_days:
             work_days_month = st.number_input("Работни дни в месеца:", value=21, min_value=1)
             project_days = st.number_input("Дни за този проект:", value=5, min_value=1)
-            
             monthly_expenses = 1200.0
             daily_expense = monthly_expenses / work_days_month
             project_overhead = daily_expense * project_days
-            
             st.info(f"Разходи работилница (за проекта): **{project_overhead:.2f} €**")
             
         with col_labor:
@@ -452,7 +574,6 @@ if st.session_state.order_list:
             project_labor = daily_labor_rate * project_days
             st.info(f"Стойност на труда: **{project_labor:.2f} €**")
 
-        # 4. КРАЙНА СМЕТКА
         st.markdown("### 📊 Оферта и Печалба:")
         profit_margin = st.number_input("Процент печалба (%):", value=25)
         
@@ -469,6 +590,3 @@ if st.session_state.order_list:
         st.warning("Въведи валидни числа в таблицата, за да се изчислят финансите.")
 else:
     st.info("Списъкът е празен. Добави първия си модул, за да видиш финансите.")
-
-
-

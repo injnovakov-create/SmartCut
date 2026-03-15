@@ -7,7 +7,7 @@ from PIL import Image
 st.set_page_config(page_title="SmartCut: Витя-М", layout="wide")
 
 st.title("🛠️ SmartCut: Конструктор на Модули")
-st.info("Добавено: Автоматично изрязване и показване на скица за всеки избран модул.")
+st.info("Добавено: Автоматично изчисление на кантове (2мм за лица, 0.8мм за корпус) с 10% фира и такса разкрой на плоча.")
 
 if 'order_list' not in st.session_state:
     st.session_state.order_list = []
@@ -58,44 +58,23 @@ with col1:
     st.subheader("📝 Добави Модул")
     
     icons = {
-        "Стандартен Долен": "🗄️",
-        "Горен Шкаф": "⬆️",
-        "Шкаф Мивка": "🚰",
-        "Шкаф 3 Чекмеджета": "🔢",
-        "Шкаф Бутилки 15см": "🍾",
-        "Шкаф за Фурна": "🍳",
-        "Глух Ъгъл (Долен)": "📐"
+        "Стандартен Долен": "🗄️", "Горен Шкаф": "⬆️", "Шкаф Мивка": "🚰",
+        "Шкаф 3 Чекмеджета": "🔢", "Шкаф Бутилки 15см": "🍾", 
+        "Шкаф за Фурна": "🍳", "Глух Ъгъл (Долен)": "📐"
     }
     
     tip = st.selectbox("Тип модул", options=list(icons.keys()), format_func=lambda x: f"{icons[x]} {x}")
     
-    # --- МАГИЯТА ЗА КАРТИНКИТЕ ---
     try:
         if os.path.exists("sketches.jpg"):
             img = Image.open("sketches.jpg")
             w_img, h_img = img.size
-            step = w_img / 7 # Режем на 7 равни части
-            
-            # Индекси според подредбата в твоята картинка (отляво надясно)
-            cabinet_index = {
-                "Стандартен Долен": 0,
-                "Горен Шкаф": 1,
-                "Шкаф Мивка": 2,
-                "Шкаф 3 Чекмеджета": 3,
-                "Шкаф Бутилки 15см": 4,
-                "Шкаф за Фурна": 5,
-                "Глух Ъгъл (Долен)": 6
-            }
-            
+            step = w_img / 7 
+            cabinet_index = {"Стандартен Долен": 0, "Горен Шкаф": 1, "Шкаф Мивка": 2, "Шкаф 3 Чекмеджета": 3, "Шкаф Бутилки 15см": 4, "Шкаф за Фурна": 5, "Глух Ъгъл (Долен)": 6}
             idx = cabinet_index[tip]
-            crop_box = (idx * step, 0, (idx + 1) * step, h_img)
-            cropped_img = img.crop(crop_box)
-            
-            # Показваме изрязаната скица
+            cropped_img = img.crop((idx * step, 0, (idx + 1) * step, h_img))
             st.image(cropped_img, use_container_width=True)
-    except Exception as e:
-        # Ако картинката липсва или има грешка, просто продължава без нея
-        pass
+    except: pass
     
     name = st.text_input("Име/№ на модула", value=tip)
     
@@ -133,7 +112,6 @@ with col1:
             new_items.append(add_item(name, "Страница", 2, h, d, "1д", mat_korpus, val_fl_korpus))
             new_items.append(add_item(name, "Дъно/Таван", 2, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus))
             new_items.append(add_item(name, "Гръб (Фазер)", 1, h - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма"))
-            
             if vrati_orientacia == "Вертикални":
                 h_vrata = h - fuga_obshto
                 w_vrata = w - fuga_obshto if vrati_broi == 1 else (w/2) - (fuga_obshto/2)
@@ -181,10 +159,8 @@ with col1:
                 new_items.append(add_item(name, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus))
                 new_items.append(add_item(name, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus))
                 new_items.append(add_item(name, "Рафт (под фурна)", 1, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus))
-                w_chelo_furna = w - fuga_obshto
-                new_items.append(add_item(name, "Чело чекмедже", 1, 157, w_chelo_furna, "4 страни", mat_lice, val_fl_lice))
-                w_cargi_furna = w - (2*deb) - 49
-                new_items.append(add_item(name, "Царги чекм.", 2, w_cargi_furna, 70, "1д", mat_chekm, val_fl_chekm))
+                new_items.append(add_item(name, "Чело чекмедже", 1, 157, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice))
+                new_items.append(add_item(name, "Царги чекм.", 2, w - (2*deb) - 49, 70, "1д", mat_chekm, val_fl_chekm))
                 new_items.append(add_item(name, "Страници чекм.", 2, 490, 85, "2д", mat_chekm, val_fl_chekm))
                 
             elif tip == "Шкаф 3 Чекмеджета":
@@ -192,14 +168,10 @@ with col1:
                 new_items.append(add_item(name, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus))
                 new_items.append(add_item(name, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus))
                 new_items.append(add_item(name, "Гръб (Фазер)", 1, h_shkaf_korpus - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма"))
-                
-                w_chelo = w - fuga_obshto
                 block_note = "В БЛОК" if fl_lice else ""
-                
-                new_items.append(add_item(name, "Чело горно", 1, 180-fuga_obshto, w_chelo, "4 страни", mat_lice, val_fl_lice, block_note))
-                new_items.append(add_item(name, "Чело средно", 1, 250-fuga_obshto, w_chelo, "4 страни", mat_lice, val_fl_lice, block_note))
-                new_items.append(add_item(name, "Чело долно", 1, 330-fuga_obshto, w_chelo, "4 страни", mat_lice, val_fl_lice, block_note))
-                
+                new_items.append(add_item(name, "Чело горно", 1, 180-fuga_obshto, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice, block_note))
+                new_items.append(add_item(name, "Чело средно", 1, 250-fuga_obshto, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice, block_note))
+                new_items.append(add_item(name, "Чело долно", 1, 330-fuga_obshto, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice, block_note))
                 w_cargi = w - (2*deb) - 49
                 l_stranici_chek = runner_len - 10
                 new_items.append(add_item(name, "Царги чекм. 1", 2, w_cargi, 80, "1д", mat_chekm, val_fl_chekm))
@@ -223,14 +195,137 @@ with col2:
         csv = edited_df.to_csv(index=False).encode('utf-8-sig')
         st.download_button(label="📥 Свали за Excel/Optimik", data=csv, file_name="razkroi_vitya_kuhni.csv", mime="text/csv")
         
+        # --- ФИНАНСОВ КАЛКУЛАТОР ---
+        st.markdown("---")
+        st.subheader("💰 Финанси и Оферта")
+        
         try:
-            st.markdown("##### 📊 Нужен материал (чиста площ):")
+            # 1. Смятаме площ и цени на квадратен метър
             edited_df['Area'] = (pd.to_numeric(edited_df['L']) * pd.to_numeric(edited_df['W']) * pd.to_numeric(edited_df['Брой'])) / 1000000
             summary = edited_df.groupby('Материал')['Area'].sum()
-            for mat_name, area in summary.items():
-                st.write(f"- **{mat_name}:** {area:.2f} м²")
+            
+            # 2. Скрит бърз алгоритъм за преброяване на плочите (за цената на разкроя)
+            kerf, trim, board_l, board_w = 8, 8, 2800, 2070
+            use_l, use_w = board_l - 2*trim, board_w - 2*trim
+            total_boards = 0
+            
+            for mat_name, parts_df in edited_df.groupby('Материал'):
+                parts = []
+                for _, row in parts_df.iterrows():
+                    try:
+                        for _ in range(int(row['Брой'])):
+                            parts.append({'l': float(row['L']), 'w': float(row['W'])})
+                    except: pass
+                parts.sort(key=lambda x: (x['w'], x['l']), reverse=True)
+                boards, current_board = [], []
+                curr_x, curr_y, shelf_h = 0, 0, 0
+                for p in parts:
+                    part_l, part_w = p['l'], p['w']
+                    if curr_x + part_l <= use_l:
+                        if shelf_h == 0: shelf_h = part_w
+                        if curr_y + part_w <= use_w:
+                            current_board.append(1)
+                            curr_x += part_l + kerf
+                        else:
+                            boards.append(current_board)
+                            current_board = [1]
+                            curr_x = part_l + kerf
+                            curr_y = 0
+                            shelf_h = part_w
+                    else:
+                        curr_x = 0
+                        curr_y += shelf_h + kerf
+                        shelf_h = part_w
+                        if curr_y + part_w <= use_w:
+                            current_board.append(1)
+                            curr_x += part_l + kerf
+                        else:
+                            boards.append(current_board)
+                            current_board = [1]
+                            curr_x = part_l + kerf
+                            curr_y = 0
+                            shelf_h = part_w
+                if current_board: boards.append(current_board)
+                total_boards += len(boards)
+            
+            st.markdown("##### 1. Материали и Разкрой")
+            col_mats, col_prices = st.columns([2, 1])
+            
+            total_material_cost = 0.0
+            with col_mats:
+                for mat_name, area in summary.items():
+                    st.write(f"- **{mat_name}:** {area:.2f} м²")
+                st.write(f"- **Брой плочи за разкрой:** {total_boards} бр.")
+                
+            with col_prices:
+                for mat_name, area in summary.items():
+                    price = st.number_input(f"€/м² {mat_name}", value=25.0, key=f"p_{mat_name}")
+                    total_material_cost += area * price
+                
+                price_cut = st.number_input("€/бр. Разкрой", value=18.0)
+                total_cut_cost = total_boards * price_cut
+                
+            # 3. Пресмятане на кантове
+            st.markdown("##### 2. Кантове (+10% фира)")
+            def calc_edge(l, w, kant_str):
+                kant_str = str(kant_str).lower()
+                mm = 0
+                if "без" in kant_str: return 0
+                if "1д" in kant_str: mm += l
+                if "2д" in kant_str: mm += 2 * l
+                if "4" in kant_str: mm += 2 * (l + w)
+                return mm
+                
+            edge_dict = {}
+            for _, row in edited_df.iterrows():
+                kant_str = str(row['Кант'])
+                if "без" in kant_str.lower() or not kant_str: continue
+                l, w, count = float(row['L']), float(row['W']), int(row['Брой'])
+                mat = row['Материал']
+                detail = str(row['Детайл']).lower()
+                
+                # Логика за дебелината: 2мм за врати и чела, 0.8 за всичко останало
+                thickness = "2мм" if ("врата" in detail or "чело" in detail) else "0.8мм"
+                mm_per_item = calc_edge(l, w, kant_str)
+                total_m = (mm_per_item * count) / 1000.0
+                
+                if total_m > 0:
+                    key = (mat, thickness)
+                    edge_dict[key] = edge_dict.get(key, 0) + total_m
+            
+            total_edge_cost = 0.0
+            if edge_dict:
+                col_e1, col_e2 = st.columns([2, 1])
+                with col_e2:
+                    edge_price_per_m = st.number_input("€/л.м. Кант", value=1.0)
+                with col_e1:
+                    for (mat, thick), meters in edge_dict.items():
+                        meters_with_margin = meters * 1.10 # +10% фира
+                        cost = meters_with_margin * edge_price_per_m
+                        total_edge_cost += cost
+                        st.write(f"- **{mat} ({thick}):** {meters_with_margin:.1f} л.м.")
+            else:
+                st.write("Няма детайли за кантиране.")
+
+            # 4. Общи разходи и Труд
+            st.markdown("##### 3. Разходи за работилницата и труд:")
+            col_days, col_labor = st.columns(2)
+            with col_days:
+                days = st.number_input("Време за изпълнение (дни):", value=15, min_value=1)
+                overhead_eur = (days / 15.0) * 300
+                st.info(f"Наем и консумативи: **{overhead_eur:.0f} €**")
+                
+            with col_labor:
+                labor = st.number_input("Труд и Монтаж (в лв/€):", value=500.0)
+            
+            # 5. КРАЙНА СМЕТКА
+            st.markdown("### 📊 Крайна цена:")
+            total_materials_all = total_material_cost + total_cut_cost + total_edge_cost
+            total_price = total_materials_all + overhead_eur + labor
+            st.success(f"Материали/Разкрой/Кант: **{total_materials_all:.2f}** | Общо проект: **{total_price:.2f}**")
+            
         except Exception as e:
-            st.warning("Въведи валидни числа за размерите, за да се изчисли площта.")
+            st.warning("Въведи валидни числа в таблицата, за да се изчислят финансите.")
     else:
         st.info("Списъкът е празен. Добави първия си модул!")
 
@@ -242,12 +337,8 @@ if st.button("Генерирай чертеж на плочите"):
     if not st.session_state.order_list:
         st.warning("Добави детайли, за да генерираш разкрой!")
     else:
-        kerf = 8
-        trim = 8
-        board_l = 2800
-        board_w = 2070
-        use_l = board_l - 2*trim
-        use_w = board_w - 2*trim
+        kerf, trim, board_l, board_w = 8, 8, 2800, 2070
+        use_l, use_w = board_l - 2*trim, board_w - 2*trim
         
         materials_dict = {}
         for item in st.session_state.order_list:

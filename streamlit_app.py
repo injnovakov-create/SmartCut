@@ -141,9 +141,9 @@ with col1:
                 w_vrata_input = st.number_input("Ширина Врата (мм)", value=400)
                 w_gluha_input = st.number_input("Ширина Глуха част (мм)", value=600)
             
-            # --- НОВАТА ЛОГИКА ЗА ДОЛНИТЕ ВРАТИ ---
+            # --- ЛОГИКА ЗА ДОЛНИТЕ ВРАТИ ---
             if tip in ["Стандартен Долен", "Шкаф Мивка"]:
-                def_vrati = 0 if w <= 500 else 1 # 0 означава първата опция (1 врата), 1 означава втората опция (2 врати)
+                def_vrati = 0 if w <= 500 else 1
                 vrati_broi = st.radio("Брой врати:", [1, 2], index=def_vrati, horizontal=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -465,29 +465,66 @@ if st.session_state.order_list:
                     st.write(f"- **{mat} ({thick}):** {meters_with_margin:.1f} л.м.")
         else: st.write("Няма детайли за кантиране.")
 
-        st.markdown("##### 3. Твърди разходи и Труд")
-        col_days, col_labor = st.columns(2)
-        with col_days:
-            project_days = st.number_input("Дни за този проект:", value=15, min_value=1)
-            project_overhead = (project_days / 15.0) * 300.0
-            st.info(f"Стандартен разход 'Наем/Консумативи' (за {project_days} дни): **{project_overhead:.2f} €**")
+        st.markdown("##### 3. Твърди разходи, Труд и Услуги")
+        col_fixed, col_labor = st.columns(2)
+        
+        with col_fixed:
+            st.write("**Месечни разходи (база 21 дни):**")
+            osigurovki = st.number_input("Осигуровки (за теб и двамата помощници) €", value=450)
+            naem = st.number_input("Наем (работилница в двора) €", value=400)
+            tok = st.number_input("Ток и консумативи €", value=100)
+            bus = st.number_input("Бус (гориво/поддръжка) €", value=100)
+            schetovodstvo = st.number_input("Счетоводство €", value=80)
             
         with col_labor:
-            daily_labor_rate = st.number_input("Надница на ден (€):", value=100.0)
-            project_labor = daily_labor_rate * project_days
-            st.info(f"Стойност на труда: **{project_labor:.2f} €**")
+            st.write("**Труд и Директни разходи:**")
+            project_days = st.number_input("Дни за този проект:", value=15, min_value=1)
+            nadnici = st.number_input("Надници (общо за тримата/ден) €", value=225)
+            transport = st.number_input("Транспорт (за поръчката) €", value=0)
+            komandirovachni = st.number_input("Командировъчни €", value=0)
+            hamal = st.number_input("Хамалски услуги €", value=0)
 
-        st.markdown("### 📊 Оферта и Печалба:")
-        profit_margin = st.number_input("Процент печалба (%):", value=25)
+        st.markdown("##### 4. Буфери и Печалба")
+        col_buf1, col_buf2 = st.columns(2)
+        with col_buf1:
+            nepredvideni_pct = st.number_input("Непредвидени разходи (%)", value=15)
+        with col_buf2:
+            pechalba_pct = st.number_input("Печалба (%)", value=25)
+
+        # --- ИЗЧИСЛЕНИЯ ---
+        # 1. Прилагане на стратегията за наем и консумативи (override)
+        rent_cons_cost = (project_days / 15.0) * 300.0
         
+        # 2. Останали месечни разходи (пропорционално на 21 дни)
+        other_monthly = osigurovki + bus + schetovodstvo
+        other_fixed_cost = (other_monthly / 21.0) * project_days
+        total_fixed_project = rent_cons_cost + other_fixed_cost
+        
+        # 3. Труд и Услуги
+        total_labor_cost = nadnici * project_days
+        total_services = transport + komandirovachni + hamal
+        
+        # 4. Базова стойност
         total_materials_all = total_material_cost + total_cut_cost + total_edge_cost
-        subtotal = total_materials_all + project_overhead + project_labor
-        final_price = subtotal * (1 + (profit_margin / 100))
-        net_profit = final_price - subtotal
+        base_cost = total_materials_all + total_fixed_project + total_labor_cost + total_services
         
-        st.write(f"Себестойност (Материал + Разкрой/Кант + Разходи + Труд): **{subtotal:.2f} €**")
-        st.success(f"Оферта към клиент: **{final_price:.2f} €**")
-        st.write(f"🌟 **Чиста печалба за фирмата:** {net_profit:.2f} €")
+        # 5. Непредвидени
+        unforeseen_cost = base_cost * (nepredvideni_pct / 100.0)
+        sebestoinost = base_cost + unforeseen_cost
+        
+        # 6. Печалба и Крайна цена
+        profit_val = sebestoinost * (pechalba_pct / 100.0)
+        final_offer = sebestoinost + profit_val
+        
+        st.markdown("### 📊 Оферта и Калкулация:")
+        st.write(f"- Материали и разкрой: **{total_materials_all:.2f} €**")
+        st.write(f"- Труд (за {project_days} дни): **{total_labor_cost:.2f} €**")
+        st.write(f"- Фиксирани разходи и услуги: **{(total_fixed_project + total_services):.2f} €**")
+        st.write(f"- Непредвидени ({nepredvideni_pct}%): **{unforeseen_cost:.2f} €**")
+        
+        st.info(f"Вътрешна себестойност (всичко включено): **{sebestoinost:.2f} €**")
+        st.success(f"ОФЕРТА КЪМ КЛИЕНТ: **{final_offer:.2f} €**")
+        st.write(f"🌟 **Чиста печалба (след всички разходи и заплати):** {profit_val:.2f} €")
         
     except Exception as e: 
         st.warning(f"Въведи валидни числа в таблицата. Грешка: {e}")

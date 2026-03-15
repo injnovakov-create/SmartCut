@@ -5,7 +5,7 @@ import pandas as pd
 st.set_page_config(page_title="SmartCut: Витя-М", layout="wide")
 
 st.title("🛠️ SmartCut: Конструктор на Модули")
-st.info("Добавено: Ориентация на вратите (Горен ред) и автоматичен гръб (Бял фазер 3мм).")
+st.info("Добавени: Шкаф за Фурна, Бутилки 15см и Глух Ъгъл.")
 
 if 'order_list' not in st.session_state:
     st.session_state.order_list = []
@@ -62,17 +62,29 @@ col1, col2 = st.columns([1, 2.5])
 
 with col1:
     st.subheader("📝 Добави Модул")
+    
     tip = st.selectbox("Тип модул", [
-        "Шкаф Мивка", 
-        "Горен Шкаф", 
         "Стандартен Долен", 
-        "Шкаф 3 Чекмеджета"
+        "Горен Шкаф", 
+        "Шкаф Мивка", 
+        "Шкаф 3 Чекмеджета",
+        "Шкаф Бутилки 15см",
+        "Шкаф за Фурна",
+        "Глух Ъгъл (Долен)"
     ])
     
     name = st.text_input("Име/№ на модула", value=tip)
-    w = st.number_input("Ширина (W) в мм", value=600)
     
-    # --- ДИНАМИЧНО МЕНЮ ---
+    # Динамична ширина по подразбиране
+    default_w = 600
+    if tip == "Шкаф Бутилки 15см":
+        default_w = 150
+    elif tip == "Глух Ъгъл (Долен)":
+        default_w = 1000
+        
+    w = st.number_input("Ширина (W) на корпуса (мм)", value=default_w)
+    
+    # --- ДИНАМИЧНО МЕНЮ СПОРЕД ТИПА ---
     if tip == "Горен Шкаф":
         h = st.number_input("Височина (H) в мм", value=720)
         d = st.number_input("Дълбочина (D) в мм", value=300)
@@ -80,62 +92,94 @@ with col1:
         vrati_orientacia = st.radio("Ориентация:", ["Вертикални", "Хоризонтални (Клапващи)"], horizontal=True)
     else:
         d = st.number_input("Дълбочина (D) страници", value=550)
+        
         if tip == "Шкаф 3 Чекмеджета":
             runner_len = st.number_input("Дължина водач Blum (мм)", value=500, step=50)
+            
+        elif tip == "Глух Ъгъл (Долен)":
+            st.markdown("##### Настройки за лицето:")
+            w_vrata_input = st.number_input("Теоретична ширина на Вратата (мм)", value=400)
+            w_gluha_input = st.number_input("Теоретична ширина на Глухата част (мм)", value=600)
+            st.caption("*Програмата автоматично ще извади фугата от тези размери.*")
 
     if st.button("➕ Добави към списъка"):
         new_items = []
         
-        # За фазера вадим 4 мм от общия габарит (по 2 мм на страна)
+        # Общи константи
         otstyp_fazer = 4 
+        h_stranica = 742 
+        h_shkaf_korpus = h_stranica + deb 
+        h_vrata_standart = h_shkaf_korpus - fuga_obshto
         
         if tip == "Горен Шкаф":
             new_items.append(add_item(name, "Страница", 2, h, d, "1д", mat_korpus, val_fl_korpus))
             new_items.append(add_item(name, "Дъно/Таван", 2, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus))
-            
-            # Добавяне на фазер за горния шкаф
             new_items.append(add_item(name, "Гръб (Фазер)", 1, h - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма"))
             
-            # Логика за врати
             if vrati_orientacia == "Вертикални":
                 h_vrata = h - fuga_obshto
                 w_vrata = w - fuga_obshto if vrati_broi == 1 else (w/2) - (fuga_obshto/2)
             else:
-                # Хоризонтални
                 w_vrata = w - fuga_obshto
                 h_vrata = h - fuga_obshto if vrati_broi == 1 else (h/2) - (fuga_obshto/2)
                 
             new_items.append(add_item(name, "Врата", vrati_broi, h_vrata, w_vrata, "4 страни", mat_lice, val_fl_lice))
             
         else:
-            h_stranica = 742 
-            h_shkaf_korpus = h_stranica + deb 
-            h_vrata_standart = h_shkaf_korpus - fuga_obshto
-            w_vrata = (w/2) - (fuga_obshto/2)
+            w_vrata_dvoina = (w/2) - (fuga_obshto/2)
+            w_vrata_edinichna = w - fuga_obshto
 
             if tip == "Шкаф Мивка":
                 new_items.append(add_item(name, "Дъно", 1, w, 480, "1д", mat_korpus, val_fl_korpus))
                 new_items.append(add_item(name, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus))
                 new_items.append(add_item(name, "Бленда", 3, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus))
-                new_items.append(add_item(name, "Врата", 2, h_vrata_standart, w_vrata, "4 страни", mat_lice, val_fl_lice))
-                # Шкаф мивка НЯМА гръб от фазер
+                new_items.append(add_item(name, "Врата", 2, h_vrata_standart, w_vrata_dvoina, "4 страни", mat_lice, val_fl_lice))
                 
             elif tip == "Стандартен Долен":
                 new_items.append(add_item(name, "Дъно", 1, w, 520, "1д", mat_korpus, val_fl_korpus))
                 new_items.append(add_item(name, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus))
                 new_items.append(add_item(name, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus))
                 new_items.append(add_item(name, "Рафт", 1, w-(2*deb), 510, "1д", mat_korpus, val_fl_korpus))
-                new_items.append(add_item(name, "Врата", 2, h_vrata_standart, w_vrata, "4 страни", mat_lice, val_fl_lice))
-                
-                # Добавяне на фазер
+                new_items.append(add_item(name, "Врата", 2, h_vrata_standart, w_vrata_dvoina, "4 страни", mat_lice, val_fl_lice))
                 new_items.append(add_item(name, "Гръб (Фазер)", 1, h_shkaf_korpus - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма"))
+                
+            elif tip == "Шкаф Бутилки 15см":
+                new_items.append(add_item(name, "Дъно", 1, w, 520, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, "Врата", 1, h_vrata_standart, w_vrata_edinichna, "4 страни", mat_lice, val_fl_lice))
+                new_items.append(add_item(name, "Гръб (Фазер)", 1, h_shkaf_korpus - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма"))
+                
+            elif tip == "Глух Ъгъл (Долен)":
+                new_items.append(add_item(name, "Дъно", 1, w, 520, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, "Рафт", 1, w-(2*deb), 510, "1д", mat_korpus, val_fl_korpus))
+                # Врата и глуха част (с извадена фуга)
+                new_items.append(add_item(name, "Врата", 1, h_vrata_standart, w_vrata_input - fuga_obshto, "4 страни", mat_lice, val_fl_lice))
+                new_items.append(add_item(name, "Глуха част (Чело)", 1, h_vrata_standart, w_gluha_input - fuga_obshto, "4 страни", mat_lice, val_fl_lice))
+                new_items.append(add_item(name, "Гръб (Фазер)", 1, h_shkaf_korpus - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма"))
+
+            elif tip == "Шкаф за Фурна":
+                new_items.append(add_item(name, "Дъно", 1, w, 520, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus))
+                # Рафт под фурна (точно 564х520 при ширина 600)
+                new_items.append(add_item(name, "Рафт (под фурна)", 1, w-(2*deb), 520, "1д", mat_korpus, val_fl_korpus))
+                
+                # Чекмедже под фурната (по твоите точни размери)
+                w_chelo_furna = w - fuga_obshto
+                new_items.append(add_item(name, "Чело чекмедже", 1, 157, w_chelo_furna, "4 страни", mat_lice, val_fl_lice))
+                
+                w_cargi_furna = w - (2*deb) - 49
+                new_items.append(add_item(name, "Царги чекм.", 2, w_cargi_furna, 70, "1д", mat_chekm, val_fl_chekm))
+                new_items.append(add_item(name, "Страници чекм.", 2, 490, 85, "2д", mat_chekm, val_fl_chekm))
+                # Без гръб (фазер) за вентилация на фурната!
                 
             elif tip == "Шкаф 3 Чекмеджета":
                 new_items.append(add_item(name, "Дъно", 1, w, 520, "1д", mat_korpus, val_fl_korpus))
                 new_items.append(add_item(name, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus))
                 new_items.append(add_item(name, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus))
-                
-                # Добавяне на фазер
                 new_items.append(add_item(name, "Гръб (Фазер)", 1, h_shkaf_korpus - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма"))
                 
                 w_chelo = w - fuga_obshto
@@ -177,7 +221,7 @@ with col2:
         st.download_button(
             label="📥 Свали за Excel/Optimik",
             data=csv,
-            file_name="razkroi_vitya_materiali.csv",
+            file_name="razkroi_vitya_kuhni.csv",
             mime="text/csv",
         )
         

@@ -5,7 +5,7 @@ import pandas as pd
 st.set_page_config(page_title="SmartCut: Витя-М", layout="wide")
 
 st.title("🛠️ SmartCut: Конструктор на Модули")
-st.info("Добавено: Автоматично разпределяне на материали (Корпус / Лице) и сумиране на площта.")
+st.info("Добавено: Пълна свобода при избор на материали (Корпус, Лице, Чекмеджета).")
 
 if 'order_list' not in st.session_state:
     st.session_state.order_list = []
@@ -33,15 +33,11 @@ with st.sidebar:
     
     st.markdown("---")
     st.header("🎨 Материали")
-    mat_scheme = st.radio("Схема на мебелите:", ["Бял корпус + Декор врати", "Един декор за всичко"])
+    st.write("Въведи име на декора за всяка част:")
     
-    if mat_scheme == "Един декор за всичко":
-        mat_main = st.text_input("Име на материала:", value="Дъб Халифакс")
-        mat_korpus = mat_main
-        mat_lice = mat_main
-    else:
-        mat_korpus = "Бяло гладко (Корпус)"
-        mat_lice = st.text_input("Декор за врати/чела:", value="Антрацит")
+    mat_korpus = st.text_input("Материал Корпус (Страници, Дъна, Рафтове):", value="Бяло гладко 18мм")
+    mat_lice = st.text_input("Материал Лице (Врати, Чела):", value="Антрацит 18мм")
+    mat_chekm = st.text_input("Материал Чекмеджета (Царги):", value="Бяло гладко 18мм")
     
     st.markdown("---")
     if st.button("🗑️ Изчисти списъка"):
@@ -69,7 +65,6 @@ with col1:
         
     d = st.number_input("Дълбочина (D) страници", value=550)
     
-    # Фладерът важи предимно за лицето, но го оставяме като опция
     flader = st.selectbox("Шарка за лицето (Фладер)", ["Няма", "Да (по L)", "Да (по W)"])
 
     if st.button("➕ Добави към списъка"):
@@ -100,10 +95,12 @@ with col1:
             new_items.append(add_item(name, "Врата", 2, h_goren-fuga_obshto, w_vrata, "4 страни", mat_lice, flader))
             
         elif tip == "Шкаф 3 Чекмеджета":
+            # Корпус
             new_items.append(add_item(name, "Дъно", 1, w, 520, "1д", mat_korpus, "Няма"))
             new_items.append(add_item(name, "Страница", 2, h_stranica, d, "1д", mat_korpus, "Няма"))
             new_items.append(add_item(name, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, "Няма"))
             
+            # Лице
             w_chelo = w - fuga_obshto
             block_note = "В БЛОК" if flader != "Няма" else ""
             
@@ -111,17 +108,18 @@ with col1:
             new_items.append(add_item(name, "Чело средно", 1, 250-fuga_obshto, w_chelo, "4 страни", mat_lice, flader, block_note))
             new_items.append(add_item(name, "Чело долно", 1, 330-fuga_obshto, w_chelo, "4 страни", mat_lice, flader, block_note))
             
+            # Чекмеджета (Царги)
             w_cargi = w - (2*deb) - 49
             l_stranici_chek = runner_len - 10
             
-            new_items.append(add_item(name, "Царги чекм. 1", 2, w_cargi, 80, "1д", mat_korpus, "Няма"))
-            new_items.append(add_item(name, "Страници чекм. 1", 2, l_stranici_chek, 80+15, "2д", mat_korpus, "Няма"))
+            new_items.append(add_item(name, "Царги чекм. 1", 2, w_cargi, 80, "1д", mat_chekm, "Няма"))
+            new_items.append(add_item(name, "Страници чекм. 1", 2, l_stranici_chek, 80+15, "2д", mat_chekm, "Няма"))
             
-            new_items.append(add_item(name, "Царги чекм. 2", 2, w_cargi, 160, "1д", mat_korpus, "Няма"))
-            new_items.append(add_item(name, "Страници чекм. 2", 2, l_stranici_chek, 160+15, "2д", mat_korpus, "Няма"))
+            new_items.append(add_item(name, "Царги чекм. 2", 2, w_cargi, 160, "1д", mat_chekm, "Няма"))
+            new_items.append(add_item(name, "Страници чекм. 2", 2, l_stranici_chek, 160+15, "2д", mat_chekm, "Няма"))
             
-            new_items.append(add_item(name, "Царги чекм. 3", 2, w_cargi, 200, "1д", mat_korpus, "Няма"))
-            new_items.append(add_item(name, "Страници чекм. 3", 2, l_stranici_chek, 200+15, "2д", mat_korpus, "Няма"))
+            new_items.append(add_item(name, "Царги чекм. 3", 2, w_cargi, 200, "1д", mat_chekm, "Няма"))
+            new_items.append(add_item(name, "Страници чекм. 3", 2, l_stranici_chek, 200+15, "2д", mat_chekm, "Няма"))
 
         st.session_state.order_list.extend(new_items)
         st.success(f"Модул {name} е добавен!")
@@ -149,13 +147,9 @@ with col2:
             mime="text/csv",
         )
         
-        # Пресмятане на площ по материали
         try:
             st.markdown("##### 📊 Нужен материал (чиста площ):")
-            # Добавяме временна колона за площ в квадратни метри
             edited_df['Area'] = (pd.to_numeric(edited_df['L']) * pd.to_numeric(edited_df['W']) * pd.to_numeric(edited_df['Брой'])) / 1000000
-            
-            # Групираме по материал
             summary = edited_df.groupby('Материал')['Area'].sum()
             
             for mat_name, area in summary.items():

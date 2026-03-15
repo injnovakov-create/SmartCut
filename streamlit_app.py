@@ -30,7 +30,7 @@ st.markdown("""
 
 if 'order_list' not in st.session_state: st.session_state.order_list = []
 if 'hardware_list' not in st.session_state: st.session_state.hardware_list = []
-if 'modules_meta' not in st.session_state: st.session_state.modules_meta = [] # Пази размерите за 3D чертежа
+if 'modules_meta' not in st.session_state: st.session_state.modules_meta = [] 
 
 # --- ЛОГИКА ЗА ЗАПИС ТОЧНО КАТО В EXCEL ---
 def add_item(modul, detail, count, l, w, kant_str, material, flader, note=""):
@@ -142,7 +142,6 @@ with col1:
                 w_vrata_input = st.number_input("Ширина Врата (мм)", value=400)
                 w_gluha_input = st.number_input("Ширина Глуха част (мм)", value=600)
             
-            # Обща височина за долен шкаф (вкл. крака и плот) за чертежа
             h = 742 + kraka + 38 
             
             if tip in ["Стандартен Долен", "Шкаф Мивка"]:
@@ -155,10 +154,8 @@ with col1:
         new_hw = []
         otstyp_fazer = 4; h_stranica = 742; h_shkaf_korpus = h_stranica + deb; h_vrata_standart = h_shkaf_korpus - fuga_obshto
         
-        # ЗАПИС НА ГАБАРИТИТЕ ЗА 3D ЧЕРТЕЖА
         st.session_state.modules_meta.append({"№": name, "Тип": tip, "W": w, "H": h, "D": d})
 
-        # --- ЛОГИКА ЗА ОБКОВ ---
         if tip in ["Стандартен Долен", "Шкаф Мивка", "Шкаф Бутилки 15см", "Глух Ъгъл (Долен)", "Шкаф за Фурна", "Шкаф 3 Чекмеджета"]:
             hw_legs = 5 if w > 900 else 4
             new_hw.append({"№": name, "Артикул": "Крака за долен шкаф", "Брой": hw_legs})
@@ -192,7 +189,6 @@ with col1:
             new_hw.append({"№": name, "Артикул": "Окачвачи за горен шкаф", "Брой": 2})
             new_hw.append({"№": name, "Артикул": "LED осветление (л.м.)", "Брой": w / 1000.0})
 
-        # --- ЛОГИКА ЗА ПДЧ ---
         if tip == "Дублираща страница долен":
             new_items.append(add_item(name, "Дублираща страница", 1, h, d, "4 страни", mat_lice, val_fl_lice))
         elif tip == "Нестандартен":
@@ -298,7 +294,13 @@ with col2:
         edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, height=350, key="editor")
         st.session_state.order_list = edited_df.to_dict('records')
         
-        # --- ЕКСПОРТ КЪМ EXCEL ---
+        if st.session_state.hardware_list:
+            st.markdown("#### 🔩 Количествена сметка: Обков")
+            hw_df = pd.DataFrame(st.session_state.hardware_list)
+            hw_summary = hw_df.groupby("Артикул")["Брой"].sum().reset_index()
+            hw_summary["Брой"] = hw_summary["Брой"].apply(lambda x: f"{x:.1f}" if isinstance(x, float) and not x.is_integer() else f"{int(x)}")
+            st.table(hw_summary)
+        
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             edited_df.to_excel(writer, index=False, sheet_name='Разкрой')
@@ -308,15 +310,15 @@ with col2:
     else:
         st.info("Списъкът е празен. Добави първия си модул отляво!")
 
-# --- НОВО: ГЕНЕРИРАНЕ НА PDF С 3D ЧЕРТЕЖИ ---
-def generate_technical_pdf(modules_meta, order_list):
+# --- НОВО: ГЕНЕРИРАНЕ НА PDF С 3D ЧЕРТЕЖИ (С ЦОКЪЛ И ЧЕЛА) ---
+def generate_technical_pdf(modules_meta, order_list, kraka_height):
     font_path = "Roboto-Regular.ttf"
     if not os.path.exists(font_path):
         try: urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf", font_path)
         except: pass
     try: 
         font_title = ImageFont.truetype(font_path, 80)
-        font_text = ImageFont.truetype(font_path, 50)  # Едър шрифт за идеална четливост в работилницата
+        font_text = ImageFont.truetype(font_path, 50) 
         font_dim = ImageFont.truetype(font_path, 60)
         font_bold = ImageFont.truetype(font_path, 55)
     except: 
@@ -324,43 +326,61 @@ def generate_technical_pdf(modules_meta, order_list):
 
     pages = []
     for mod in modules_meta:
-        # A4 формат (2480 x 3508 пиксела)
         img = Image.new('RGB', (2480, 3508), 'white')
         draw = ImageDraw.Draw(img)
         
-        # Заглавие
         draw.text((150, 150), f"МОДУЛ: {mod['№']} - {mod['Тип']}", fill="black", font=font_title)
         draw.line([(150, 250), (2330, 250)], fill="black", width=5)
         
-        # --- ЧЕРТАНЕ НА 3D (Изометрична) КУТИЯ ---
         W, H, D = float(mod['W']), float(mod['H']), float(mod['D'])
         max_dim = max(W, H, D)
         if max_dim == 0: max_dim = 1
         scale = 1000.0 / max_dim
         
         w_px, h_px, d_px = W * scale, H * scale, D * scale * 0.5
-        offset_x, offset_y = d_px * 0.866, d_px * 0.5 # Ъгъл на проекцията
+        offset_x, offset_y = d_px * 0.866, d_px * 0.5
         
         start_x = 1240 - (w_px + offset_x)/2
         start_y = 1000 - (h_px + offset_y)/2
         
-        # Точки за рисуване
         f_tl, f_tr = (start_x, start_y), (start_x + w_px, start_y)
         f_bl, f_br = (start_x, start_y + h_px), (start_x + w_px, start_y + h_px)
         r_tl, r_tr = (start_x + offset_x, start_y - offset_y), (start_x + w_px + offset_x, start_y - offset_y)
         r_bl, r_br = (start_x + offset_x, start_y + h_px - offset_y), (start_x + w_px + offset_x, start_y + h_px - offset_y)
         
-        # Рисуване на стените с дебели линии за яснота
-        draw.polygon([f_tl, r_tl, r_tr, f_tr], fill="#e0e0e0", outline="black", width=5) # Таван
-        draw.polygon([f_tr, r_tr, r_br, f_br], fill="#d0d0d0", outline="black", width=5) # Дясна страна
-        draw.polygon([f_tl, f_tr, f_br, f_bl], fill="#f5f5f5", outline="black", width=5) # Лице
+        # Основни стени
+        draw.polygon([f_tl, r_tl, r_tr, f_tr], fill="#e0e0e0", outline="black", width=5) 
+        draw.polygon([f_tr, r_tr, r_br, f_br], fill="#d0d0d0", outline="black", width=5) 
+        draw.polygon([f_tl, f_tr, f_br, f_bl], fill="#f5f5f5", outline="black", width=5) 
         
-        # Оразмеряване с червен цвят и огромен шрифт
+        # --- ДЕТАЙЛИ ПО ЛИЦЕТО (Цокъл и Чекмеджета) ---
+        tip = mod['Тип']
+        lower_types = ["Долен", "Мивка", "Чекмеджета", "Фурна", "Бутилки"]
+        if any(t in tip for t in lower_types):
+            kraka_px = kraka_height * scale
+            plinth_y = start_y + h_px - kraka_px
+            # Линия за цокъл на лицето и страницата
+            draw.line([(start_x, plinth_y), (start_x + w_px, plinth_y)], fill="#555555", width=4)
+            draw.line([(start_x + w_px, plinth_y), (start_x + w_px + offset_x, plinth_y - offset_y)], fill="#555555", width=4)
+
+        if "3 Чекмеджета" in tip:
+            # Горно чело 180мм
+            d1_y = start_y + (180 * scale)
+            draw.line([(start_x, d1_y), (start_x + w_px, d1_y)], fill="#333333", width=6)
+            # Средно чело 250мм
+            d2_y = d1_y + (250 * scale)
+            draw.line([(start_x, d2_y), (start_x + w_px, d2_y)], fill="#333333", width=6)
+        elif "Фурна" in tip:
+            # Долно чело под фурната (157мм) над цокъла
+            kraka_px = kraka_height * scale
+            d_y = start_y + h_px - kraka_px - (157 * scale)
+            draw.line([(start_x, d_y), (start_x + w_px, d_y)], fill="#333333", width=6)
+
+        # Оразмеряване
         draw.text((start_x + w_px/2 - 100, start_y + h_px + 30), f"W: {int(W)}", fill="#CC0000", font=font_dim)
         draw.text((start_x - 250, start_y + h_px/2 - 30), f"H: {int(H)}", fill="#CC0000", font=font_dim)
         draw.text((start_x + w_px + offset_x/2 + 30, start_y + h_px - offset_y/2 - 30), f"D: {int(D)}", fill="#CC0000", font=font_dim)
 
-        # --- ТАБЛИЦА С ДЕТАЙЛИ ---
         draw.text((150, 1800), "СПЕЦИФИКАЦИЯ НА ДЕТАЙЛИТЕ:", fill="black", font=font_title)
         
         parts = [p for p in order_list if str(p.get("№", "")) == str(mod["№"])]
@@ -378,12 +398,11 @@ def generate_technical_pdf(modules_meta, order_list):
             if p.get('Ш1'): kant_str += f"Ш1({p['Ш1']}) "
             if p.get('Ш2'): kant_str += f"Ш2({p['Ш2']}) "
             
-            # Форматиране с ясни разстояния
             row_str = f"{p['Детайл'][:18]:<20} | {int(p['Дължина']):<5} | {int(p['Ширина']):<5} | {int(p['Бр']):<3} | {kant_str[:15]:<15} | {p['Плоскост'][:20]}"
             draw.text((150, y_offset), row_str, fill="#222222", font=font_text)
             draw.line([(150, y_offset+65), (2330, y_offset+65)], fill="#dddddd", width=1)
             y_offset += 75
-            if y_offset > 3300: break # Предпазител за края на страницата
+            if y_offset > 3300: break 
                 
         pages.append(img)
         
@@ -394,22 +413,85 @@ def generate_technical_pdf(modules_meta, order_list):
     return None
 
 st.markdown("---")
-col_export1, col_export2 = st.columns(2)
-with col_export1:
-    st.subheader("📐 Техническа Документация (За Цеха)")
-    st.write("Генерира PDF файл с едър шрифт: един 3D чертеж с размери + спецификация за всяка страница.")
-    if st.button("📄 Генерирай PDF Чертежи"):
+col_visuals, col_pdf = st.columns(2)
+
+with col_pdf:
+    st.subheader("📐 Технически PDF (За Работилницата)")
+    st.info("Генерира 3D изглед с визуални чекмеджета и цокъл за всеки шкаф на отделна страница.")
+    if st.button("📄 Свали PDF Чертежи"):
         if not st.session_state.modules_meta:
             st.warning("Няма добавени модули за чертане!")
         else:
-            with st.spinner("Генериране на чертежите..."):
-                pdf_data = generate_technical_pdf(st.session_state.modules_meta, st.session_state.order_list)
+            with st.spinner("Генериране..."):
+                pdf_data = generate_technical_pdf(st.session_state.modules_meta, st.session_state.order_list, kraka)
                 if pdf_data:
-                    st.download_button(label="📥 Свали PDF Чертежите", data=pdf_data, file_name="Vitya_M_Technical_Drawings.pdf", mime="application/pdf")
+                    st.download_button(label="📥 ИЗТЕГЛИ PDF", data=pdf_data, file_name="Vitya_M_Чертежи_Цех.pdf", mime="application/pdf")
 
-# --- ФИНАНСОВ КАЛКУЛАТОР ---
-with col_export2:
-    st.subheader("💰 Финанси и Оферта")
+with col_visuals:
+    st.subheader("✂️ Схема на разкроя (Плочи)")
+    def get_optimized_boards(list_for_cutting):
+        kerf, trim, board_l, board_w = 8, 8, 2800, 2070
+        use_l, use_w = board_l - 2*trim, board_w - 2*trim
+        materials_dict = {}
+        for item in list_for_cutting:
+            mat = item.get('Плоскост', 'Неизвестен')
+            if mat not in materials_dict: materials_dict[mat] = []
+            try:
+                for _ in range(int(item['Бр'])):
+                    materials_dict[mat].append({
+                        'name': f"{item['№']} {get_abbrev(item['Детайл'])}", 
+                        'l': float(item['Дължина']), 'w': float(item['Ширина']),
+                        'd1': str(item.get('Д1', '')).strip(), 'd2': str(item.get('Д2', '')).strip(),
+                        'sh1': str(item.get('Ш1', '')).strip(), 'sh2': str(item.get('Ш2', '')).strip()
+                    })
+            except: pass
+        boards_per_material = {}
+        for mat_name, parts in materials_dict.items():
+            parts.sort(key=lambda x: (x['w'], x['l']), reverse=True)
+            boards, current_board = [], []
+            curr_x, curr_y, shelf_h = 0, 0, 0
+            for p in parts:
+                part_l, part_w = p['l'], p['w']
+                if curr_x + part_l <= use_l:
+                    if shelf_h == 0: shelf_h = part_w
+                    if curr_y + part_w <= use_w:
+                        current_board.append({'x': curr_x, 'y': curr_y, 'l': part_l, 'w': part_w, 'name': p['name'], 'd1': p['d1'], 'd2': p['d2'], 'sh1': p['sh1'], 'sh2': p['sh2']})
+                        curr_x += part_l + kerf
+                    else:
+                        boards.append(current_board); current_board = [{'x': 0, 'y': 0, 'l': part_l, 'w': part_w, 'name': p['name'], 'd1': p['d1'], 'd2': p['d2'], 'sh1': p['sh1'], 'sh2': p['sh2']}]
+                        curr_x = part_l + kerf; curr_y = 0; shelf_h = part_w
+                else:
+                    curr_x = 0; curr_y += shelf_h + kerf; shelf_h = part_w
+                    if curr_y + part_w <= use_w:
+                        current_board.append({'x': curr_x, 'y': curr_y, 'l': part_l, 'w': part_w, 'name': p['name'], 'd1': p['d1'], 'd2': p['d2'], 'sh1': p['sh1'], 'sh2': p['sh2']})
+                        curr_x += part_l + kerf
+                    else:
+                        boards.append(current_board); current_board = [{'x': 0, 'y': 0, 'l': part_l, 'w': part_w, 'name': p['name'], 'd1': p['d1'], 'd2': p['d2'], 'sh1': p['sh1'], 'sh2': p['sh2']}]
+                        curr_x = part_l + kerf; curr_y = 0; shelf_h = part_w
+            if current_board: boards.append(current_board)
+            boards_per_material[mat_name] = boards
+        return boards_per_material, board_l, board_w, trim
+
+    if st.button("Генерирай 2D разкрой"):
+        if not st.session_state.order_list: st.warning("Добави детайли, за да генерираш разкрой!")
+        else:
+            boards_per_mat, board_l, board_w, trim = get_optimized_boards(st.session_state.order_list)
+            for mat_name, boards in boards_per_mat.items():
+                st.markdown(f"#### 🪵 {mat_name} (Нужни: {len(boards)} бр.)")
+                for idx, b_parts in enumerate(boards):
+                    svg = f'<svg viewBox="0 0 {board_l} {board_w}" style="background-color:#ffffff; border:2px solid #333; margin-bottom: 20px; width: 100%; max-width: 900px;">'
+                    svg += f'<rect x="{trim}" y="{trim}" width="{board_l - 2*trim}" height="{board_w - 2*trim}" fill="none" stroke="red" stroke-width="4" stroke-dasharray="20,20"/>'
+                    for p in b_parts:
+                        px, py, pl, pw = p['x'] + trim, p['y'] + trim, p['l'], p['w']
+                        svg += f'<rect x="{px}" y="{py}" width="{pl}" height="{pw}" fill="#ffffff" stroke="#000000" stroke-width="2"/>'
+                        svg += f'<text x="{px + pl/2}" y="{py + pw/2 - 15}" font-size="30" fill="black" text-anchor="middle" dominant-baseline="middle" font-weight="bold">{p["name"]}</text>'
+                        svg += f'<text x="{px + pl/2}" y="{py + pw/2 + 25}" font-size="35" fill="black" text-anchor="middle" dominant-baseline="middle">{int(pl)}/{int(pw)}</text>'
+                    svg += '</svg>'
+                    st.markdown(svg, unsafe_allow_html=True)
+
+# --- ФИНАНСОВ КАЛКУЛАТОР (ОСТАВА НА ЕКРАНА!) ---
+st.markdown("---")
+st.subheader("💰 Финанси и Оферта (Само за екрана)")
 
 if st.session_state.order_list:
     try:
@@ -421,21 +503,23 @@ if st.session_state.order_list:
         df_to_calc['Area'] = (pd.to_numeric(df_to_calc['Дължина']) * pd.to_numeric(df_to_calc['Ширина']) * pd.to_numeric(df_to_calc['Бр'])) / 1000000
         summary = df_to_calc.groupby('Плоскост')['Area'].sum()
         
+        boards_per_mat, _, _, _ = get_optimized_boards(st.session_state.order_list)
+        total_boards_final = sum(len(boards) for boards in boards_per_mat.values())
+        
         st.markdown("##### 1. Материали и Разкрой")
         col_mats, col_prices = st.columns([1, 1])
         
         total_material_cost = 0.0
         with col_mats:
             for mat_name, area in summary.items(): st.write(f"- **{mat_name}:** {area:.2f} м²")
-            total_boards_est = sum(int((a/4.5)+1) for a in summary.values()) # Грубо изчисление, ако не е пуснат nesting
-            st.write(f"- **Брой плочи (ориентировъчно):** {total_boards_est} бр.")
+            st.write(f"- **Брой плочи за разкрой:** {total_boards_final} бр.")
             
         with col_prices:
             for mat_name, area in summary.items():
                 price = st.number_input(f"€/м² {mat_name}", value=25.0, key=f"p_{mat_name}")
                 total_material_cost += area * price
             price_cut = st.number_input("€/бр. Разкрой", value=18.0)
-            total_cut_cost = total_boards_est * price_cut
+            total_cut_cost = total_boards_final * price_cut
             
         st.markdown("##### 2. Кантове (+10% фира)")
         edge_dict = {}

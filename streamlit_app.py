@@ -85,4 +85,59 @@ with col1:
             new_items.append(add_item(name, "Врата", 2, h_goren-fuga_obshto, w_vrata, "4 страни", flader))
             
         elif tip == "Шкаф 3 Чекмеджета":
-            new_items.append(add_
+            new_items.append(add_item(name, "Дъно", 1, w, 520, "1д", flader))
+            new_items.append(add_item(name, "Страница", 2, h_stranica, d, "1д", flader))
+            new_items.append(add_item(name, "Бленда", 2, w-(2*deb), 112, "1д", flader))
+            
+            w_chelo = w - fuga_obshto
+            block_note = "В БЛОК" if flader != "Няма" else ""
+            
+            new_items.append(add_item(name, "Чело горно", 1, 180-fuga_obshto, w_chelo, "4 страни", flader, block_note))
+            new_items.append(add_item(name, "Чело средно", 1, 250-fuga_obshto, w_chelo, "4 страни", flader, block_note))
+            new_items.append(add_item(name, "Чело долно", 1, 330-fuga_obshto, w_chelo, "4 страни", flader, block_note))
+            
+            w_cargi = w - (2*deb) - 49
+            l_stranici_chek = runner_len - 10
+            
+            new_items.append(add_item(name, "Царги чекм. 1", 2, w_cargi, 80, "1д", flader))
+            new_items.append(add_item(name, "Страници чекм. 1", 2, l_stranici_chek, 80+15, "2д", flader))
+            
+            new_items.append(add_item(name, "Царги чекм. 2", 2, w_cargi, 160, "1д", flader))
+            new_items.append(add_item(name, "Страници чекм. 2", 2, l_stranici_chek, 160+15, "2д", flader))
+            
+            new_items.append(add_item(name, "Царги чекм. 3", 2, w_cargi, 200, "1д", flader))
+            new_items.append(add_item(name, "Страници чекм. 3", 2, l_stranici_chek, 200+15, "2д", flader))
+
+        st.session_state.order_list.extend(new_items)
+        st.success(f"Модул {name} е добавен!")
+        st.rerun()
+
+with col2:
+    st.subheader("📋 Списък за разкрой (Редактируем)")
+    if st.session_state.order_list:
+        df = pd.DataFrame(st.session_state.order_list)
+        
+        edited_df = st.data_editor(
+            df, 
+            num_rows="dynamic",
+            use_container_width=True,
+            key="editor"
+        )
+        
+        st.session_state.order_list = edited_df.to_dict('records')
+        
+        csv = edited_df.to_csv(index=False).encode('utf-8-sig')
+        st.download_button(
+            label="📥 Свали за Excel",
+            data=csv,
+            file_name="razkroi_vitya_blum.csv",
+            mime="text/csv",
+        )
+        
+        try:
+            total_m2 = (pd.to_numeric(edited_df['L']) * pd.to_numeric(edited_df['W']) * pd.to_numeric(edited_df['Брой'])).sum() / 1000000
+            st.metric("Обща площ ПДЧ", f"{total_m2:.2f} м2")
+        except:
+            st.warning("Въведи валидни числа за размерите, за да се изчисли площта.")
+    else:
+        st.info("Списъкът е празен. Добави първия си модул!")

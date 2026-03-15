@@ -5,7 +5,7 @@ import pandas as pd
 st.set_page_config(page_title="SmartCut: Витя-М", layout="wide")
 
 st.title("🛠️ SmartCut: Конструктор на Модули")
-st.info("Добавено: Фладер в менюто с материали и разделяне на чертежите по декори.")
+st.info("Добавено: Динамично меню за Горен шкаф с променлива височина/дълбочина и точни врати.")
 
 if 'order_list' not in st.session_state:
     st.session_state.order_list = []
@@ -36,17 +36,17 @@ with st.sidebar:
     
     st.markdown("**1. Корпус (Страници, Дъна, Рафтове)**")
     mat_korpus = st.text_input("Декор Корпус:", value="Бяло гладко 18мм")
-    fl_korpus = st.checkbox("Има фладер (шарка) - Корпус", value=False)
+    fl_korpus = st.checkbox("Има фладер - Корпус", value=False)
     val_fl_korpus = "Да" if fl_korpus else "Няма"
     
     st.markdown("**2. Лице (Врати, Чела)**")
     mat_lice = st.text_input("Декор Лице:", value="Дъб Вотан 18мм")
-    fl_lice = st.checkbox("Има фладер (шарка) - Лице", value=True)
+    fl_lice = st.checkbox("Има фладер - Лице", value=True)
     val_fl_lice = "Да" if fl_lice else "Няма"
     
     st.markdown("**3. Чекмеджета (Царги)**")
     mat_chekm = st.text_input("Декор Чекмеджета:", value="Бяло гладко 18мм")
-    fl_chekm = st.checkbox("Има фладер (шарка) - Чекмеджета", value=False)
+    fl_chekm = st.checkbox("Има фладер - Чекмеджета", value=False)
     val_fl_chekm = "Да" if fl_chekm else "Няма"
     
     st.markdown("---")
@@ -69,60 +69,73 @@ with col1:
     name = st.text_input("Име/№ на модула", value=tip)
     w = st.number_input("Ширина (W) в мм", value=600)
     
-    runner_len = 500
-    if tip == "Шкаф 3 Чекмеджета":
-        runner_len = st.number_input("Дължина водач Blum (мм)", value=500, step=50)
-        
-    d = st.number_input("Дълбочина (D) страници", value=550)
+    # --- ДИНАМИЧНО МЕНЮ ---
+    if tip == "Горен Шкаф":
+        h = st.number_input("Височина (H) в мм", value=720)
+        d = st.number_input("Дълбочина (D) в мм", value=300)
+        vrati_broi = st.radio("Брой врати:", [1, 2], index=1, horizontal=True)
+    else:
+        d = st.number_input("Дълбочина (D) страници", value=550)
+        if tip == "Шкаф 3 Чекмеджета":
+            runner_len = st.number_input("Дължина водач Blum (мм)", value=500, step=50)
 
     if st.button("➕ Добави към списъка"):
         new_items = []
         
-        h_stranica = 742 
-        h_shkaf_korpus = h_stranica + deb 
-        h_vrata_standart = h_shkaf_korpus - fuga_obshto
-        w_vrata = (w/2) - (fuga_obshto/2)
+        if tip == "Горен Шкаф":
+            new_items.append(add_item(name, "Страница", 2, h, d, "1д", mat_korpus, val_fl_korpus))
+            new_items.append(add_item(name, "Дъно/Таван", 2, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus))
+            
+            # Врати за горен шкаф (-3мм фуга от габарита)
+            h_vrata = h - fuga_obshto
+            if vrati_broi == 1:
+                w_vrata = w - fuga_obshto
+            else:
+                w_vrata = (w/2) - (fuga_obshto/2)
+                
+            new_items.append(add_item(name, "Врата", vrati_broi, h_vrata, w_vrata, "4 страни", mat_lice, val_fl_lice))
+            
+        else:
+            # Общи сметки за долните шкафове
+            h_stranica = 742 
+            h_shkaf_korpus = h_stranica + deb 
+            h_vrata_standart = h_shkaf_korpus - fuga_obshto
+            w_vrata = (w/2) - (fuga_obshto/2)
 
-        if tip == "Шкаф Мивка":
-            new_items.append(add_item(name, "Дъно", 1, w, 480, "1д", mat_korpus, val_fl_korpus))
-            new_items.append(add_item(name, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus))
-            new_items.append(add_item(name, "Бленда", 3, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus))
-            new_items.append(add_item(name, "Врата", 2, h_vrata_standart, w_vrata, "4 страни", mat_lice, val_fl_lice))
-            
-        elif tip == "Стандартен Долен":
-            new_items.append(add_item(name, "Дъно", 1, w, 520, "1д", mat_korpus, val_fl_korpus))
-            new_items.append(add_item(name, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus))
-            new_items.append(add_item(name, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus))
-            new_items.append(add_item(name, "Рафт", 1, w-(2*deb), 510, "1д", mat_korpus, val_fl_korpus))
-            new_items.append(add_item(name, "Врата", 2, h_vrata_standart, w_vrata, "4 страни", mat_lice, val_fl_lice))
-
-        elif tip == "Горен Шкаф":
-            h_goren = 720
-            new_items.append(add_item(name, "Страница", 2, h_goren, 300, "1д", mat_korpus, val_fl_korpus))
-            new_items.append(add_item(name, "Дъно/Таван", 2, w-(2*deb), 300, "1д", mat_korpus, val_fl_korpus))
-            new_items.append(add_item(name, "Врата", 2, h_goren-fuga_obshto, w_vrata, "4 страни", mat_lice, val_fl_lice))
-            
-        elif tip == "Шкаф 3 Чекмеджета":
-            new_items.append(add_item(name, "Дъно", 1, w, 520, "1д", mat_korpus, val_fl_korpus))
-            new_items.append(add_item(name, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus))
-            new_items.append(add_item(name, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus))
-            
-            w_chelo = w - fuga_obshto
-            block_note = "В БЛОК" if fl_lice else ""
-            
-            new_items.append(add_item(name, "Чело горно", 1, 180-fuga_obshto, w_chelo, "4 страни", mat_lice, val_fl_lice, block_note))
-            new_items.append(add_item(name, "Чело средно", 1, 250-fuga_obshto, w_chelo, "4 страни", mat_lice, val_fl_lice, block_note))
-            new_items.append(add_item(name, "Чело долно", 1, 330-fuga_obshto, w_chelo, "4 страни", mat_lice, val_fl_lice, block_note))
-            
-            w_cargi = w - (2*deb) - 49
-            l_stranici_chek = runner_len - 10
-            
-            new_items.append(add_item(name, "Царги чекм. 1", 2, w_cargi, 80, "1д", mat_chekm, val_fl_chekm))
-            new_items.append(add_item(name, "Страници чекм. 1", 2, l_stranici_chek, 80+15, "2д", mat_chekm, val_fl_chekm))
-            new_items.append(add_item(name, "Царги чекм. 2", 2, w_cargi, 160, "1д", mat_chekm, val_fl_chekm))
-            new_items.append(add_item(name, "Страници чекм. 2", 2, l_stranici_chek, 160+15, "2д", mat_chekm, val_fl_chekm))
-            new_items.append(add_item(name, "Царги чекм. 3", 2, w_cargi, 200, "1д", mat_chekm, val_fl_chekm))
-            new_items.append(add_item(name, "Страници чекм. 3", 2, l_stranici_chek, 200+15, "2д", mat_chekm, val_fl_chekm))
+            if tip == "Шкаф Мивка":
+                new_items.append(add_item(name, "Дъно", 1, w, 480, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, "Бленда", 3, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, "Врата", 2, h_vrata_standart, w_vrata, "4 страни", mat_lice, val_fl_lice))
+                
+            elif tip == "Стандартен Долен":
+                new_items.append(add_item(name, "Дъно", 1, w, 520, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, "Рафт", 1, w-(2*deb), 510, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, "Врата", 2, h_vrata_standart, w_vrata, "4 страни", mat_lice, val_fl_lice))
+                
+            elif tip == "Шкаф 3 Чекмеджета":
+                new_items.append(add_item(name, "Дъно", 1, w, 520, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus))
+                
+                w_chelo = w - fuga_obshto
+                block_note = "В БЛОК" if fl_lice else ""
+                
+                new_items.append(add_item(name, "Чело горно", 1, 180-fuga_obshto, w_chelo, "4 страни", mat_lice, val_fl_lice, block_note))
+                new_items.append(add_item(name, "Чело средно", 1, 250-fuga_obshto, w_chelo, "4 страни", mat_lice, val_fl_lice, block_note))
+                new_items.append(add_item(name, "Чело долно", 1, 330-fuga_obshto, w_chelo, "4 страни", mat_lice, val_fl_lice, block_note))
+                
+                w_cargi = w - (2*deb) - 49
+                l_stranici_chek = runner_len - 10
+                
+                new_items.append(add_item(name, "Царги чекм. 1", 2, w_cargi, 80, "1д", mat_chekm, val_fl_chekm))
+                new_items.append(add_item(name, "Страници чекм. 1", 2, l_stranici_chek, 80+15, "2д", mat_chekm, val_fl_chekm))
+                new_items.append(add_item(name, "Царги чекм. 2", 2, w_cargi, 160, "1д", mat_chekm, val_fl_chekm))
+                new_items.append(add_item(name, "Страници чекм. 2", 2, l_stranici_chek, 160+15, "2д", mat_chekm, val_fl_chekm))
+                new_items.append(add_item(name, "Царги чекм. 3", 2, w_cargi, 200, "1д", mat_chekm, val_fl_chekm))
+                new_items.append(add_item(name, "Страници чекм. 3", 2, l_stranici_chek, 200+15, "2д", mat_chekm, val_fl_chekm))
 
         st.session_state.order_list.extend(new_items)
         st.success(f"Модул {name} е добавен!")
@@ -178,7 +191,6 @@ if st.button("Генерирай чертеж на плочите"):
         use_l = board_l - 2*trim
         use_w = board_w - 2*trim
         
-        # Разделяне на детайлите по материали
         materials_dict = {}
         for item in st.session_state.order_list:
             mat = item.get('Материал', 'Неизвестен')
@@ -193,7 +205,6 @@ if st.button("Генерирай чертеж на плочите"):
                     })
             except: pass
         
-        # Чертаене за всеки материал поотделно
         for mat_name, parts in materials_dict.items():
             st.markdown(f"### 🪵 Разкрой: {mat_name}")
             parts.sort(key=lambda x: (x['w'], x['l']), reverse=True)
@@ -236,7 +247,6 @@ if st.button("Генерирай чертеж на плочите"):
                 svg = f'<svg viewBox="0 0 {board_l} {board_w}" style="background-color:#f9f9f9; border:2px solid #333; margin-bottom: 20px; width: 100%; max-width: 900px;"><rect x="{trim}" y="{trim}" width="{use_l}" height="{use_w}" fill="none" stroke="red" stroke-width="4" stroke-dasharray="20,20"/>'
                 for p in b_parts:
                     px, py, pl, pw, name = p['x'] + trim, p['y'] + trim, p['l'], p['w'], p['name']
-                    # Ако е бяло правим фона леко сивкав, ако е друго - кафеникаво дървесно за красота
                     fill_color = "#e0f7fa" if "бял" in mat_name.lower() else "#ffe0b2"
                     stroke_color = "#006064" if "бял" in mat_name.lower() else "#e65100"
                     

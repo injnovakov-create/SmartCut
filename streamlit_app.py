@@ -29,6 +29,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 if 'order_list' not in st.session_state: st.session_state.order_list = []
+if 'hardware_list' not in st.session_state: st.session_state.hardware_list = []
 
 # --- ЛОГИКА ЗА ЗАПИС ТОЧНО КАТО В EXCEL ---
 def add_item(modul, detail, count, l, w, kant_str, material, flader, note=""):
@@ -70,6 +71,11 @@ def get_abbrev(detail_name):
         return f"Сч{num}" if num else "Сч"
     return detail_name[:5].capitalize()
 
+def calculate_hinges(height):
+    if height <= 950: return 2
+    elif height <= 1300: return 3
+    else: return 4
+
 # --- СТРАНИЧНО МЕНЮ ---
 with st.sidebar:
     st.header("⚙️ Глобални Настройки")
@@ -90,6 +96,7 @@ with st.sidebar:
     st.markdown("---")
     if st.button("🗑️ Изчисти списъка"):
         st.session_state.order_list = []
+        st.session_state.hardware_list = []
         st.rerun()
 
 # --- ОСНОВЕН ИНТЕРФЕЙС ---
@@ -141,7 +148,6 @@ with col1:
                 w_vrata_input = st.number_input("Ширина Врата (мм)", value=400)
                 w_gluha_input = st.number_input("Ширина Глуха част (мм)", value=600)
             
-            # --- ЛОГИКА ЗА ДОЛНИТЕ ВРАТИ ---
             if tip in ["Стандартен Долен", "Шкаф Мивка"]:
                 def_vrati = 0 if w <= 500 else 1
                 vrati_broi = st.radio("Брой врати:", [1, 2], index=def_vrati, horizontal=True)
@@ -149,8 +155,34 @@ with col1:
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("➕ Добави към списъка"):
         new_items = []
+        new_hw = []
         otstyp_fazer = 4; h_stranica = 742; h_shkaf_korpus = h_stranica + deb; h_vrata_standart = h_shkaf_korpus - fuga_obshto
         
+        # --- ЛОГИКА ЗА ОБКОВ (Хардуер) ---
+        if tip in ["Стандартен Долен", "Шкаф Мивка", "Шкаф Бутилки 15см", "Глух Ъгъл (Долен)", "Шкаф за Фурна", "Шкаф 3 Чекмеджета"]:
+            hw_legs = 5 if w > 900 else 4
+            new_hw.append({"№": name, "Артикул": "Крака за долен шкаф", "Брой": hw_legs})
+
+        if tip in ["Стандартен Долен", "Шкаф Мивка", "Горен Шкаф"]:
+            h_door_hw = h_vrata_standart if tip != "Горен Шкаф" else (h - fuga_obshto if vrati_orientacia == "Вертикални" else (h - fuga_obshto if vrati_broi == 1 else int((h/2) - fuga_obshto)))
+            hw_hinges = calculate_hinges(h_door_hw) * vrati_broi
+            new_hw.append({"№": name, "Артикул": "Панти покрит кант", "Брой": hw_hinges})
+            
+        elif tip == "Шкаф Бутилки 15см":
+            hw_hinges = calculate_hinges(h_vrata_standart) * 1
+            new_hw.append({"№": name, "Артикул": "Панти покрит кант", "Брой": hw_hinges})
+            
+        elif tip in ["Глух Ъгъл (Долен)", "Глух Ъгъл (Горен)"]:
+            h_door_hw = h_vrata_standart if "Долен" in tip else h - fuga_obshto
+            hw_hinges = calculate_hinges(h_door_hw) * 1
+            new_hw.append({"№": name, "Артикул": "Панти в една равнина (за глухи)", "Брой": hw_hinges})
+            
+        if tip == "Шкаф 3 Чекмеджета":
+            new_hw.append({"№": name, "Артикул": "Комплект водачи за чекмедже", "Брой": 3})
+        elif tip == "Шкаф за Фурна":
+            new_hw.append({"№": name, "Артикул": "Комплект водачи за чекмедже", "Брой": 1})
+            
+        # --- ЛОГИКА ЗА ПДЧ ---
         if tip == "Дублираща страница долен":
             new_items.append(add_item(name, "Дублираща страница", 1, custom_h, custom_d, "4 страни", mat_lice, val_fl_lice))
             
@@ -231,6 +263,7 @@ with col1:
                 ])
 
         st.session_state.order_list.extend(new_items)
+        st.session_state.hardware_list.extend(new_hw)
         st.success(f"Модул {name} е добавен!")
         st.rerun()
 
@@ -241,13 +274,22 @@ with col2:
         cols_order = ["Плоскост", "№", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
         df = df[cols_order]
         
-        edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, height=400, key="editor")
+        edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, height=350, key="editor")
         st.session_state.order_list = edited_df.to_dict('records')
+        
+        # --- КОЛИЧЕСТВЕНА СМЕТКА ОБКОВ ---
+        if st.session_state.hardware_list:
+            st.markdown("#### 🔩 Количествена сметка: Обков")
+            hw_df = pd.DataFrame(st.session_state.hardware_list)
+            hw_summary = hw_df.groupby("Артикул")["Брой"].sum().reset_index()
+            st.table(hw_summary)
         
         # --- ЕКСПОРТ КЪМ EXCEL ---
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             edited_df.to_excel(writer, index=False, sheet_name='Разкрой')
+            if st.session_state.hardware_list:
+                hw_summary.to_excel(writer, index=False, sheet_name='Обков')
         excel_data = output.getvalue()
         
         st.download_button(
@@ -465,7 +507,19 @@ if st.session_state.order_list:
                     st.write(f"- **{mat} ({thick}):** {meters_with_margin:.1f} л.м.")
         else: st.write("Няма детайли за кантиране.")
 
-        st.markdown("##### 3. Твърди разходи, Труд и Услуги")
+        # НОВО: Допълнителни материали (Плот, Гръб, Обков)
+        st.markdown("##### 3. Допълнителни материали (Обков, Плот, Гръб)")
+        col_ext1, col_ext2, col_ext3 = st.columns(3)
+        with col_ext1:
+            obkov_cost = st.number_input("Обков (Общо за проекта) €", value=150.0)
+        with col_ext2:
+            plot_cost = st.number_input("Плот (Общо) €", value=100.0)
+        with col_ext3:
+            grub_cost = st.number_input("Гръб (Общо) €", value=80.0)
+        
+        total_extra_mats = obkov_cost + plot_cost + grub_cost
+
+        st.markdown("##### 4. Твърди разходи, Труд и Услуги")
         col_fixed, col_labor = st.columns(2)
         
         with col_fixed:
@@ -484,7 +538,7 @@ if st.session_state.order_list:
             komandirovachni = st.number_input("Командировъчни €", value=0)
             hamal = st.number_input("Хамалски услуги €", value=0)
 
-        st.markdown("##### 4. Буфери и Печалба")
+        st.markdown("##### 5. Буфери и Печалба")
         col_buf1, col_buf2 = st.columns(2)
         with col_buf1:
             nepredvideni_pct = st.number_input("Непредвидени разходи (%)", value=15)
@@ -492,32 +546,26 @@ if st.session_state.order_list:
             pechalba_pct = st.number_input("Печалба (%)", value=25)
 
         # --- ИЗЧИСЛЕНИЯ ---
-        # 1. Прилагане на стратегията за наем и консумативи (override)
         rent_cons_cost = (project_days / 15.0) * 300.0
-        
-        # 2. Останали месечни разходи (пропорционално на 21 дни)
         other_monthly = osigurovki + bus + schetovodstvo
         other_fixed_cost = (other_monthly / 21.0) * project_days
         total_fixed_project = rent_cons_cost + other_fixed_cost
         
-        # 3. Труд и Услуги
         total_labor_cost = nadnici * project_days
         total_services = transport + komandirovachni + hamal
         
-        # 4. Базова стойност
-        total_materials_all = total_material_cost + total_cut_cost + total_edge_cost
+        # Тук вече са включени Обков, Плот и Гръб
+        total_materials_all = total_material_cost + total_cut_cost + total_edge_cost + total_extra_mats
         base_cost = total_materials_all + total_fixed_project + total_labor_cost + total_services
         
-        # 5. Непредвидени
         unforeseen_cost = base_cost * (nepredvideni_pct / 100.0)
         sebestoinost = base_cost + unforeseen_cost
         
-        # 6. Печалба и Крайна цена
         profit_val = sebestoinost * (pechalba_pct / 100.0)
         final_offer = sebestoinost + profit_val
         
         st.markdown("### 📊 Оферта и Калкулация:")
-        st.write(f"- Материали и разкрой: **{total_materials_all:.2f} €**")
+        st.write(f"- Материали, разкрой и обков: **{total_materials_all:.2f} €**")
         st.write(f"- Труд (за {project_days} дни): **{total_labor_cost:.2f} €**")
         st.write(f"- Фиксирани разходи и услуги: **{(total_fixed_project + total_services):.2f} €**")
         st.write(f"- Непредвидени ({nepredvideni_pct}%): **{unforeseen_cost:.2f} €**")

@@ -5,7 +5,7 @@ import pandas as pd
 st.set_page_config(page_title="SmartCut: Витя-М", layout="wide")
 
 st.title("🛠️ SmartCut: Конструктор на Модули")
-st.info("Добавено: Динамично меню за Горен шкаф с променлива височина/дълбочина и точни врати.")
+st.info("Добавено: Ориентация на вратите (Горен ред) и автоматичен гръб (Бял фазер 3мм).")
 
 if 'order_list' not in st.session_state:
     st.session_state.order_list = []
@@ -49,6 +49,9 @@ with st.sidebar:
     fl_chekm = st.checkbox("Има фладер - Чекмеджета", value=False)
     val_fl_chekm = "Да" if fl_chekm else "Няма"
     
+    st.markdown("**4. Гръб (Фазер)**")
+    mat_fazer = st.text_input("Декор Фазер:", value="Бял фазер 3мм")
+    
     st.markdown("---")
     if st.button("🗑️ Изчисти списъка"):
         st.session_state.order_list = []
@@ -74,6 +77,7 @@ with col1:
         h = st.number_input("Височина (H) в мм", value=720)
         d = st.number_input("Дълбочина (D) в мм", value=300)
         vrati_broi = st.radio("Брой врати:", [1, 2], index=1, horizontal=True)
+        vrati_orientacia = st.radio("Ориентация:", ["Вертикални", "Хоризонтални (Клапващи)"], horizontal=True)
     else:
         d = st.number_input("Дълбочина (D) страници", value=550)
         if tip == "Шкаф 3 Чекмеджета":
@@ -82,21 +86,28 @@ with col1:
     if st.button("➕ Добави към списъка"):
         new_items = []
         
+        # За фазера вадим 4 мм от общия габарит (по 2 мм на страна)
+        otstyp_fazer = 4 
+        
         if tip == "Горен Шкаф":
             new_items.append(add_item(name, "Страница", 2, h, d, "1д", mat_korpus, val_fl_korpus))
             new_items.append(add_item(name, "Дъно/Таван", 2, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus))
             
-            # Врати за горен шкаф (-3мм фуга от габарита)
-            h_vrata = h - fuga_obshto
-            if vrati_broi == 1:
-                w_vrata = w - fuga_obshto
+            # Добавяне на фазер за горния шкаф
+            new_items.append(add_item(name, "Гръб (Фазер)", 1, h - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма"))
+            
+            # Логика за врати
+            if vrati_orientacia == "Вертикални":
+                h_vrata = h - fuga_obshto
+                w_vrata = w - fuga_obshto if vrati_broi == 1 else (w/2) - (fuga_obshto/2)
             else:
-                w_vrata = (w/2) - (fuga_obshto/2)
+                # Хоризонтални
+                w_vrata = w - fuga_obshto
+                h_vrata = h - fuga_obshto if vrati_broi == 1 else (h/2) - (fuga_obshto/2)
                 
             new_items.append(add_item(name, "Врата", vrati_broi, h_vrata, w_vrata, "4 страни", mat_lice, val_fl_lice))
             
         else:
-            # Общи сметки за долните шкафове
             h_stranica = 742 
             h_shkaf_korpus = h_stranica + deb 
             h_vrata_standart = h_shkaf_korpus - fuga_obshto
@@ -107,6 +118,7 @@ with col1:
                 new_items.append(add_item(name, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus))
                 new_items.append(add_item(name, "Бленда", 3, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus))
                 new_items.append(add_item(name, "Врата", 2, h_vrata_standart, w_vrata, "4 страни", mat_lice, val_fl_lice))
+                # Шкаф мивка НЯМА гръб от фазер
                 
             elif tip == "Стандартен Долен":
                 new_items.append(add_item(name, "Дъно", 1, w, 520, "1д", mat_korpus, val_fl_korpus))
@@ -115,10 +127,16 @@ with col1:
                 new_items.append(add_item(name, "Рафт", 1, w-(2*deb), 510, "1д", mat_korpus, val_fl_korpus))
                 new_items.append(add_item(name, "Врата", 2, h_vrata_standart, w_vrata, "4 страни", mat_lice, val_fl_lice))
                 
+                # Добавяне на фазер
+                new_items.append(add_item(name, "Гръб (Фазер)", 1, h_shkaf_korpus - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма"))
+                
             elif tip == "Шкаф 3 Чекмеджета":
                 new_items.append(add_item(name, "Дъно", 1, w, 520, "1д", mat_korpus, val_fl_korpus))
                 new_items.append(add_item(name, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus))
                 new_items.append(add_item(name, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus))
+                
+                # Добавяне на фазер
+                new_items.append(add_item(name, "Гръб (Фазер)", 1, h_shkaf_korpus - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма"))
                 
                 w_chelo = w - fuga_obshto
                 block_note = "В БЛОК" if fl_lice else ""

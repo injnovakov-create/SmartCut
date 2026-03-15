@@ -7,7 +7,7 @@ from PIL import Image
 st.set_page_config(page_title="SmartCut: Витя-М", layout="wide")
 
 st.title("🛠️ SmartCut: Конструктор на Модули")
-st.info("Добавено: Автоматично изчисление на кантове (2мм за лица, 0.8мм за корпус) с 10% фира и такса разкрой на плоча.")
+st.info("Добавено: Професионален финансов модул с калкулация на дневни разходи, труд и процент печалба.")
 
 if 'order_list' not in st.session_state:
     st.session_state.order_list = []
@@ -200,11 +200,10 @@ with col2:
         st.subheader("💰 Финанси и Оферта")
         
         try:
-            # 1. Смятаме площ и цени на квадратен метър
+            # 1. Площ и плочи
             edited_df['Area'] = (pd.to_numeric(edited_df['L']) * pd.to_numeric(edited_df['W']) * pd.to_numeric(edited_df['Брой'])) / 1000000
             summary = edited_df.groupby('Материал')['Area'].sum()
             
-            # 2. Скрит бърз алгоритъм за преброяване на плочите (за цената на разкроя)
             kerf, trim, board_l, board_w = 8, 8, 2800, 2070
             use_l, use_w = board_l - 2*trim, board_w - 2*trim
             total_boards = 0
@@ -265,7 +264,7 @@ with col2:
                 price_cut = st.number_input("€/бр. Разкрой", value=18.0)
                 total_cut_cost = total_boards * price_cut
                 
-            # 3. Пресмятане на кантове
+            # 2. Кантове
             st.markdown("##### 2. Кантове (+10% фира)")
             def calc_edge(l, w, kant_str):
                 kant_str = str(kant_str).lower()
@@ -283,12 +282,9 @@ with col2:
                 l, w, count = float(row['L']), float(row['W']), int(row['Брой'])
                 mat = row['Материал']
                 detail = str(row['Детайл']).lower()
-                
-                # Логика за дебелината: 2мм за врати и чела, 0.8 за всичко останало
                 thickness = "2мм" if ("врата" in detail or "чело" in detail) else "0.8мм"
                 mm_per_item = calc_edge(l, w, kant_str)
                 total_m = (mm_per_item * count) / 1000.0
-                
                 if total_m > 0:
                     key = (mat, thickness)
                     edge_dict[key] = edge_dict.get(key, 0) + total_m
@@ -300,29 +296,44 @@ with col2:
                     edge_price_per_m = st.number_input("€/л.м. Кант", value=1.0)
                 with col_e1:
                     for (mat, thick), meters in edge_dict.items():
-                        meters_with_margin = meters * 1.10 # +10% фира
+                        meters_with_margin = meters * 1.10
                         cost = meters_with_margin * edge_price_per_m
                         total_edge_cost += cost
                         st.write(f"- **{mat} ({thick}):** {meters_with_margin:.1f} л.м.")
             else:
                 st.write("Няма детайли за кантиране.")
 
-            # 4. Общи разходи и Труд
-            st.markdown("##### 3. Разходи за работилницата и труд:")
+            # 3. Разходи и Труд
+            st.markdown("##### 3. Твърди разходи и Труд")
             col_days, col_labor = st.columns(2)
             with col_days:
-                days = st.number_input("Време за изпълнение (дни):", value=15, min_value=1)
-                overhead_eur = (days / 15.0) * 300
-                st.info(f"Наем и консумативи: **{overhead_eur:.0f} €**")
+                work_days_month = st.number_input("Работни дни в месеца:", value=21, min_value=1)
+                project_days = st.number_input("Дни за този проект:", value=5, min_value=1)
+                
+                # Месечни разходи: Наем 400 + Осигуровки 500 + Бус 250 + Ток 50 = 1200€
+                monthly_expenses = 1200.0
+                daily_expense = monthly_expenses / work_days_month
+                project_overhead = daily_expense * project_days
+                
+                st.info(f"Разходи работилница (за проекта): **{project_overhead:.2f} €**")
                 
             with col_labor:
-                labor = st.number_input("Труд и Монтаж (в лв/€):", value=500.0)
+                daily_labor_rate = st.number_input("Надница на ден (€):", value=100.0)
+                project_labor = daily_labor_rate * project_days
+                st.info(f"Стойност на труда: **{project_labor:.2f} €**")
+
+            # 4. КРАЙНА СМЕТКА
+            st.markdown("### 📊 Оферта и Печалба:")
+            profit_margin = st.number_input("Процент печалба (%):", value=25)
             
-            # 5. КРАЙНА СМЕТКА
-            st.markdown("### 📊 Крайна цена:")
             total_materials_all = total_material_cost + total_cut_cost + total_edge_cost
-            total_price = total_materials_all + overhead_eur + labor
-            st.success(f"Материали/Разкрой/Кант: **{total_materials_all:.2f}** | Общо проект: **{total_price:.2f}**")
+            subtotal = total_materials_all + project_overhead + project_labor
+            final_price = subtotal * (1 + (profit_margin / 100))
+            net_profit = final_price - subtotal
+            
+            st.write(f"Себестойност (Материали + Разходи + Труд): **{subtotal:.2f} €**")
+            st.success(f"Оферта към клиент: **{final_price:.2f} €**")
+            st.write(f"🌟 **Чиста печалба за фирмата:** {net_profit:.2f} €")
             
         except Exception as e:
             st.warning("Въведи валидни числа в таблицата, за да се изчислят финансите.")

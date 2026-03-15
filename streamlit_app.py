@@ -293,4 +293,251 @@ with col2:
     st.subheader("📋 Списък за разкрой (Редактируем)")
     if st.session_state.order_list:
         df = pd.DataFrame(st.session_state.order_list)
-        cols_order = ["Плоскост", "№", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "
+        cols_order = ["Плоскост", "№", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
+        df = df[cols_order]
+        edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, height=350, key="editor")
+        st.session_state.order_list = edited_df.to_dict('records')
+        
+        # --- ЕКСПОРТ КЪМ EXCEL ---
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            edited_df.to_excel(writer, index=False, sheet_name='Разкрой')
+            if st.session_state.hardware_list:
+                pd.DataFrame(st.session_state.hardware_list).groupby("Артикул")["Брой"].sum().reset_index().to_excel(writer, index=False, sheet_name='Обков')
+        st.download_button(label="📊 Свали в Excel (.xlsx)", data=output.getvalue(), file_name="razkroi_vitya_kuhni.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    else:
+        st.info("Списъкът е празен. Добави първия си модул отляво!")
+
+# --- НОВО: ГЕНЕРИРАНЕ НА PDF С 3D ЧЕРТЕЖИ ---
+def generate_technical_pdf(modules_meta, order_list):
+    font_path = "Roboto-Regular.ttf"
+    if not os.path.exists(font_path):
+        try: urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf", font_path)
+        except: pass
+    try: 
+        font_title = ImageFont.truetype(font_path, 80)
+        font_text = ImageFont.truetype(font_path, 50)  # Едър шрифт за идеална четливост в работилницата
+        font_dim = ImageFont.truetype(font_path, 60)
+        font_bold = ImageFont.truetype(font_path, 55)
+    except: 
+        font_title = font_text = font_dim = font_bold = ImageFont.load_default()
+
+    pages = []
+    for mod in modules_meta:
+        # A4 формат (2480 x 3508 пиксела)
+        img = Image.new('RGB', (2480, 3508), 'white')
+        draw = ImageDraw.Draw(img)
+        
+        # Заглавие
+        draw.text((150, 150), f"МОДУЛ: {mod['№']} - {mod['Тип']}", fill="black", font=font_title)
+        draw.line([(150, 250), (2330, 250)], fill="black", width=5)
+        
+        # --- ЧЕРТАНЕ НА 3D (Изометрична) КУТИЯ ---
+        W, H, D = float(mod['W']), float(mod['H']), float(mod['D'])
+        max_dim = max(W, H, D)
+        if max_dim == 0: max_dim = 1
+        scale = 1000.0 / max_dim
+        
+        w_px, h_px, d_px = W * scale, H * scale, D * scale * 0.5
+        offset_x, offset_y = d_px * 0.866, d_px * 0.5 # Ъгъл на проекцията
+        
+        start_x = 1240 - (w_px + offset_x)/2
+        start_y = 1000 - (h_px + offset_y)/2
+        
+        # Точки за рисуване
+        f_tl, f_tr = (start_x, start_y), (start_x + w_px, start_y)
+        f_bl, f_br = (start_x, start_y + h_px), (start_x + w_px, start_y + h_px)
+        r_tl, r_tr = (start_x + offset_x, start_y - offset_y), (start_x + w_px + offset_x, start_y - offset_y)
+        r_bl, r_br = (start_x + offset_x, start_y + h_px - offset_y), (start_x + w_px + offset_x, start_y + h_px - offset_y)
+        
+        # Рисуване на стените с дебели линии за яснота
+        draw.polygon([f_tl, r_tl, r_tr, f_tr], fill="#e0e0e0", outline="black", width=5) # Таван
+        draw.polygon([f_tr, r_tr, r_br, f_br], fill="#d0d0d0", outline="black", width=5) # Дясна страна
+        draw.polygon([f_tl, f_tr, f_br, f_bl], fill="#f5f5f5", outline="black", width=5) # Лице
+        
+        # Оразмеряване с червен цвят и огромен шрифт
+        draw.text((start_x + w_px/2 - 100, start_y + h_px + 30), f"W: {int(W)}", fill="#CC0000", font=font_dim)
+        draw.text((start_x - 250, start_y + h_px/2 - 30), f"H: {int(H)}", fill="#CC0000", font=font_dim)
+        draw.text((start_x + w_px + offset_x/2 + 30, start_y + h_px - offset_y/2 - 30), f"D: {int(D)}", fill="#CC0000", font=font_dim)
+
+        # --- ТАБЛИЦА С ДЕТАЙЛИ ---
+        draw.text((150, 1800), "СПЕЦИФИКАЦИЯ НА ДЕТАЙЛИТЕ:", fill="black", font=font_title)
+        
+        parts = [p for p in order_list if str(p.get("№", "")) == str(mod["№"])]
+        y_offset = 1950
+        
+        headers = f"{'ДЕТАЙЛ':<20} | {'ДЪЛЖ':<5} | {'ШИР':<5} | {'БР':<3} | {'КАНТ':<15} | {'ПЛОСКОСТ'}"
+        draw.text((150, y_offset), headers, fill="black", font=font_bold)
+        draw.line([(150, y_offset+70), (2330, y_offset+70)], fill="gray", width=3)
+        y_offset += 90
+        
+        for p in parts:
+            kant_str = ""
+            if p.get('Д1'): kant_str += f"Д1({p['Д1']}) "
+            if p.get('Д2'): kant_str += f"Д2({p['Д2']}) "
+            if p.get('Ш1'): kant_str += f"Ш1({p['Ш1']}) "
+            if p.get('Ш2'): kant_str += f"Ш2({p['Ш2']}) "
+            
+            # Форматиране с ясни разстояния
+            row_str = f"{p['Детайл'][:18]:<20} | {int(p['Дължина']):<5} | {int(p['Ширина']):<5} | {int(p['Бр']):<3} | {kant_str[:15]:<15} | {p['Плоскост'][:20]}"
+            draw.text((150, y_offset), row_str, fill="#222222", font=font_text)
+            draw.line([(150, y_offset+65), (2330, y_offset+65)], fill="#dddddd", width=1)
+            y_offset += 75
+            if y_offset > 3300: break # Предпазител за края на страницата
+                
+        pages.append(img)
+        
+    if pages:
+        pdf_bytes = io.BytesIO()
+        pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
+        return pdf_bytes.getvalue()
+    return None
+
+st.markdown("---")
+col_export1, col_export2 = st.columns(2)
+with col_export1:
+    st.subheader("📐 Техническа Документация (За Цеха)")
+    st.write("Генерира PDF файл с едър шрифт: един 3D чертеж с размери + спецификация за всяка страница.")
+    if st.button("📄 Генерирай PDF Чертежи"):
+        if not st.session_state.modules_meta:
+            st.warning("Няма добавени модули за чертане!")
+        else:
+            with st.spinner("Генериране на чертежите..."):
+                pdf_data = generate_technical_pdf(st.session_state.modules_meta, st.session_state.order_list)
+                if pdf_data:
+                    st.download_button(label="📥 Свали PDF Чертежите", data=pdf_data, file_name="Vitya_M_Technical_Drawings.pdf", mime="application/pdf")
+
+# --- ФИНАНСОВ КАЛКУЛАТОР ---
+with col_export2:
+    st.subheader("💰 Финанси и Оферта")
+
+if st.session_state.order_list:
+    try:
+        if 'edited_df' in locals():
+            df_to_calc = edited_df
+        else:
+            df_to_calc = pd.DataFrame(st.session_state.order_list)
+            
+        df_to_calc['Area'] = (pd.to_numeric(df_to_calc['Дължина']) * pd.to_numeric(df_to_calc['Ширина']) * pd.to_numeric(df_to_calc['Бр'])) / 1000000
+        summary = df_to_calc.groupby('Плоскост')['Area'].sum()
+        
+        st.markdown("##### 1. Материали и Разкрой")
+        col_mats, col_prices = st.columns([1, 1])
+        
+        total_material_cost = 0.0
+        with col_mats:
+            for mat_name, area in summary.items(): st.write(f"- **{mat_name}:** {area:.2f} м²")
+            total_boards_est = sum(int((a/4.5)+1) for a in summary.values()) # Грубо изчисление, ако не е пуснат nesting
+            st.write(f"- **Брой плочи (ориентировъчно):** {total_boards_est} бр.")
+            
+        with col_prices:
+            for mat_name, area in summary.items():
+                price = st.number_input(f"€/м² {mat_name}", value=25.0, key=f"p_{mat_name}")
+                total_material_cost += area * price
+            price_cut = st.number_input("€/бр. Разкрой", value=18.0)
+            total_cut_cost = total_boards_est * price_cut
+            
+        st.markdown("##### 2. Кантове (+10% фира)")
+        edge_dict = {}
+        for _, row in df_to_calc.iterrows():
+            try:
+                l, w, count = float(row['Дължина']), float(row['Ширина']), int(row['Бр'])
+                mat = row['Плоскост']
+                for col, dim in [('Д1', l), ('Д2', l), ('Ш1', w), ('Ш2', w)]:
+                    val = str(row[col]).strip()
+                    if val in ['1', '2', '1.0', '2.0']:
+                        thickness = "2мм" if val.startswith('2') else "0.8мм"
+                        meters = (dim * count) / 1000.0
+                        if meters > 0:
+                            key = (mat, thickness)
+                            edge_dict[key] = edge_dict.get(key, 0) + meters
+            except: pass
+        
+        total_edge_cost = 0.0
+        if edge_dict:
+            col_e1, col_e2 = st.columns([1, 1])
+            with col_e2: edge_price_per_m = st.number_input("€/л.м. Кант", value=1.0)
+            with col_e1:
+                for (mat, thick), meters in edge_dict.items():
+                    meters_with_margin = meters * 1.10
+                    cost = meters_with_margin * edge_price_per_m
+                    total_edge_cost += cost
+                    st.write(f"- **{mat} ({thick}):** {meters_with_margin:.1f} л.м.")
+        else: st.write("Няма детайли за кантиране.")
+
+        st.markdown("##### 3. Обков (Автоматично изчисление по проект)")
+        total_hw_cost = 0.0
+        if st.session_state.hardware_list:
+            hw_df_calc = pd.DataFrame(st.session_state.hardware_list)
+            hw_summary_calc = hw_df_calc.groupby("Артикул")["Брой"].sum().reset_index()
+            col_h1, col_h2 = st.columns(2)
+            
+            for idx_h, row_h in hw_summary_calc.iterrows():
+                item_name = row_h["Артикул"]
+                item_qty = row_h["Брой"]
+                def_val = 1.0
+                if "Панти" in item_name: def_val = 1.5
+                elif "водачи" in item_name: def_val = 18.0
+                elif "Крака" in item_name: def_val = 0.4
+                elif "Окачвачи" in item_name: def_val = 1.5
+                elif "Рафтоносачи" in item_name: def_val = 0.1
+                elif "LED" in item_name: def_val = 12.0
+                elif "Механизъм" in item_name: def_val = 45.0
+                elif "Дръжки" in item_name: def_val = 4.0
+
+                with (col_h1 if idx_h % 2 == 0 else col_h2):
+                    qty_str = f"{item_qty:.1f}" if isinstance(item_qty, float) and not item_qty.is_integer() else f"{int(item_qty)}"
+                    u_price = st.number_input(f"€/ед. {item_name} ({qty_str})", value=def_val, key=f"hw_{item_name}")
+                    total_hw_cost += item_qty * u_price
+            st.info(f"Обща стойност на обкова: **{total_hw_cost:.2f} €**")
+
+        st.markdown("##### 4. Плот и Гръб")
+        col_ext1, col_ext2 = st.columns(2)
+        with col_ext1: plot_cost = st.number_input("Плот (Общо) €", value=100.0)
+        with col_ext2: grub_cost = st.number_input("Гръб (Общо) €", value=80.0)
+        total_extra_mats = total_hw_cost + plot_cost + grub_cost
+
+        st.markdown("##### 5. Твърди разходи, Труд и Услуги")
+        col_fixed, col_labor = st.columns(2)
+        with col_fixed:
+            osigurovki = st.number_input("Осигуровки (на месец) €", value=450)
+            naem = st.number_input("Наем (на месец) €", value=400)
+            tok = st.number_input("Ток/Консумативи €", value=100)
+            bus = st.number_input("Бус €", value=100)
+            schetovodstvo = st.number_input("Счетоводство €", value=80)
+        with col_labor:
+            project_days = st.number_input("Дни за този проект:", value=15, min_value=1)
+            nadnici = st.number_input("Надници (общо/ден) €", value=225)
+            transport = st.number_input("Транспорт €", value=0)
+            komandirovachni = st.number_input("Командировъчни €", value=0)
+            hamal = st.number_input("Хамалски услуги €", value=0)
+
+        st.markdown("##### 6. Буфери и Печалба")
+        col_buf1, col_buf2 = st.columns(2)
+        with col_buf1: nepredvideni_pct = st.number_input("Непредвидени разходи (%)", value=15)
+        with col_buf2: pechalba_pct = st.number_input("Печалба (%)", value=25)
+
+        rent_cons_cost = (project_days / 15.0) * 300.0
+        other_monthly = osigurovki + bus + schetovodstvo
+        other_fixed_cost = (other_monthly / 21.0) * project_days
+        total_fixed_project = rent_cons_cost + other_fixed_cost
+        
+        total_labor_cost = nadnici * project_days
+        total_services = transport + komandirovachni + hamal
+        
+        total_materials_all = total_material_cost + total_cut_cost + total_edge_cost + total_extra_mats
+        base_cost = total_materials_all + total_fixed_project + total_labor_cost + total_services
+        
+        unforeseen_cost = base_cost * (nepredvideni_pct / 100.0)
+        sebestoinost = base_cost + unforeseen_cost
+        profit_val = sebestoinost * (pechalba_pct / 100.0)
+        final_offer = sebestoinost + profit_val
+        
+        st.markdown("### 📊 Оферта и Калкулация:")
+        st.write(f"Материали/разкрой/обков: **{total_materials_all:.2f} €** | Труд: **{total_labor_cost:.2f} €** | Разходи: **{(total_fixed_project + total_services):.2f} €**")
+        st.info(f"Вътрешна себестойност: **{sebestoinost:.2f} €**")
+        st.success(f"ОФЕРТА КЪМ КЛИЕНТ: **{final_offer:.2f} €**")
+        st.write(f"🌟 **Чиста печалба:** {profit_val:.2f} €")
+        
+    except Exception as e: 
+        st.warning(f"Въведи валидни числа. Грешка: {e}")

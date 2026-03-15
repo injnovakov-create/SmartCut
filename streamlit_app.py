@@ -5,15 +5,23 @@ import pandas as pd
 st.set_page_config(page_title="SmartCut: Витя-М", layout="wide")
 
 st.title("🛠️ SmartCut: Конструктор на Модули")
-st.info("Добавено: Автоматична дълбочина (550мм за мивка, 520мм за останалите) и параметрични дъна/рафтове.")
+st.info("Добавено: Ориентация на вратите (Горен ред), автоматичен гръб (Бял фазер 3мм), адаптивна дълбочина и скици на модулите.")
 
 if 'order_list' not in st.session_state:
     st.session_state.order_list = []
 
+# --- ПОМОЩНА ФУНКЦИЯ ЗА ЗАПИС ---
 def add_item(modul, detail, count, l, w, kant, material, flader, note=""):
     return {
-        "Модул": modul, "Детайл": detail, "Брой": count, "L": l, "W": w, 
-        "Кант": kant, "Материал": material, "Фладер": flader, "Забележка": note
+        "Модул": modul, 
+        "Детайл": detail, 
+        "Брой": count, 
+        "L": l, 
+        "W": w, 
+        "Кант": kant, 
+        "Материал": material,
+        "Фладер": flader, 
+        "Забележка": note
     }
 
 # --- СТРАНИЧНО МЕНЮ ---
@@ -55,10 +63,21 @@ col1, col2 = st.columns([1, 2.5])
 with col1:
     st.subheader("📝 Добави Модул")
     
-    tip = st.selectbox("Тип модул", [
-        "Стандартен Долен", "Горен Шкаф", "Шкаф Мивка", "Шкаф 3 Чекмеджета",
-        "Шкаф Бутилки 15см", "Шкаф за Фурна", "Глух Ъгъл (Долен)"
-    ])
+    # Опции за тип модул (връщаме само текст)
+    tip_options = [
+        "Стандартен Долен", 
+        "Горен Шкаф", 
+        "Шкаф Мивка", 
+        "Шкаф 3 Чекмеджета",
+        "Шкаф Бутилки 15см",
+        "Шкаф за Фурна",
+        "Глух Ъгъл (Долен)"
+    ]
+    
+    tip = st.selectbox("Тип модул", options=tip_options)
+    
+    # Визуализация на скица (заместител)
+    st.image("https://via.placeholder.com/300x200?text=Генериране+на+скица...", caption=f"Скица: {tip}")
     
     name = st.text_input("Име/№ на модула", value=tip)
     

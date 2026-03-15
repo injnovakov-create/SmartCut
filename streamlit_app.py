@@ -85,6 +85,4 @@ with col1:
             new_items.append(add_item(name, "Врата", 2, h_goren-fuga_obshto, w_vrata, "4 страни", flader))
             
         elif tip == "Шкаф 3 Чекмеджета":
-            new_items.append(add_item(name, "Дъно", 1, w, 520, "1д", flader))
-            new_items.append(add_item(name, "Страница", 2, h_stranica, d, "1д", flader))
-            new_items.append(add_item(name, "Бленда", 2, w
+            new_items.append(add_

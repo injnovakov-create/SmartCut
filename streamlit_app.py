@@ -30,9 +30,8 @@ st.markdown("""
 
 if 'order_list' not in st.session_state: st.session_state.order_list = []
 
-# --- НОВА ЛОГИКА ЗА ЗАПИС С 4 КОЛОНИ ЗА КАНТ ---
+# --- ЛОГИКА ЗА ЗАПИС С 4 КОЛОНИ ЗА КАНТ ---
 def add_item(modul, detail, count, l, w, kant_str, material, flader, note=""):
-    # Проверка дали детайлът е лице, за да сложи дебел кант (2) или тънък (1)
     thick = 2 if any(x in str(detail).lower() for x in ["врата", "чело", "дублираща"]) else 1
     d1 = d2 = sh1 = sh2 = ""
     
@@ -244,15 +243,24 @@ with col2:
     st.subheader("📋 Списък за разкрой (Редактируем)")
     if st.session_state.order_list:
         df = pd.DataFrame(st.session_state.order_list)
-        # Пренареждане на колоните за по-добър вид
         cols_order = ["Модул", "Детайл", "Брой", "L", "W", "Д1", "Д2", "Ш1", "Ш2", "Материал", "Фладер", "Забележка"]
         df = df[cols_order]
         
         edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, height=400, key="editor")
         st.session_state.order_list = edited_df.to_dict('records')
         
-        csv = edited_df.to_csv(index=False).encode('utf-8-sig')
-        st.download_button(label="📥 Свали за Excel/Optimik", data=csv, file_name="razkroi_vitya_kuhni.csv", mime="text/csv")
+        # --- ЕКСПОРТ КЪМ EXCEL ---
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            edited_df.to_excel(writer, index=False, sheet_name='Разкрой')
+        excel_data = output.getvalue()
+        
+        st.download_button(
+            label="📊 Свали в Excel (.xlsx)", 
+            data=excel_data, 
+            file_name="razkroi_vitya_kuhni.xlsx", 
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
     else:
         st.info("Списъкът е празен. Добави първия си модул!")
 
@@ -327,7 +335,6 @@ def generate_boards_jpeg(boards_per_mat, board_l, board_w, trim):
             for p in b_parts:
                 px, py, pl, pw = p['x'] + trim, p['y'] + use_trim_y, p['l'], p['w']
                 
-                # Логика за чертане на кантовете на база Д1, Д2, Ш1, Ш2
                 ew_1 = 12 if p['d1'] in ['2', '2.0'] else (6 if p['d1'] in ['1', '1.0'] else 0)
                 ew_2 = 12 if p['d2'] in ['2', '2.0'] else (6 if p['d2'] in ['1', '1.0'] else 0)
                 eh_1 = 12 if p['sh1'] in ['2', '2.0'] else (6 if p['sh1'] in ['1', '1.0'] else 0)
@@ -441,7 +448,6 @@ if st.session_state.order_list:
                 l, w, count = float(row['L']), float(row['W']), int(row['Брой'])
                 mat = row['Материал']
                 
-                # Обхождаме новите 4 колонки: Д1, Д2, Ш1, Ш2
                 for col, dim in [('Д1', l), ('Д2', l), ('Ш1', w), ('Ш2', w)]:
                     val = str(row[col]).strip()
                     if val in ['1', '2', '1.0', '2.0']:

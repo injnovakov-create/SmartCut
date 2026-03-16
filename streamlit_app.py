@@ -161,7 +161,8 @@ with col1:
     st.image(draw_mini_preview({"Тип": tip, "W": w, "H": h, "D": d, "vr_cnt": vrati_broi}, kraka), width=180)
 
     if st.button("➕ Добави към списъка"):
-      new_items = []
+      
+        new_items = []
         new_hw = []
         otstyp_fazer = 4; h_stranica_std = 742; h_korpus_std = h_stranica_std + deb; h_vrata_std = h_korpus_std - fuga_obshto
         

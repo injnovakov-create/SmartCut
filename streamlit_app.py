@@ -88,13 +88,42 @@ def calculate_hinges(height):
     elif height <= 1300: return 3
     else: return 4
 
+# --- ФУНКЦИЯ ЗА МИНЮ ПРЕВЮ (3D) ---
+def draw_mini_preview(mod_meta, kraka_height):
+    img = Image.new('RGB', (200, 250), 'white')
+    draw = ImageDraw.Draw(img)
+    W, H, D = float(mod_meta.get('W', 600)), float(mod_meta.get('H', 720)), float(mod_meta.get('D', 550))
+    tip = mod_meta.get('Тип', '')
+    vr_cnt = int(mod_meta.get('vr_cnt', 1)) 
+    scale = 110.0 / max(W, H, D) if max(W, H, D) > 0 else 1
+    w_px, h_px, d_px = W * scale, H * scale, D * scale * 0.5
+    ox, oy = d_px * 0.8, d_px * 0.5
+    sx, sy = (200 - (w_px + ox)) / 2, (250 - (h_px + oy)) / 2 + oy
+    # Кутия 3D
+    draw.polygon([(sx, sy), (sx + ox, sy - oy), (sx + w_px + ox, sy - oy), (sx + w_px, sy)], fill="#e0e0e0", outline="black")
+    draw.polygon([(sx + w_px, sy), (sx + w_px + ox, sy - oy), (sx + w_px + ox, sy + h_px - oy), (sx + w_px, sy + h_px)], fill="#d0d0d0", outline="black")
+    draw.polygon([(sx, sy), (sx + w_px, sy), (sx + w_px, sy + h_px), (sx, sy + h_px)], fill="#f5f5f5", outline="black", width=2)
+    # Крачета
+    is_lower = any(t in tip for t in ["Долен", "Мивка", "Чекмеджета", "Фурна", "Колона"])
+    if is_lower:
+        leg_px = kraka_height * scale
+        draw.rectangle([sx + 5, sy + h_px, sx + 10, sy + h_px + leg_px], fill="black")
+        draw.rectangle([sx + w_px - 10, sy + h_px, sx + w_px - 5, sy + h_px + leg_px], fill="black")
+    # Линии
+    if "Чекмеджета" in tip:
+        for i in [0.3, 0.6]:
+            y_line = sy + h_px * i
+            draw.line([(sx, y_line), (sx + w_px, y_line)], fill="black", width=1)
+    elif vr_cnt == 2:
+        draw.line([(sx + w_px/2, sy), (sx + w_px/2, sy + h_px)], fill="black", width=1)
+    return img
+
 # --- СТРАНИЧНО МЕНЮ ---
 with st.sidebar:
     st.header("⚙️ Глобални Настройки")
     deb = st.number_input("Дебелина ПДЧ (мм)", value=18)
     fuga_obshto = st.number_input("Фуга врати/чела (мм)", value=3.0)
     kraka = st.number_input("Височина крака (мм)", value=100)
-    
     st.markdown("---")
     st.header("🎨 Материали и Фладер")
     mat_korpus = st.text_input("Декор Корпус:", value="Бяло гладко 18мм")
@@ -104,107 +133,67 @@ with st.sidebar:
     mat_chekm = st.text_input("Декор Чекмеджета:", value="Бяло гладко 18мм")
     val_fl_chekm = "Да" if st.checkbox("Има фладер - Чекмеджета", value=False) else "Няма"
     mat_fazer = st.text_input("Декор Фазер:", value="Бял фазер 3мм")
-    
     st.markdown("---")
     if st.button("🗑️ Изчисти списъка"):
-        st.session_state.order_list = []
-        st.session_state.hardware_list = []
-        st.session_state.modules_meta = []
-        st.rerun()
+        st.session_state.order_list = []; st.session_state.hardware_list = []; st.session_state.modules_meta = []; st.rerun()
 
 # --- ОСНОВЕН ИНТЕРФЕЙС ---
 col1, col2 = st.columns([1, 2.5])
 
 with col1:
     st.subheader("📝 Добави Модул")
-    
     cat_choice = st.radio("Избери категория:", ["🍳 Кухненски Шкафове", "🏢 Колони и Допълнителни"], horizontal=True)
-
     if cat_choice == "🍳 Кухненски Шкафове":
-        icons = {
-            "Стандартен Долен": "🗄️", "Горен Шкаф": "⬆️", "Шкаф Мивка": "🚰", 
-            "Шкаф 3 Чекмеджета": "🔢", "Шкаф Бутилки 15см": "🍾", "Шкаф за Фурна": "🍳", 
-            "Глух Ъгъл (Долен)": "📐", "Глух Ъгъл (Горен)": "📐"
-        }
+        icons = {"Стандартен Долен": "🗄️", "Горен Шкаф": "⬆️", "Шкаф Мивка": "🚰", "Шкаф 3 Чекмеджета": "🔢", "Шкаф Бутилки 15см": "🍾", "Шкаф за Фурна": "🍳", "Глух Ъгъл (Долен)": "📐", "Глух Ъгъл (Горен)": "📐"}
     else:
-        icons = {
-            "Шкаф Колона": "🏢", "Дублираща страница долен": "🗂️", "Нестандартен": "🧩"
-        }
+        icons = {"Шкаф Колона": "🏢", "Дублираща страница долен": "🗂️", "Нестандартен": "🧩"}
 
     tip = st.selectbox("Тип модул", options=list(icons.keys()), format_func=lambda x: f"{icons.get(x, '📌')} {x}")
     name = st.text_input("Име/№ на модула", value=tip)
     
-    # Инициализация на променливи за колоната
-    has_appliances = False
-    split_doors = False
-    lower_door_h = 0
-    lower_type = "Врата"
-    
+    # Инициализация
+    has_appliances = False; appliances_type = "Без уреди"; split_doors = False; lower_door_h = 0; lower_type = "Врата"; vrati_broi = 1
+
     if tip == "Дублираща страница долен":
-        h = st.number_input("Височина (H) мм", value=860)
-        d = st.number_input("Дълбочина (D) мм", value=580)
-        w = deb
+        h = st.number_input("Височина (H) мм", value=860); d = st.number_input("Дълбочина (D) мм", value=580); w = deb
     elif tip == "Нестандартен":
         custom_detail = st.text_input("Име на детайла", value="Нестандартен детайл")
         colA, colB, colC = st.columns(3)
-        h = custom_l = colA.number_input("Дължина (L) мм", value=600)
-        d = custom_w = colB.number_input("Ширина (W) мм", value=300)
-        w = deb
-        custom_count = colC.number_input("Брой", value=1, min_value=1)
+        h = custom_l = colA.number_input("Дължина (L) мм", value=600); d = custom_w = colB.number_input("Ширина (W) мм", value=300); w = deb; custom_count = colC.number_input("Брой", value=1, min_value=1)
         colD, colE = st.columns(2)
-        custom_kant = colD.selectbox("Кант", ["Без", "1д", "2д", "1д+1к", "1д+2к", "2д+1к", "4 страни", "2д+2к"], index=6)
-        custom_mat_type = colE.selectbox("Вид материал", ["Корпус", "Лице", "Чекмеджета", "Фазер"])
+        custom_kant = colD.selectbox("Кант", ["Без", "1д", "2д", "1д+1к", "1д+2к", "2д+1к", "4 страни", "2д+2к"], index=6); custom_mat_type = colE.selectbox("Вид материал", ["Корпус", "Лице", "Чекмеджета", "Фазер"])
     elif tip == "Шкаф Колона":
-        w = st.number_input("Ширина (W) на корпуса (мм)", value=600)
-        h_korpus = st.number_input("Височина на корпуса без крака (H) мм", value=2040)
-        d = st.number_input("Дълбочина (D) страници (мм)", value=550)
-        
-        has_appliances = st.checkbox("С място за фурна (595мм) и микровълнова (380мм)?", value=False)
-        
+        w = st.number_input("Ширина (W) мм", value=600); h_korpus = st.number_input("Височина без крака мм", value=2040); d = st.number_input("Дълбочина мм", value=550)
+        appliances_type = st.radio("Вградени уреди:", ["Без уреди", "Само Фурна", "Само Микровълнова", "Фурна + Микровълнова"], horizontal=True)
+        has_appliances = True if appliances_type != "Без уреди" else False
         if has_appliances:
-            lower_door_h = st.number_input("Височина на долната част (под фурната) мм", value=718)
-            lower_type = st.radio("Тип долна част:", ["Врата", "2 Чекмеджета", "3 Чекмеджета"], horizontal=True)
-            if "Чекмеджета" in lower_type:
-                runner_len = st.number_input("Дължина водач (мм)", value=500, step=50)
-            split_doors = True 
+            lower_door_h = st.number_input("Височина на долната част мм", value=718); lower_type = st.radio("Тип долу:", ["Врата", "2 Чекмеджета", "3 Чекмеджета"], horizontal=True)
+            if "Чекмеджета" in lower_type: runner_len = st.number_input("Дължина водач (мм)", value=500, step=50)
         else:
-            split_doors = st.checkbox("Две врати по височина (Долна + Горна)?", value=True)
-            if split_doors:
-                lower_door_h = st.number_input("Височина на долната врата (мм)", value=718)
-                
-        vrati_broi = st.radio("Брой врати на ред (лява/дясна):", [1, 2], index=0 if w <= 500 else 1, horizontal=True)
-        h = h_korpus + kraka 
+            split_doors = st.checkbox("Две врати по височина?", value=True)
+            if split_doors: lower_door_h = st.number_input("Височина долна врата мм", value=718)
+        vrati_broi = st.radio("Брой врати на ред:", [1, 2], index=0 if w <= 500 else 1, horizontal=True)
+        h = h_korpus + kraka
     else:
-        default_w = 150 if tip == "Шкаф Бутилки 15см" else (1000 if "Глух" in tip else 600)
-        w = st.number_input("Ширина (W) на корпуса (мм)", value=default_w)
-        
+        w = st.number_input("Ширина (W) на корпуса (мм)", value=(150 if tip == "Шкаф Бутилки 15см" else 600))
         if "Горен" in tip:
-            h = st.number_input("Височина (H) в мм", value=720)
-            d = st.number_input("Дълбочина (D) в мм", value=300)
-            if tip == "Горен Шкаф":
-                vrati_broi = st.radio("Брой врати:", [1, 2], index=1, horizontal=True)
-                vrati_orientacia = st.radio("Ориентация:", ["Вертикални", "Хоризонтални (Клапващи)"], horizontal=True)
-            elif tip == "Глух Ъгъл (Горен)":
-                st.markdown("##### Настройки за лицето:")
-                w_vrata_input = st.number_input("Ширина Врата (мм)", value=400)
-                w_gluha_input = st.number_input("Ширина Глуха част (мм)", value=300)
+            h = st.number_input("Височина (H) в мм", value=720); d = st.number_input("Дълбочина (D) в мм", value=300)
+            if tip == "Горен Шкаф": vrati_broi = st.radio("Брой врати:", [1, 2], index=1, horizontal=True); vrati_orientacia = st.radio("Ориентация:", ["Вертикални", "Хоризонтални (Клапващи)"], horizontal=True)
+            elif tip == "Глух Ъгъл (Горен)": w_vrata_input = st.number_input("Ширина Врата (мм)", value=400); w_gluha_input = st.number_input("Ширина Глуха част (мм)", value=300)
         else:
-            d = st.number_input("Дълбочина (D) страници (мм)", value=(550 if tip == "Шкаф Мивка" else 520))
+            d = st.number_input("Дълбочина (D) мм", value=520)
             if tip == "Шкаф 3 Чекмеджета": runner_len = st.number_input("Дължина водач (мм)", value=500, step=50)
-            elif tip == "Шкаф за Фурна": runner_len = 500
-            elif tip == "Глух Ъгъл (Долен)":
-                st.markdown("##### Настройки за лицето:")
-                w_vrata_input = st.number_input("Ширина Врата (мм)", value=400)
-                w_gluha_input = st.number_input("Ширина Глуха част (мм)", value=600)
-            
-            h = 742 + kraka + 38 
-            
-            if tip in ["Стандартен Долен", "Шкаф Мивка"]:
-                def_vrati = 0 if w <= 500 else 1
-                vrati_broi = st.radio("Брой врати:", [1, 2], index=def_vrati, horizontal=True)
+            elif tip == "Глух Ъгъл (Долен)": w_vrata_input = st.number_input("Ширина Врата (мм)", value=400); w_gluha_input = st.number_input("Ширина Глуха част (мм)", value=600)
+            h = 742 + kraka + 38
+            if tip in ["Стандартен Долен", "Шкаф Мивка"]: vrati_broi = st.radio("Брой врати:", [1, 2], index=(0 if w <= 500 else 1), horizontal=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("➕ Добави към списъка"):
+    # --- ВИЗУАЛИЗАЦИЯ НА ЖИВО ---
+    st.markdown("---")
+    preview_img = draw_mini_preview({"Тип": tip, "W": w, "H": h, "D": d, "vr_cnt": vrati_broi}, kraka)
+    st.image(preview_img, caption=f"Превю: {tip}")
+    st.markdown("---")
+
+        if st.button("➕ Добави към списъка"):
         new_items = []
         new_hw = []
         otstyp_fazer = 4; h_stranica = 742; h_shkaf_korpus = h_stranica + deb; h_vrata_standart = h_shkaf_korpus - fuga_obshto

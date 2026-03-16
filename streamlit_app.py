@@ -2383,22 +2383,14 @@ if st.session_state.order_list:
         
 
         total_materials_all = total_material_cost + total_cut_cost + total_edge_cost + total_extra_mats
-
         base_cost = total_materials_all + total_fixed_project + total_labor_cost + total_services
-
         
-
         unforeseen_cost = base_cost * (nepredvideni_pct / 100.0)
-
         sebestoinost = base_cost + unforeseen_cost
-
         profit_val = sebestoinost * (pechalba_pct / 100.0)
-
         final_offer = sebestoinost + profit_val
-
         
-
-         st.markdown("### 📊 Оферта и Калкулация:")
+        st.markdown("### 📊 Оферта и Калкулация:")
         st.write(f"Материали/разкрой/обков: **{total_materials_all:.2f} €** | Труд: **{total_labor_cost:.2f} €** | Разходи: **{(total_fixed_project + total_services):.2f} €**")
         st.info(f"Вътрешна себестойност: **{sebestoinost:.2f} €**")
         st.success(f"ОФЕРТА КЪМ КЛИЕНТ: **{final_offer:.2f} €**")

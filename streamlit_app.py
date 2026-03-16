@@ -122,7 +122,7 @@ with col1:
 
     if cat_choice == "🍳 Кухненски Шкафове":
         icons = {
-            "Стандартен Долен": "🗄️", "Горен Шкаф": "⬆️", "Шкаф Мивка": "🚰", "Трети ред (Надстройка)": "🔝",
+            "Стандартен Долен": "🗄️", "Горен Шкаф": "⬆️", "Шкаф Мивка": "🚰", 
             "Шкаф 3 Чекмеджета": "🔢", "Шкаф Бутилки 15см": "🍾", "Шкаф за Фурна": "🍳", 
             "Глух Ъгъл (Долен)": "📐", "Глух Ъгъл (Горен)": "📐"
         }
@@ -260,16 +260,7 @@ with col1:
                 add_item(name, tip, "Дъно", 1, w, d, "1д", mat_korpus, val_fl_korpus),
                 add_item(name, tip, "Страница", 2, h_korpus - deb, d, "1д", mat_korpus, val_fl_korpus),
                 add_item(name, tip, "Таван", 1, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
-                add_item(name, tip, "Гръб (Фазер)", 1, h_korpus - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма") 
-              
-        if tip == "Трети ред":
-            new_items.extend([
-                add_item(name, tip, "Дъно/Таван", 2, w, d, "1д", mat_korpus, val_fl_korpus),
-                add_item(name, tip, "Страница (вътрешна)", 2, h - (2*deb), d, "1д", mat_korpus, val_fl_korpus),
-                add_item(name, tip, "Гръб (Фазер)", 1, h - otstyp_f, w - otstyp_f, "Без", mat_fazer, "Няма"),
-                add_item(name, tip, "Врата", vrati_broi, h - fuga_obshto, (w/vrati_broi) - fuga_obshto, "4 страни", mat_lice, val_fl_lice)
-            ])
-            new_hw.append({"№": name, "Артикул": "Панти покрит кант", "Брой": calculate_hinges(h)*vrati_broi})
+                add_item(name, tip, "Гръб (Фазер)", 1, h_korpus - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма")
             ])
             
             if appliances_type != "Без уреди":

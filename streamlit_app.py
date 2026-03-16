@@ -58,40 +58,4 @@ def get_abbrev(detail_name):
     if "чело" in d: return "Чело"
     return detail_name[:5].capitalize()
 
-def calculate_hinges(height):
-    if height <= 950: return 2
-    elif height <= 1300: return 3
-    else: return 4
-
-# --- СТРАНИЧНО МЕНЮ ---
-with st.sidebar:
-    st.header("⚙️ Глобални Настройки")
-    deb = st.number_input("Дебелина ПДЧ (мм)", value=18)
-    fuga_obshto = st.number_input("Фуга врати/чела (мм)", value=3.0)
-    kraka_h = st.number_input("Височина крака (мм)", value=100)
-    
-    st.markdown("---")
-    st.header("🎨 Материали")
-    mat_korpus = st.text_input("Декор Корпус:", value="Бяло 18мм")
-    val_fl_korpus = "Да" if st.checkbox("Фладер Корпус", value=False) else "Няма"
-    mat_lice = st.text_input("Декор Лице:", value="Дъб Вотан 18мм")
-    val_fl_lice = "Да" if st.checkbox("Фладер Лице", value=True) else "Няма"
-    mat_fazer = st.text_input("Декор Фазер:", value="Бял 3мм")
-    
-    if st.button("🗑️ Изчисти всичко"):
-        st.session_state.order_list = []
-        st.session_state.hardware_list = []
-        st.session_state.modules_meta = []
-        st.rerun()
-
-# --- ОСНОВЕН ИНТЕРФЕЙС ---
-col1, col2 = st.columns([1, 2.5])
-
-with col1:
-    st.subheader("📝 Добави Модул")
-    icons = {"Стандартен Долен": "🗄️", "Горен Шкаф": "⬆️", "Шкаф Мивка": "🚰", "Шкаф 3 Чекмеджета": "🔢", "Шкаф Бутилки 15см": "🍾", "Шкаф за Фурна": "🍳", "Глух Ъгъл (Долен)": "📐", "Нестандартен": "🧩"}
-    tip = st.selectbox("Тип модул", options=list(icons.keys()))
-    name = st.text_input("Име/№ на модула", value="1")
-    
-    default_w = 150 if tip == "Шкаф Бутилки 15см" else 600
-    w = st.number_input("Ширина (W)", value
+def calculate_hing

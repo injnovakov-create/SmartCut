@@ -59,7 +59,8 @@ def add_item(modul, tip, detail, count, l, w, kant_str, material, flader, note="
         "Дължина": int(final_l), "Ширина": int(final_w), 
         "Фладер": flader, "Бр": count, "Д1": d1, "Д2": d2, "Ш1": sh1, "Ш2": sh2, "Забележка": note
     }
-    }
+
+def get_abbrev(detail_name):
 
 def get_abbrev(detail_name):
     d = str(detail_name).lower()

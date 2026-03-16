@@ -229,6 +229,19 @@ with col1:
                 vrati_broi = st.radio("Брой врати:", [1, 2], index=def_vrati, horizontal=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
+  # Подготвяме данните за превюто на живо
+    # Проверяваме дали трябва да са 2 врати спрямо ширината
+    v_cnt = 2 if w > 500 else 1
+    # Ако е 3 чекмеджета, превюто няма нужда от вертикална линия
+    if "Чекмеджета" in tip: v_cnt = 1
+    
+    temp_meta = {"Тип": tip, "W": w, "H": h, "D": d, "vr_cnt": v_cnt}
+    
+    # Визуализация
+    st.markdown("---")
+    preview_img = draw_mini_preview(temp_meta, kraka) # ползваме 'kraka' от твоя Sidebar
+    st.image(preview_img, caption=f"Скица: {tip}")
+    st.markdown("---")
     if st.button("➕ Добави към списъка"):
         new_items = []
         new_hw = []

@@ -1157,7 +1157,7 @@ def draw_mini_preview(mod_meta, kraka_height):
 # --- СТРАНИЧНО МЕНЮ ---
 with st.sidebar:
     st.header("⚙️ Глобални Настройки")
-    deb = st.number_input("Дебелина ПДЧ (мм)", value=18)
+    deb = st.number_input("Дебелина ПДЧ (мм)", value=18) deb = st.number_input("Дебелина ПДЧ (мм)", value=18, key="unique_deb_18")
     fuga_obshto = st.number_input("Фуга врати/чела (мм)", value=3.0)
     kraka = st.number_input("Височина крака (мм)", value=100)
     st.markdown("---")

@@ -317,17 +317,19 @@ with col1:
                     new_hw.append({"№": name, "Артикул": "Панти покрит кант", "Брой": calculate_hinges(lower_door_h) * vrati_broi})
                     new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": vrati_broi})
                 elif lower_type == "2 Чекмеджета":
-                    chelo_h = (lower_door_h / 2) - (fuga_obshto / 2)
+                    chelo_h = lower_door_h / 2.0
                     cargi_w = w - (2*deb) - 49
                     duno_w = cargi_w + 12
                     duno_l = runner_len - 13
                     block_note = "В БЛОК" if val_fl_lice == "Да" else ""
                     
+                    h_tsarga = max(70, chelo_h - 60)
+                    
                     new_items.extend([
-                        add_item(name, tip, "Чело долно 1", 1, chelo_h, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice, block_note),
-                        add_item(name, tip, "Чело долно 2", 1, lower_door_h - chelo_h - fuga_obshto, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice, block_note),
-                        add_item(name, tip, "Царги чекм.", 4, cargi_w, 160, "1д", mat_chekm, val_fl_chekm),
-                        add_item(name, tip, "Страници чекм.", 4, runner_len - 10, 175, "2д", mat_chekm, val_fl_chekm),
+                        add_item(name, tip, "Чело долно 1", 1, chelo_h - fuga_obshto, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice, block_note),
+                        add_item(name, tip, "Чело долно 2", 1, chelo_h - fuga_obshto, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice, block_note),
+                        add_item(name, tip, "Царги чекм.", 4, cargi_w, h_tsarga, "1д", mat_chekm, val_fl_chekm),
+                        add_item(name, tip, "Страници чекм.", 4, runner_len - 10, h_tsarga + 15, "2д", mat_chekm, val_fl_chekm),
                         add_item(name, tip, "Дъно чекмедже", 2, duno_l, duno_w, "Без", mat_fazer, "Няма")
                     ])
                     new_hw.append({"№": name, "Артикул": "Комплект водачи за чекмедже", "Брой": 2})

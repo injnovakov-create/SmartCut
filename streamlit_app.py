@@ -32,7 +32,7 @@ if 'order_list' not in st.session_state: st.session_state.order_list = []
 if 'hardware_list' not in st.session_state: st.session_state.hardware_list = []
 if 'modules_meta' not in st.session_state: st.session_state.modules_meta = [] 
 
-# --- ЛОГИКА ЗА ЗАПИС ---
+# --- ЛОГИКА ЗА ЗАПИС ТОЧНО КАТО В EXCEL ---
 def add_item(modul, tip, detail, count, l, w, kant_str, material, flader, note=""):
     thick = 2 if any(x in str(detail).lower() for x in ["врата", "чело", "дублираща"]) else 1
     d1 = d2 = sh1 = sh2 = ""
@@ -48,18 +48,23 @@ def add_item(modul, tip, detail, count, l, w, kant_str, material, flader, note="
 
 def get_abbrev(detail_name):
     d = str(detail_name).lower()
-    if "дублираща" in d: return "Дубл"
+    if "дублираща" in d: return "ДублСтр"
     if "страница" in d and "чекм" not in d: return "Стр"
-    if "дъно/таван" in d: return "Дън/Тав"
-    if "дъно" in d: return "Дъно"
-    if "бленда" in d: return "Бленда"
-    if "рафт" in d: return "Рафт"
-    if "врата" in d: return "Врата"
+    if "дъно/таван" in d: return "Д/Т"
+    if "дъно" in d: return "Дън"
+    if "бленда" in d: return "Бл"
+    if "рафт" in d and "фурна" not in d: return "Рфт"
+    if "рафт" in d and "фурна" in d: return "РфтФур"
+    if "врата" in d: return "Вр"
     if "гръб" in d or "фазер" in d: return "Гръб"
+    if "чело горно" in d: return "ЧГ"
+    if "чело средно" in d: return "ЧС"
+    if "чело долно" in d: return "ЧД"
+    if "чело чекмедже" in d: return "ЧЧ"
     if "чело" in d: return "Чело"
-    if "царги чекм" in d or "царга" in d: return "Царга"
-    if "страници чекм" in d or "стр чекм" in d: return "Стр ч-дже"
-    return detail_name[:10].capitalize()
+    if "царги чекм" in d: return "Цч"
+    if "страници чекм" in d: return "Сч"
+    return detail_name[:5].capitalize()
 
 def get_module_abbrev(tip):
     t = str(tip).lower()
@@ -78,71 +83,25 @@ def calculate_hinges(height):
     elif height <= 1300: return 3
     else: return 4
 
-# --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (ГЛОБАЛНА ФУНКЦИЯ) ---
-def get_optimized_boards(list_for_cutting):
-    kerf, trim, board_l, board_w = 8, 8, 2800, 2070
-    use_l, use_w = board_l - 2*trim, board_w - 2*trim
-    materials_dict = {}
-    for item in list_for_cutting:
-        mat = item.get('Плоскост', 'Неизвестен')
-        if mat not in materials_dict: materials_dict[mat] = []
-        try:
-            for _ in range(int(item['Бр'])):
-                materials_dict[mat].append({
-                    'name': f"{item['№']} {get_abbrev(item['Детайл'])}", 
-                    'l': float(item['Дължина']), 'w': float(item['Ширина']),
-                    'd1': str(item.get('Д1', '')).strip(), 'd2': str(item.get('Д2', '')).strip(),
-                    'sh1': str(item.get('Ш1', '')).strip(), 'sh2': str(item.get('Ш2', '')).strip(),
-                    'mod_num': str(item.get('№', '')), 'mod_tip': str(item.get('Тип', '')),
-                    'part_name': get_abbrev(item['Детайл']), 'mat': mat
-                })
-        except: pass
-    
-    boards_per_material = {}
-    for mat_name, parts in materials_dict.items():
-        parts.sort(key=lambda x: (x['w'], x['l']), reverse=True)
-        boards, current_board = [], []
-        curr_x, curr_y, shelf_h = 0, 0, 0
-        for p in parts:
-            part_l, part_w = p['l'], p['w']
-            if curr_x + part_l <= use_l:
-                if shelf_h == 0: shelf_h = part_w
-                if curr_y + part_w <= use_w:
-                    p_copy = p.copy(); p_copy.update({'x': curr_x, 'y': curr_y})
-                    current_board.append(p_copy); curr_x += part_l + kerf
-                else:
-                    boards.append(current_board)
-                    p_copy = p.copy(); p_copy.update({'x': 0, 'y': 0})
-                    current_board = [p_copy]; curr_x = part_l + kerf; curr_y = 0; shelf_h = part_w
-            else:
-                curr_x = 0; curr_y += shelf_h + kerf; shelf_h = part_w
-                if curr_y + part_w <= use_w:
-                    p_copy = p.copy(); p_copy.update({'x': curr_x, 'y': curr_y})
-                    current_board.append(p_copy); curr_x += part_l + kerf
-                else:
-                    boards.append(current_board)
-                    p_copy = p.copy(); p_copy.update({'x': 0, 'y': 0})
-                    current_board = [p_copy]; curr_x = part_l + kerf; curr_y = 0; shelf_h = part_w
-        if current_board: boards.append(current_board)
-        boards_per_material[mat_name] = boards
-    return boards_per_material, board_l, board_w, trim
-
 # --- СТРАНИЧНО МЕНЮ ---
 with st.sidebar:
     st.header("⚙️ Глобални Настройки")
     deb = st.number_input("Дебелина ПДЧ (мм)", value=18)
     fuga_obshto = st.number_input("Фуга врати/чела (мм)", value=3.0)
-    kraka_h = st.number_input("Височина крака (мм)", value=100)
+    kraka = st.number_input("Височина крака (мм)", value=100)
     
     st.markdown("---")
-    st.header("🎨 Материали")
-    mat_korpus = st.text_input("Декор Корпус:", value="Бяло 18мм")
-    val_fl_korpus = "Да" if st.checkbox("Фладер Корпус", value=False) else "Няма"
+    st.header("🎨 Материали и Фладер")
+    mat_korpus = st.text_input("Декор Корпус:", value="Бяло гладко 18мм")
+    val_fl_korpus = "Да" if st.checkbox("Има фладер - Корпус", value=False) else "Няма"
     mat_lice = st.text_input("Декор Лице:", value="Дъб Вотан 18мм")
-    val_fl_lice = "Да" if st.checkbox("Фладер Лице", value=True) else "Няма"
-    mat_fazer = st.text_input("Декор Фазер:", value="Бял 3мм")
+    val_fl_lice = "Да" if st.checkbox("Има фладер - Лице", value=True) else "Няма"
+    mat_chekm = st.text_input("Декор Чекмеджета:", value="Бяло гладко 18мм")
+    val_fl_chekm = "Да" if st.checkbox("Има фладер - Чекмеджета", value=False) else "Няма"
+    mat_fazer = st.text_input("Декор Фазер:", value="Бял фазер 3мм")
     
-    if st.button("🗑️ Изчисти всичко"):
+    st.markdown("---")
+    if st.button("🗑️ Изчисти списъка"):
         st.session_state.order_list = []
         st.session_state.hardware_list = []
         st.session_state.modules_meta = []
@@ -153,52 +112,194 @@ col1, col2 = st.columns([1, 2.5])
 
 with col1:
     st.subheader("📝 Добави Модул")
-    icons = {"Стандартен Долен": "🗄️", "Горен Шкаф": "⬆️", "Шкаф Мивка": "🚰", "Шкаф 3 Чекмеджета": "🔢", "Шкаф Бутилки 15см": "🍾", "Шкаф за Фурна": "🍳", "Глух Ъгъл (Долен)": "📐", "Нестандартен": "🧩"}
-    tip = st.selectbox("Тип модул", options=list(icons.keys()))
-    name = st.text_input("Име/№ на модула", value="1")
+    icons = {
+        "Стандартен Долен": "🗄️", "Горен Шкаф": "⬆️", "Шкаф Мивка": "🚰", 
+        "Шкаф 3 Чекмеджета": "🔢", "Шкаф Бутилки 15см": "🍾", "Шкаф за Фурна": "🍳", 
+        "Глух Ъгъл (Долен)": "📐", "Глух Ъгъл (Горен)": "📐", 
+        "Дублираща страница долен": "🗂️", "Нестандартен": "🧩"
+    }
+    tip = st.selectbox("Тип модул", options=list(icons.keys()), format_func=lambda x: f"{icons.get(x, '📌')} {x}")
+    name = st.text_input("Име/№ на модула", value=tip)
     
-    default_w = 150 if tip == "Шкаф Бутилки 15см" else 600
-    w = st.number_input("Ширина (W)", value=default_w)
-    
-    if "Горен" in tip:
-        h = st.number_input("Височина (H)", value=720)
-        d = st.number_input("Дълбочина (D)", value=300)
-        vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True)
-        vrati_orientacia = "Вертикални"
+    if tip == "Дублираща страница долен":
+        h = st.number_input("Височина (H) мм", value=860)
+        d = st.number_input("Дълбочина (D) мм", value=580)
+        w = deb
+    elif tip == "Нестандартен":
+        custom_detail = st.text_input("Име на детайла", value="Нестандартен детайл")
+        colA, colB, colC = st.columns(3)
+        h = custom_l = colA.number_input("Дължина (L) мм", value=600)
+        d = custom_w = colB.number_input("Ширина (W) мм", value=300)
+        w = deb
+        custom_count = colC.number_input("Брой", value=1, min_value=1)
+        colD, colE = st.columns(2)
+        custom_kant = colD.selectbox("Кант", ["Без", "1д", "2д", "1д+1к", "1д+2к", "2д+1к", "4 страни", "2д+2к"], index=6)
+        custom_mat_type = colE.selectbox("Вид материал", ["Корпус", "Лице", "Чекмеджета", "Фазер"])
     else:
-        h = 742 + kraka_h + 38 
-        d = st.number_input("Дълбочина (D)", value=520)
-        vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True)
+        default_w = 150 if tip == "Шкаф Бутилки 15см" else (1000 if "Глух" in tip else 600)
+        w = st.number_input("Ширина (W) на корпуса (мм)", value=default_w)
+        
+        if "Горен" in tip:
+            h = st.number_input("Височина (H) в мм", value=720)
+            d = st.number_input("Дълбочина (D) в мм", value=300)
+            if tip == "Горен Шкаф":
+                vrati_broi = st.radio("Брой врати:", [1, 2], index=1, horizontal=True)
+                vrati_orientacia = st.radio("Ориентация:", ["Вертикални", "Хоризонтални (Клапващи)"], horizontal=True)
+            elif tip == "Глух Ъгъл (Горен)":
+                st.markdown("##### Настройки за лицето:")
+                w_vrata_input = st.number_input("Ширина Врата (мм)", value=400)
+                w_gluha_input = st.number_input("Ширина Глуха част (мм)", value=300)
+        else:
+            d = st.number_input("Дълбочина (D) страници (мм)", value=(550 if tip == "Шкаф Мивка" else 520))
+            if tip == "Шкаф 3 Чекмеджета": runner_len = st.number_input("Дължина водач (мм)", value=500, step=50)
+            elif tip == "Шкаф за Фурна": runner_len = 500
+            elif tip == "Глух Ъгъл (Долен)":
+                st.markdown("##### Настройки за лицето:")
+                w_vrata_input = st.number_input("Ширина Врата (мм)", value=400)
+                w_gluha_input = st.number_input("Ширина Глуха част (мм)", value=600)
+            
+            h = 742 + kraka + 38 
+            
+            if tip in ["Стандартен Долен", "Шкаф Мивка"]:
+                def_vrati = 0 if w <= 500 else 1
+                vrati_broi = st.radio("Брой врати:", [1, 2], index=def_vrati, horizontal=True)
 
-    if st.button("➕ ДОБАВИ"):
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("➕ Добави към списъка"):
         new_items = []
         new_hw = []
-        otstyp_f = 4; h_str = 742; h_korp = h_str + deb; h_vr_std = h_korp - fuga_obshto
+        otstyp_fazer = 4; h_stranica = 742; h_shkaf_korpus = h_stranica + deb; h_vrata_standart = h_shkaf_korpus - fuga_obshto
         
-        st.session_state.modules_meta.append({"№": name, "Тип": tip, "W": w, "H": h, "D": d, "Vrati": vrati_broi})
+        st.session_state.modules_meta.append({"№": name, "Тип": tip, "W": w, "H": h, "D": d})
 
-        if "Горен" not in tip:
-            legs = 5 if w > 900 else 4
-            new_hw.append({"№": name, "Артикул": "Крака", "Брой": legs})
-        
+        if tip in ["Стандартен Долен", "Шкаф Мивка", "Шкаф Бутилки 15см", "Глух Ъгъл (Долен)", "Шкаф за Фурна", "Шкаф 3 Чекмеджета"]:
+            hw_legs = 5 if w > 900 else 4
+            new_hw.append({"№": name, "Артикул": "Крака за долен шкаф", "Брой": hw_legs})
+
+        if tip in ["Стандартен Долен", "Шкаф Мивка", "Горен Шкаф"]:
+            h_door_hw = h_vrata_standart if tip != "Горен Шкаф" else (h - fuga_obshto if vrati_orientacia == "Вертикални" else (h - fuga_obshto if vrati_broi == 1 else int((h/2) - fuga_obshto)))
+            hw_hinges = calculate_hinges(h_door_hw) * vrati_broi
+            new_hw.append({"№": name, "Артикул": "Панти покрит кант", "Брой": hw_hinges})
+            new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": vrati_broi})
+            
+        elif tip == "Шкаф Бутилки 15см":
+            hw_hinges = calculate_hinges(h_vrata_standart) * 1
+            new_hw.append({"№": name, "Артикул": "Панти покрит кант", "Брой": hw_hinges})
+            new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": 1})
+            new_hw.append({"№": name, "Артикул": "Механизъм за бутилки", "Брой": 1})
+            
+        elif tip in ["Глух Ъгъл (Долен)", "Глух Ъгъл (Горен)"]:
+            h_door_hw = h_vrata_standart if "Долен" in tip else h - fuga_obshto
+            hw_hinges = calculate_hinges(h_door_hw) * 1
+            new_hw.append({"№": name, "Артикул": "Панти в една равнина (за глухи)", "Брой": hw_hinges})
+            new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": 1})
+            
         if tip == "Шкаф 3 Чекмеджета":
-            new_hw.append({"№": name, "Артикул": "Комплект водачи", "Брой": 3})
-            new_items.extend([add_item(name, tip, "Чело 180", 1, 180-fuga_obshto, w-fuga_obshto, "4 страни", mat_lice, val_fl_lice),
-                              add_item(name, tip, "Чело 250", 1, 250-fuga_obshto, w-fuga_obshto, "4 страни", mat_lice, val_fl_lice),
-                              add_item(name, tip, "Чело 330", 1, 330-fuga_obshto, w-fuga_obshto, "4 страни", mat_lice, val_fl_lice)])
-        elif tip == "Шкаф Мивка":
-            new_items.append(add_item(name, tip, "Врата", vrati_broi, h_vr_std, (w/vrati_broi)-(fuga_obshto/2), "4 страни", mat_lice, val_fl_lice))
+            new_hw.append({"№": name, "Артикул": "Комплект водачи за чекмедже", "Брой": 3})
+            new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": 3})
+        elif tip == "Шкаф за Фурна":
+            new_hw.append({"№": name, "Артикул": "Комплект водачи за чекмедже", "Брой": 1})
+            new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": 1})
+
+        if "Горен" in tip:
+            new_hw.append({"№": name, "Артикул": "Окачвачи за горен шкаф", "Брой": 2})
+            new_hw.append({"№": name, "Артикул": "LED осветление (л.м.)", "Брой": w / 1000.0})
+
+        # --- ГЕНЕРИРАНЕ НА ПДЧ ДЕТАЙЛИ ---
+        if tip == "Дублираща страница долен":
+            new_items.append(add_item(name, tip, "Дублираща страница", 1, h, d, "4 страни", mat_lice, val_fl_lice))
+        elif tip == "Нестандартен":
+            m_choice = mat_korpus; f_choice = val_fl_korpus
+            if custom_mat_type == "Лице": m_choice = mat_lice; f_choice = val_fl_lice
+            elif custom_mat_type == "Чекмеджета": m_choice = mat_chekm; f_choice = val_fl_chekm
+            elif custom_mat_type == "Фазер": m_choice = mat_fazer; f_choice = "Няма"
+            new_items.append(add_item(name, tip, custom_detail, custom_count, custom_l, custom_w, custom_kant, m_choice, f_choice))
         elif tip == "Горен Шкаф":
-            shelves = 2 if h > 800 else 1
-            new_hw.append({"№": name, "Артикул": "Окачвачи", "Брой": 2})
-            new_hw.append({"№": name, "Артикул": "LED (лм)", "Брой": w/1000})
-            new_hw.append({"№": name, "Артикул": "Рафтоносачи", "Брой": shelves*4})
-            new_items.append(add_item(name, tip, "Врата", vrati_broi, h-fuga_obshto, (w/vrati_broi)-(fuga_obshto/2), "4 страни", mat_lice, val_fl_lice))
+            shelves_count = 2 if h > 800 else 1
+            new_hw.append({"№": name, "Артикул": "Рафтоносачи", "Брой": shelves_count * 4})
+            new_items.extend([
+                add_item(name, tip, "Страница", 2, h, d, "1д", mat_korpus, val_fl_korpus),
+                add_item(name, tip, "Дъно/Таван", 2, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
+                add_item(name, tip, "Рафт", shelves_count, w-(2*deb), d-10, "1д", mat_korpus, val_fl_korpus),
+                add_item(name, tip, "Гръб (Фазер)", 1, h - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма")
+            ])
+            h_vrata = h - fuga_obshto if vrati_orientacia == "Вертикални" else (h - fuga_obshto if vrati_broi == 1 else int((h/2) - fuga_obshto))
+            w_vrata = w - fuga_obshto if vrati_orientacia != "Вертикални" else (w - fuga_obshto if vrati_broi == 1 else int((w/2) - fuga_obshto))
+            new_items.append(add_item(name, tip, "Врата", vrati_broi, h_vrata, w_vrata, "4 страни", mat_lice, val_fl_lice))
+        elif tip == "Глух Ъгъл (Горен)":
+            shelves_count = 2 if h > 800 else 1
+            new_hw.append({"№": name, "Артикул": "Рафтоносачи", "Брой": shelves_count * 4})
+            new_items.extend([
+                add_item(name, tip, "Страница", 2, h, d, "1д", mat_korpus, val_fl_korpus),
+                add_item(name, tip, "Дъно/Таван", 2, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
+                add_item(name, tip, "Рафт", shelves_count, w-(2*deb), d-10, "1д", mat_korpus, val_fl_korpus),
+                add_item(name, tip, "Гръб (Фазер)", 1, h - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма"),
+                add_item(name, tip, "Врата", 1, h - fuga_obshto, int(w_vrata_input - fuga_obshto), "4 страни", mat_lice, val_fl_lice),
+                add_item(name, tip, "Глуха част (Чело)", 1, h - fuga_obshto, int(w_gluha_input - fuga_obshto), "4 страни", mat_lice, val_fl_lice)
+            ])
         else:
-            new_items.append(add_item(name, tip, "Врата", vrati_broi, h_vr_std, (w/vrati_broi)-(fuga_obshto/2), "4 страни", mat_lice, val_fl_lice))
+            w_vrata_dvoina, w_vrata_edinichna = int((w/2) - fuga_obshto), w - fuga_obshto
+            if tip == "Шкаф Мивка":
+                w_izbrana = w_vrata_edinichna if vrati_broi == 1 else w_vrata_dvoina
+                new_items.extend([
+                    add_item(name, tip, "Дъно", 1, w, 480, "1д", mat_korpus, val_fl_korpus), add_item(name, tip, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus),
+                    add_item(name, tip, "Бленда", 3, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus), add_item(name, tip, "Врата", vrati_broi, h_vrata_standart, w_izbrana, "4 страни", mat_lice, val_fl_lice)
+                ])
+            elif tip == "Стандартен Долен":
+                w_izbrana = w_vrata_edinichna if vrati_broi == 1 else w_vrata_dvoina
+                new_hw.append({"№": name, "Артикул": "Рафтоносачи", "Брой": 4})
+                new_items.extend([
+                    add_item(name, tip, "Дъно", 1, w, d, "1д", mat_korpus, val_fl_korpus), add_item(name, tip, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus),
+                    add_item(name, tip, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus), add_item(name, tip, "Рафт", 1, w-(2*deb), d - 10, "1д", mat_korpus, val_fl_korpus),
+                    add_item(name, tip, "Врата", vrati_broi, h_vrata_standart, w_izbrana, "4 страни", mat_lice, val_fl_lice), add_item(name, tip, "Гръб (Фазер)", 1, h_shkaf_korpus - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма")
+                ])
+            elif tip == "Шкаф Бутилки 15см":
+                new_items.extend([
+                    add_item(name, tip, "Дъно", 1, w, d, "1д", mat_korpus, val_fl_korpus), add_item(name, tip, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus),
+                    add_item(name, tip, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus), add_item(name, tip, "Врата", 1, h_vrata_standart, w_vrata_edinichna, "4 страни", mat_lice, val_fl_lice),
+                    add_item(name, tip, "Гръб (Фазер)", 1, h_shkaf_korpus - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма")
+                ])
+            elif tip == "Глух Ъгъл (Долен)":
+                new_hw.append({"№": name, "Артикул": "Рафтоносачи", "Брой": 4})
+                new_items.extend([
+                    add_item(name, tip, "Дъно", 1, w, d, "1д", mat_korpus, val_fl_korpus), add_item(name, tip, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus),
+                    add_item(name, tip, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus), add_item(name, tip, "Рафт", 1, w-(2*deb), d - 10, "1д", mat_korpus, val_fl_korpus),
+                    add_item(name, tip, "Врата", 1, h_vrata_standart, int(w_vrata_input - fuga_obshto), "4 страни", mat_lice, val_fl_lice),
+                    add_item(name, tip, "Глуха част (Чело)", 1, h_vrata_standart, int(w_gluha_input - fuga_obshto), "4 страни", mat_lice, val_fl_lice),
+                    add_item(name, tip, "Гръб (Фазер)", 1, h_shkaf_korpus - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма")
+                ])
+            elif tip == "Шкаф за Фурна":
+                new_hw.append({"№": name, "Артикул": "Рафтоносачи", "Брой": 4})
+                cargi_w = w - (2*deb) - 49
+                duno_w = cargi_w + 12
+                duno_l = runner_len - 13
+                new_items.extend([
+                    add_item(name, tip, "Дъно", 1, w, d, "1д", mat_korpus, val_fl_korpus), add_item(name, tip, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus),
+                    add_item(name, tip, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus), add_item(name, tip, "Рафт (под фурна)", 1, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
+                    add_item(name, tip, "Чело чекмедже", 1, 157, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice), add_item(name, tip, "Царги чекм.", 2, cargi_w, 70, "1д", mat_chekm, val_fl_chekm),
+                    add_item(name, tip, "Страници чекм.", 2, runner_len - 10, 85, "2д", mat_chekm, val_fl_chekm),
+                    add_item(name, tip, "Дъно чекмедже", 1, duno_l, duno_w, "Без", mat_fazer, "Няма")
+                ])
+            elif tip == "Шкаф 3 Чекмеджета":
+                block_note = "В БЛОК" if val_fl_lice == "Да" else ""
+                cargi_w = w - (2*deb) - 49
+                duno_w = cargi_w + 12
+                duno_l = runner_len - 13
+                new_items.extend([
+                    add_item(name, tip, "Дъно", 1, w, d, "1д", mat_korpus, val_fl_korpus), add_item(name, tip, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus),
+                    add_item(name, tip, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus), add_item(name, tip, "Гръб (Фазер)", 1, h_shkaf_korpus - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма"),
+                    add_item(name, tip, "Чело горно", 1, 180-fuga_obshto, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice, block_note),
+                    add_item(name, tip, "Чело средно", 1, 250-fuga_obshto, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice, block_note),
+                    add_item(name, tip, "Чело долно", 1, 330-fuga_obshto, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice, block_note),
+                    add_item(name, tip, "Царги чекм. 1", 2, cargi_w, 80, "1д", mat_chekm, val_fl_chekm), add_item(name, tip, "Страници чекм. 1", 2, runner_len - 10, 80+15, "2д", mat_chekm, val_fl_chekm),
+                    add_item(name, tip, "Царги чекм. 2", 2, cargi_w, 160, "1д", mat_chekm, val_fl_chekm), add_item(name, tip, "Страници чекм. 2", 2, runner_len - 10, 160+15, "2д", mat_chekm, val_fl_chekm),
+                    add_item(name, tip, "Царги чекм. 3", 2, cargi_w, 200, "1д", mat_chekm, val_fl_chekm), add_item(name, tip, "Страници чекм. 3", 2, runner_len - 10, 200+15, "2д", mat_chekm, val_fl_chekm),
+                    add_item(name, tip, "Дъно чекмедже", 3, duno_l, duno_w, "Без", mat_fazer, "Няма")
+                ])
 
         st.session_state.order_list.extend(new_items)
         st.session_state.hardware_list.extend(new_hw)
+        st.success(f"Модул {name} е добавен!")
         st.rerun()
 
 with col2:
@@ -226,7 +327,7 @@ with col2:
     else:
         st.info("Списъкът е празен. Добави първия си модул отляво!")
 
-# --- ГЕНЕРИРАНЕ НА PDF С ЧЕРТЕЖИ ---
+# --- ГЕНЕРИРАНЕ НА PDF С ЧЕРТЕЖИ И РЕШЕТКА ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
     font_path = "Roboto-Regular.ttf"
     if not os.path.exists(font_path):
@@ -359,7 +460,7 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         return pdf_bytes.getvalue()
     return None
 
-# --- НОВО: ГЕНЕРИРАНЕ НА ЕТИКЕТИ С 44 БРОЯ НА А4 ---
+# --- ГЕНЕРИРАНЕ НА ЕТИКЕТИ С 44 БРОЯ НА А4 ---
 def generate_labels_pdf(boards_per_mat):
     font_path = "Roboto-Regular.ttf"
     if not os.path.exists(font_path):
@@ -373,7 +474,6 @@ def generate_labels_pdf(boards_per_mat):
     except: 
         font_small = font_text = font_huge = font_edge = ImageFont.load_default()
 
-    # Извличане на детайлите ТОЧНО в реда, в който са оптимизирани по плочите
     labels = []
     for mat_name, boards in boards_per_mat.items():
         for board in boards:
@@ -404,32 +504,26 @@ def generate_labels_pdf(boards_per_mat):
         x = margin_x + col * label_w
         y = margin_y + row * label_h
         
-        # Много бледа рамка колкото да се ориентираш (няма да личи при рязане)
         draw.rectangle([x, y, x+label_w, y+label_h], outline="#eeeeee", width=1)
         
-        # --- ЧЕРТАНЕ НА КАНТОВЕТЕ И ЛИНИИТЕ ---
         d1_v = "0.8" if lbl['d1'] in ['1', '1.0'] else ("2" if lbl['d1'] in ['2', '2.0'] else "")
         d2_v = "0.8" if lbl['d2'] in ['1', '1.0'] else ("2" if lbl['d2'] in ['2', '2.0'] else "")
         sh1_v = "0.8" if lbl['sh1'] in ['1', '1.0'] else ("2" if lbl['sh1'] in ['2', '2.0'] else "")
         sh2_v = "0.8" if lbl['sh2'] in ['1', '1.0'] else ("2" if lbl['sh2'] in ['2', '2.0'] else "")
         
-        if d1_v: # Горна дълга страна
+        if d1_v: 
             draw.line([(x, y), (x+label_w, y)], fill="black", width=12)
             draw.text((x + label_w/2, y + 10), d1_v, fill="black", font=font_edge, anchor="mt")
-            
-        if d2_v: # Долна дълга страна
+        if d2_v: 
             draw.line([(x, y+label_h), (x+label_w, y+label_h)], fill="black", width=12)
             draw.text((x + label_w/2, y + label_h - 10), d2_v, fill="black", font=font_edge, anchor="mb")
-            
-        if sh1_v: # Лява къса страна
+        if sh1_v: 
             draw.line([(x, y), (x, y+label_h)], fill="black", width=12)
             draw.text((x + 15, y + label_h/2), sh1_v, fill="black", font=font_edge, anchor="lm")
-            
-        if sh2_v: # Дясна къса страна
+        if sh2_v: 
             draw.line([(x+label_w, y), (x+label_w, y+label_h)], fill="black", width=12)
             draw.text((x + label_w - 15, y + label_h/2), sh2_v, fill="black", font=font_edge, anchor="rm")
             
-        # --- ТЕКСТ НА ЕТИКЕТА ---
         mod_abbr = get_module_abbrev(lbl['mod_tip'])
         top_text = f"[{lbl['mod_num']}] {mod_abbr} | {lbl['part_name']}"
         dim_text = f"{int(lbl['l'])} x {int(lbl['w'])}"
@@ -445,6 +539,54 @@ def generate_labels_pdf(boards_per_mat):
     pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
     return pdf_bytes.getvalue()
 
+# --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ ---
+def get_optimized_boards(list_for_cutting):
+    kerf, trim, board_l, board_w = 8, 8, 2800, 2070
+    use_l, use_w = board_l - 2*trim, board_w - 2*trim
+    materials_dict = {}
+    for item in list_for_cutting:
+        mat = item.get('Плоскост', 'Неизвестен')
+        if mat not in materials_dict: materials_dict[mat] = []
+        try:
+            for _ in range(int(item['Бр'])):
+                materials_dict[mat].append({
+                    'name': f"{item['№']} {get_abbrev(item['Детайл'])}", 
+                    'l': float(item['Дължина']), 'w': float(item['Ширина']),
+                    'd1': str(item.get('Д1', '')).strip(), 'd2': str(item.get('Д2', '')).strip(),
+                    'sh1': str(item.get('Ш1', '')).strip(), 'sh2': str(item.get('Ш2', '')).strip(),
+                    'mod_num': str(item.get('№', '')), 'mod_tip': str(item.get('Тип', '')),
+                    'part_name': get_abbrev(item['Детайл']), 'mat': mat
+                })
+        except: pass
+    
+    boards_per_material = {}
+    for mat_name, parts in materials_dict.items():
+        parts.sort(key=lambda x: (x['w'], x['l']), reverse=True)
+        boards, current_board = [], []
+        curr_x, curr_y, shelf_h = 0, 0, 0
+        for p in parts:
+            part_l, part_w = p['l'], p['w']
+            if curr_x + part_l <= use_l:
+                if shelf_h == 0: shelf_h = part_w
+                if curr_y + part_w <= use_w:
+                    p_copy = p.copy(); p_copy.update({'x': curr_x, 'y': curr_y})
+                    current_board.append(p_copy); curr_x += part_l + kerf
+                else:
+                    boards.append(current_board)
+                    p_copy = p.copy(); p_copy.update({'x': 0, 'y': 0})
+                    current_board = [p_copy]; curr_x = part_l + kerf; curr_y = 0; shelf_h = part_w
+            else:
+                curr_x = 0; curr_y += shelf_h + kerf; shelf_h = part_w
+                if curr_y + part_w <= use_w:
+                    p_copy = p.copy(); p_copy.update({'x': curr_x, 'y': curr_y})
+                    current_board.append(p_copy); curr_x += part_l + kerf
+                else:
+                    boards.append(current_board)
+                    p_copy = p.copy(); p_copy.update({'x': 0, 'y': 0})
+                    current_board = [p_copy]; curr_x = part_l + kerf; curr_y = 0; shelf_h = part_w
+        if current_board: boards.append(current_board)
+        boards_per_material[mat_name] = boards
+    return boards_per_material, board_l, board_w, trim
 
 st.markdown("---")
 col_visuals, col_pdf = st.columns(2)

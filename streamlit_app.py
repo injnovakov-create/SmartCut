@@ -143,7 +143,122 @@ with col1:
     st.image(draw_mini_preview({"Тип": tip, "W": w, "H": h, "D": d, "vr_cnt": vrati_broi, "num_ch": num_ch}, kraka), width=200)
 
     if st.button("➕ Добави към списъка"):
-        # ОЧАКВАЙ ПОРЦИЯ 2 ТУК...
+        new_items = []
+        new_hw = []
+        otstyp_fazer = 4; h_stranica = 742; h_korp_std = h_stranica + deb; h_v_std = h_korp_std - fuga_obshto
+        
+        # Общи данни за модула
+        meta = {"№": name, "Тип": tip, "W": w, "H": h, "D": d, "vr_cnt": vrati_broi}
+        st.session_state.modules_meta.append(meta)
+
+        # 1. ЛОГИКА ЗА КОРПУС (Стандартна за повечето)
+        if tip not in ["Нестандартен", "Дублираща страница долен"]:
+            if "Горен" in tip or "Трети" in tip:
+                new_items.extend([
+                    add_item(name, tip, "Страница", 2, h, d, "1д", mat_korpus, val_fl_korpus),
+                    add_item(name, tip, "Дъно/Таван", 2, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
+                    add_item(name, tip, "Гръб (Фазер)", 1, h-otstyp_fazer, w-otstyp_fazer, "Без", mat_fazer, "Няма")
+                ])
+            elif tip == "Шкаф Колона":
+                new_items.extend([
+                    add_item(name, tip, "Дъно", 1, w, d, "1д", mat_korpus, val_fl_korpus),
+                    add_item(name, tip, "Страница", 2, h-kraka-deb, d, "1д", mat_korpus, val_fl_korpus),
+                    add_item(name, tip, "Таван", 1, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
+                    add_item(name, tip, "Гръб (Фазер)", 1, h-kraka-otstyp_fazer, w-otstyp_fazer, "Без", mat_fazer, "Няма")
+                ])
+            else: # Долни шкафове
+                new_items.extend([
+                    add_item(name, tip, "Дъно", 1, w, d, "1д", mat_korpus, val_fl_korpus),
+                    add_item(name, tip, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus),
+                    add_item(name, tip, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus)
+                ])
+
+        # 2. ЛОГИКА ЗА ЛИЦЕ И ЧЕКМЕДЖЕТА
+        # --- Модел до 5 чекмеджета ---
+        if tip == "Шкаф с чекмеджета (до 5 бр.)":
+            c_w = w - (2*deb) - 49 # ширина царга
+            for idx, ch_h in enumerate(ch_heights):
+                new_items.append(add_item(name, tip, f"Чело {idx+1}", 1, ch_h - fuga_obshto, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice))
+                new_items.extend([
+                    add_item(name, tip, f"Царги ч.{idx+1}", 2, c_w, 120, "1д", mat_chekm, val_fl_chekm),
+                    add_item(name, tip, f"Страници ч.{idx+1}", 2, runner_len - 10, 135, "2д", mat_chekm, val_fl_chekm),
+                    add_item(name, tip, f"Дъно ч.{idx+1}", 1, runner_len-13, c_w+12, "Без", mat_fazer, "Няма")
+                ])
+            new_hw.append({"№": name, "Артикул": "Водачи", "Брой": num_ch})
+
+        # --- Модел 2 външни + 1 вътрешно ---
+        elif tip == "Шкаф 2 чекмеджета + 1 вътрешно":
+            c_w = w - (2*deb) - 49
+            # Външни 2 бр
+            for idx, ch_h in enumerate(ch_heights):
+                new_items.append(add_item(name, tip, f"Чело външно {idx+1}", 1, ch_h - fuga_obshto, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice))
+                new_items.extend([
+                    add_item(name, tip, f"Царги външ.{idx+1}", 2, c_w, 160, "1д", mat_chekm, val_fl_chekm),
+                    add_item(name, tip, f"Страници външ.{idx+1}", 2, runner_len-10, 175, "2д", mat_chekm, val_fl_chekm),
+                    add_item(name, tip, f"Дъно външ.{idx+1}", 1, runner_len-13, c_w+12, "Без", mat_fazer, "Няма")
+                ])
+            # ВЪТРЕШНО ЧЕКМЕДЖЕ
+            new_items.extend([
+                add_item(name, tip, "Чело вътрешно", 1, 120, w - (2*deb) - 20, "4 страни", mat_lice, val_fl_lice),
+                add_item(name, tip, "Царги вътрешно", 2, c_w, 100, "1д", mat_chekm, val_fl_chekm),
+                add_item(name, tip, "Страници вътрешно", 2, runner_len-10, 115, "2д", mat_chekm, val_fl_chekm),
+                add_item(name, tip, "Дъно вътрешно", 1, runner_len-13, c_w+12, "Без", mat_fazer, "Няма")
+            ])
+            new_hw.append({"№": name, "Артикул": "Водачи", "Брой": 3})
+
+        # --- Коригирана Колона (Уреди + Чекмеджета) ---
+        elif tip == "Шкаф Колона":
+            # Уреди
+            h_furn = 595 if "Фурна" in has_app else 0
+            h_mw = 380 if "Микровълнова" in has_app else 0
+            
+            # Долна част
+            if lower_mode == "До 3 чекмеджета":
+                c_w = w - (2*deb) - 49
+                for idx, ch_h in enumerate(ch_heights):
+                    new_items.append(add_item(name, tip, f"Чело колона {idx+1}", 1, ch_h - fuga_obshto, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice))
+                    new_items.extend([
+                        add_item(name, tip, f"Царги ч.{idx+1}", 2, c_w, 160, "1д", mat_chekm, val_fl_chekm),
+                        add_item(name, tip, f"Страници ч.{idx+1}", 2, runner_len-10, 175, "2д", mat_chekm, val_fl_chekm),
+                        add_item(name, tip, f"Дъно ч.{idx+1}", 1, runner_len-13, c_w+12, "Без", mat_fazer, "Няма")
+                    ])
+                new_hw.append({"№": name, "Артикул": "Водачи", "Брой": len(ch_heights)})
+            else:
+                new_items.append(add_item(name, tip, "Врата долна", vrati_broi, lower_door_h, (w/vrati_broi)-fuga_obshto, "4 страни", mat_lice, val_fl_lice))
+
+            # Рафтове за уреди
+            if h_furn > 0: new_items.append(add_item(name, tip, "Рафт тв. (под фурна)", 1, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus))
+            if h_mw > 0: new_items.append(add_item(name, tip, "Рафт тв. (под МВ)", 1, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus))
+            
+            # Горна врата (остатък)
+            used_h = (sum(ch_heights) if lower_mode == "До 3 чекмеджета" else lower_door_h) + h_furn + h_mw
+            h_upper_v = h - kraka - deb - used_h - (fuga_obshto * 2)
+            if h_upper_v > 100:
+                new_items.append(add_item(name, tip, "Врата горна", vrati_broi, h_upper_v, (w/vrati_broi)-fuga_obshto, "4 страни", mat_lice, val_fl_lice))
+
+        elif tip == "Нестандартен":
+            m_c = mat_korpus if "Корп" in custom_mat_type else mat_lice
+            new_items.append(add_item(name, tip, custom_detail, custom_count, custom_l, custom_w, custom_kant, m_c, "Да"))
+
+        st.session_state.order_list.extend(new_items)
+        st.session_state.hardware_list.extend(new_hw)
+        st.rerun()
+
+# --- КРАЙ НА ОСНОВНИЯ КОД - ФИНАНСИ И PDF (ЗАПАЗЕНИ) ---
+with col2:
+    if st.session_state.order_list:
+        df = pd.DataFrame(st.session_state.order_list)
+        cols_order = ["Плоскост", "№", "Тип", "Детайл", "Дължина", "Ширина", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
+        df = df[[c for c in cols_order if c in df.columns]]
+        edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, height=450, key="editor")
+        st.session_state.order_list = edited_df.to_dict('records')
+        
+        # Обков
+        hw_df = pd.DataFrame(st.session_state.hardware_list)
+        if not hw_df.empty:
+            st.table(hw_df.groupby("Артикул")["Брой"].sum().reset_index())
+
+# Тук добави своите функции generate_labels_pdf и generate_cutting_plan_pdf...
         # Продължаваме с добавянето на детайли...
 
         new_items = []

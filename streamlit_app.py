@@ -199,7 +199,7 @@ with col1:
                 ch_heights.append(val_h)
         runner_len = st.number_input("Водач (мм)", value=500, step=50, key="run_ch")
         d = st.number_input("Дълбочина (D) мм", value=520, key="d_ch")
-        h = 742 + kraka + 38
+        h = 742 + kraka + deb  # <--- ТУК заместваме 38 с deb (дебелината на ПДЧ-то)
     else:
         default_w = 150 if tip == "Шкаф Бутилки 15см" else (1000 if "Глух" in tip else 600)
         w = st.number_input("Ширина (W) мм", value=default_w, key="w_std")
@@ -210,7 +210,7 @@ with col1:
             vrati_orientacia = st.radio("Ориентация:", ["Вертикални", "Хоризонтални"], horizontal=True) if tip == "Горен Шкаф" else "Вертикални"
         else:
             d = st.number_input("Дълбочина (D) мм", value=(550 if tip == "Шкаф Мивка" else 520), key="d_low")
-            h = 742 + kraka + 38 
+            h = 742 + kraka + deb  # <--- И ТУК заместваме 38 с deb
             vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_low")
 
     st.markdown("---")

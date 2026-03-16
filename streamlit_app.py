@@ -157,37 +157,15 @@ with col2:
             st.download_button(label="📊 Свали в Excel (.xlsx)", data=output.getvalue(), file_name="razkroi_vitya_kuhni.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         
         with col_ex2:
-            # --- ИНТЕГРАЦИЯ С ОПТИМИК (СПЕЦИАЛЕН ФОРМАТ ПО ДОКУМЕНТАЦИЯ) ---
-            optimik_lines = []
-            optimik_lines.append("[Z]\tSMART_CUT_Order\tИмпорт от SMART CUT\t")
+            # --- ИНТЕГРАЦИЯ С ОПТИМИК ---
+            df_optimik = df.copy()
+            df_optimik = df_optimik.rename(columns={"Бр": "Количество", "Детайл": "Описание", "Плоскост": "Материал"})
+            optimik_cols = ["№", "Описание", "Дължина", "Ширина", "Количество", "Материал", "Д1", "Д2", "Ш1", "Ш2"]
+            df_optimik = df_optimik[optimik_cols]
+            # Използваме точка и запетая за разделител, тъй като Оптимик често работи с европейски локални настройки
+            csv_optimik = df_optimik.to_csv(index=False, sep=';').encode('utf-8-sig')
+            st.download_button(label="📥 Експорт за ОПТИМИК (.csv)", data=csv_optimik, file_name="Export_Optimik.csv", mime="text/csv")
             
-            for _, row in df.iterrows():
-                mat = str(row['Плоскост']).strip()
-                qty = int(row['Бр'])
-                l = int(row['Дължина'])
-                w = int(row['Ширина'])
-                
-                rot = "[=]" if row['Фладер'] == "Да" else "[X]"
-                desc = str(row['Детайл']).strip()
-                mod_set = str(row['№']).strip()
-                
-                e_top = str(row['Д1']).strip()
-                e_right = str(row['Ш1']).strip()
-                e_bot = str(row['Д2']).strip()
-                e_left = str(row['Ш2']).strip()
-                
-                line = f"[D]\t{mat}\t{qty}\t{l}\t{w}\t{rot}\t{desc}\t{mod_set}\t{e_top}\t{e_right}\t{e_bot}\t{e_left}"
-                optimik_lines.append(line)
-            
-            txt_optimik = "\n".join(optimik_lines).encode('windows-1251', errors='replace')
-            
-            st.download_button(
-                label="📥 Експорт за ОПТИМИК (.txt)", 
-                data=txt_optimik, 
-                file_name="Export_Optimik.txt", 
-                mime="text/plain"
-            )
-
 # --- PDF ГЕНЕРАТОР С 3D ПОДОБРЕНИЯ ---
 def generate_improved_pdf(meta, orders, k_h):
     font_path = "Roboto-Regular.ttf"
@@ -208,11 +186,13 @@ def generate_improved_pdf(meta, orders, k_h):
         ox, oy = d_px * 0.8, d_px * 0.4
         sx, sy = 1240 - (w_px + ox)/2, 1000 - (h_px + oy)/2
         
+        # Кутия
         pts = [(sx, sy), (sx+w_px, sy), (sx+w_px, sy+h_px), (sx, sy+h_px)]
         draw.polygon([(sx, sy), (sx+ox, sy-oy), (sx+w_px+ox, sy-oy), (sx+w_px, sy)], fill="#e0e0e0", outline="black", width=4)
         draw.polygon([(sx+w_px, sy), (sx+w_px+ox, sy-oy), (sx+w_px+ox, sy+h_px-oy), (sx+w_px, sy+h_px)], fill="#d0d0d0", outline="black", width=4)
         draw.polygon(pts, fill="#f5f5f5", outline="black", width=5)
 
+        # КРАЧЕТА (4 правоъгълника)
         if any(t in mod['Тип'] for t in ["Долен", "Мивка", "Чекмеджета", "Фурна"]):
             leg_w, leg_h = 40 * scale, k_h * scale
             offset = 50 * scale
@@ -221,9 +201,11 @@ def generate_improved_pdf(meta, orders, k_h):
             draw.rectangle([sx+offset+ox, sy+h_px-leg_h-oy, sx+offset+leg_w+ox, sy+h_px-oy], outline="black", width=2)
             draw.rectangle([sx+w_px-offset-leg_w+ox, sy+h_px-leg_h-oy, sx+w_px-offset+ox, sy+h_px-oy], outline="black", width=2)
 
+        # ДВЕ ВРАТИ (Линия по средата)
         if mod['Vrati'] == 2 and "Чекмеджета" not in mod['Тип']:
             draw.line([(sx + w_px/2, sy), (sx + w_px/2, sy + h_px - (leg_h if 'leg_h' in locals() else 0))], fill="black", width=3)
 
+        # ЧЕЛА НА ЧЕКМЕДЖЕТА С РАЗМЕРИ
         if "3 Чекмеджета" in mod['Тип']:
             y180 = sy + (180 * scale); y250 = y180 + (250 * scale)
             draw.line([(sx, y180), (sx+w_px, y180)], fill="black", width=4); draw.text((sx+w_px+20, sy+70*scale), "180", fill="red", font=f_dim)
@@ -233,6 +215,7 @@ def generate_improved_pdf(meta, orders, k_h):
         draw.text((sx + w_px/2 - 50, sy + h_px + 40), f"W:{int(W)}", fill="red", font=f_dim)
         draw.text((sx - 200, sy + h_px/2), f"H:{int(H)}", fill="red", font=f_dim)
         
+        # Спецификация отдолу
         y_off = 1900; draw.text((150, y_off), "ДЕТАЙЛИ:", font=f_title, fill="black"); y_off += 120
         for p in [o for o in orders if str(o['№']) == str(mod['№'])]:
             row = f"{p['Детайл'][:15]:<15} | {int(p['Дължина']):>4} x {int(p['Ширина']):>4} | {p['Бр']}бр | {p['Плоскост'][:15]}"

@@ -33,7 +33,6 @@ if 'hardware_list' not in st.session_state: st.session_state.hardware_list = []
 if 'modules_meta' not in st.session_state: st.session_state.modules_meta = [] 
 
 # --- ЛОГИКА ЗА ЗАПИС ТОЧНО КАТО В EXCEL ---
-# --- ЛОГИКА ЗА ЗАПИС ТОЧНО КАТО В EXCEL ---
 def add_item(modul, tip, detail, count, l, w, kant_str, material, flader, note=""):
     # Определяме дебелината на канта (2мм за лица, 1мм за корпуси)
     thick = 2 if any(x in str(detail).lower() for x in ["врата", "чело", "дублираща"]) else 1
@@ -123,6 +122,13 @@ with st.sidebar:
     mat_chekm = st.text_input("Декор Чекмеджета:", value="Бяло гладко 18мм")
     val_fl_chekm = "Да" if st.checkbox("Има фладер - Чекмеджета", value=False) else "Няма"
     mat_fazer = st.text_input("Декор Фазер:", value="Бял фазер 3мм")
+    
+    st.markdown("---")
+    if st.button("🗑️ Изчисти списъка"):
+        st.session_state.order_list = []
+        st.session_state.hardware_list = []
+        st.session_state.modules_meta = []
+        st.rerun()
     
     st.markdown("---")
     if st.button("🗑️ Изчисти списъка"):

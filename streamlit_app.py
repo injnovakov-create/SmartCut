@@ -194,6 +194,7 @@ with col1:
     st.markdown("---")
 
         if st.button("➕ Добави към списъка"):
+          
         new_items = []
         new_hw = []
         otstyp_fazer = 4; h_stranica = 742; h_shkaf_korpus = h_stranica + deb; h_vrata_standart = h_shkaf_korpus - fuga_obshto

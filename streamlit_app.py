@@ -245,8 +245,8 @@ with col2:
     if st.session_state.order_list:
         df = pd.DataFrame(st.session_state.order_list)
         edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, height=400)
-        st.session_state.order_list = edited_df.to_dict('records'
-
+        st.session_state.order_list = edited_df.to_dict('records')
+      
 # --- ГЕНЕРИРАНЕ НА PDF С ЧЕРТЕЖИ (ЧЕРНО-БЯЛО) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
     font_path = "Roboto-Regular.ttf"

@@ -361,7 +361,7 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
     try: 
         font_title = ImageFont.truetype(font_path, 80)
         font_text = ImageFont.truetype(font_path, 40) 
-        font_dim = ImageFont.truetype(font_path, 50)
+        font_dim = ImageFont.truetype(font_path, 45)
         font_bold = ImageFont.truetype(font_path, 45)
     except: 
         font_title = font_text = font_dim = font_bold = ImageFont.load_default()
@@ -390,47 +390,62 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
 
         # Крачета
         is_lower = any(t in mod['Тип'] for t in ["Долен", "Мивка", "Чекмеджета", "Фурна", "Колона"])
+        leg_px = kraka_height * scale if is_lower else 0
         if is_lower:
-            leg_px = kraka_height * scale
             draw.rectangle([sx+40, sy+h_px, sx+80, sy+h_px+leg_px], fill="black")
             draw.rectangle([sx+w_px-80, sy+h_px, sx+w_px-40, sy+h_px+leg_px], fill="black")
 
-        # Линии за чекмеджета
-        if "Чекмеджета" in mod['Тип']:
-            num_ch = 3 # по подразбиране, ако не е зададено
-            for i in range(1, num_ch):
-                y_l = sy + (h_px / num_ch) * i
-                draw.line([(sx, y_l), (sx+w_px, y_l)], fill="black", width=3)
+        # --- ОРАЗМЕРЯВАНЕ И ДЕТАЙЛИ ПО ЛИЦЕТО ---
+        tip = mod['Тип']
+        
+        # Динамични Чекмеджета
+        if "Чекмеджета" in tip:
+            mod_parts = [p for p in order_list if str(p.get("№", "")) == str(mod["№"])]
+            chela = [p for p in mod_parts if "Чело" in p['Детайл']]
+            current_y = sy
+            for c in chela:
+                c_h_px = c['Дължина'] * scale
+                draw.line([(sx, current_y + c_h_px), (sx + w_px, current_y + c_h_px)], fill="black", width=3)
+                # Размер на челото
+                draw.text((sx + w_px + 20, current_y + c_h_px/2), f"h={int(c['Дължина'])}", font=font_dim, fill="#333333")
+                current_y += c_h_px
 
-        # Уреди при Колона
-        if mod['Тип'] == "Шкаф Колона":
-            ld_h = float(mod.get('ld_h', 718)) * scale
-            split_y = sy + h_px - ld_h
-            draw.line([(sx, split_y), (sx+w_px, split_y)], fill="black", width=4)
-            if "Фурна" in mod.get('app_type', ''):
-                f_h = 595 * scale
-                draw.rectangle([sx+60, split_y-f_h+40, sx+w_px-60, split_y-40], outline="red", width=4)
-                draw.text((sx+w_px/2, split_y-f_h/2), "ФУРНА", font=font_dim, fill="red", anchor="mm")
+        # Колона с уреди (Фурна и Микровълнова)
+        elif tip == "Шкаф Колона":
+            app_type = mod.get('app_type', "Без уреди")
+            ld_h = float(mod.get('ld_h', 718))
+            split_y = sy + h_px - leg_px - (ld_h * scale)
+            draw.line([(sx, split_y), (sx + w_px, split_y)], fill="black", width=4)
+            draw.text((sx - 180, split_y + (ld_h * scale)/2), f"{int(ld_h)}", font=font_dim, fill="black")
+            
+            curr_y = split_y
+            if "Фурна" in app_type:
+                f_h_px = 595 * scale
+                draw.rectangle([sx+50, curr_y - f_h_px + 10, sx+w_px-50, curr_y - 10], outline="red", width=4)
+                draw.text((sx + w_px/2, curr_y - f_h_px/2), "ФУРНА (595)", font=font_dim, fill="red", anchor="mm")
+                curr_y -= f_h_px
+                
+            if "Микровълнова" in app_type:
+                m_h_px = 380 * scale
+                draw.rectangle([sx+70, curr_y - m_h_px + 10, sx+w_px-70, curr_y - 10], outline="blue", width=4)
+                draw.text((sx + w_px/2, curr_y - m_h_px/2), "МВ (380)", font=font_dim, fill="blue", anchor="mm")
 
-        # Размери
-        draw.text((sx + w_px/2, sy + h_px + 100), f"Ширина: {int(W)} мм", font=font_dim, fill="black", anchor="mm")
-        draw.text((sx - 150, sy + h_px/2), f"H: {int(H)}", font=font_dim, fill="black", anchor="mm")
+        # Габаритни размери на чертежа
+        draw.text((sx + w_px/2, sy + h_px + leg_px + 80), f"W: {int(W)}", font=font_dim, fill="black", anchor="mm")
+        draw.text((sx - 250, sy + h_px/2), f"H: {int(H)}", font=font_dim, fill="black", anchor="mm")
+        draw.text((sx + w_px + ox + 20, sy - oy/2), f"D: {int(D)}", font=font_dim, fill="gray")
 
-        # --- ТАБЛИЦА С ДЕТАЙЛИ ---
+        # --- ТАБЛИЦА СЪС СПЕЦИФИКАЦИЯ ---
         draw.text((150, 1900), "СПЕЦИФИКАЦИЯ НА ДЕТАЙЛИТЕ", fill="black", font=font_bold)
-        
         y_tab = 2000
-        headers = ["ДЕТАЙЛ", "ДЪЛЖИНА", "ШИРИНА", "БР.", "МАТЕРИАЛ", "КАНТ"]
-        cols = [150, 800, 1100, 1350, 1550, 1950]
+        headers = ["ДЕТАЙЛ", "ДЪЛЖ.", "ШИР.", "БР.", "МАТЕРИАЛ", "КАНТ"]
+        cols = [150, 850, 1150, 1400, 1600, 2000]
         
-        # Хедър на таблицата
         for i, h_txt in enumerate(headers):
             draw.text((cols[i], y_tab), h_txt, fill="black", font=font_bold)
-        
         draw.line([(150, y_tab + 60), (2330, y_tab + 60)], fill="black", width=4)
-        y_tab += 80
-
-        # Филтриране на детайлите
+        
+        y_tab += 90
         mod_parts = [p for p in order_list if str(p.get("№", "")) == str(mod["№"])]
         for p in mod_parts:
             draw.text((cols[0], y_tab), str(p['Детайл'])[:28], fill="black", font=font_text)
@@ -438,13 +453,9 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             draw.text((cols[2], y_tab), str(int(p['Ширина'])), fill="black", font=font_text)
             draw.text((cols[3], y_tab), str(int(p['Бр'])), fill="black", font=font_text)
             draw.text((cols[4], y_tab), str(p['Плоскост'])[:12], fill="black", font=font_text)
-            
-            # Опростен кант
-            k = f"{p.get('Д1','-')}|{p.get('Д2','-')}"
-            draw.text((cols[5], y_tab), k, fill="black", font=font_text)
-            
-            y_tab += 70
-            draw.line([(150, y_tab), (2330, y_tab)], fill="#eeeeee", width=1)
+            k = f"{p.get('Д1','-')}|{p.get('Ш1','-')}"
+            draw.text((cols[5], y_tab), k, fill="#444444", font=font_text)
+            y_tab += 75
             if y_tab > 3300: break
 
         pages.append(img)

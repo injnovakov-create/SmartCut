@@ -84,6 +84,45 @@ def get_module_abbrev(tip):
     return tip[:12]
 
 def calculate_hinges(height):
+  # --- ФУНКЦИЯ ЗА МИНИ ПРЕВЮ (Скица) ---
+def draw_mini_preview(mod_meta, kraka_height):
+    # Създаваме бяло платно
+    img = Image.new('RGB', (200, 250), 'white')
+    draw = ImageDraw.Draw(img)
+    
+    W, H, D = float(mod_meta.get('W', 600)), float(mod_meta.get('H', 720)), float(mod_meta.get('D', 550))
+    tip = mod_meta.get('Тип', '')
+    vr_cnt = int(mod_meta.get('vr_cnt', 1))
+    
+    # Мащабиране
+    scale = 110.0 / max(W, H, D) if max(W, H, D) > 0 else 1
+    w_px, h_px, d_px = W * scale, H * scale, D * scale * 0.5
+    ox, oy = d_px * 0.8, d_px * 0.5
+    sx, sy = (200 - (w_px + ox)) / 2, (250 - (h_px + oy)) / 2 + oy
+
+    # Рисуване на кутията (3D ефект)
+    draw.polygon([(sx, sy), (sx + ox, sy - oy), (sx + w_px + ox, sy - oy), (sx + w_px, sy)], fill="#e0e0e0", outline="black")
+    draw.polygon([(sx + w_px, sy), (sx + w_px + ox, sy - oy), (sx + w_px + ox, sy + h_px - oy), (sx + w_px, sy + h_px)], fill="#d0d0d0", outline="black")
+    draw.polygon([(sx, sy), (sx + w_px, sy), (sx + w_px, sy + h_px), (sx, sy + h_px)], fill="#f5f5f5", outline="black", width=2)
+
+    # Крачета за долни модули
+    is_lower = any(t in tip for t in ["Долен", "Мивка", "Чекмеджета", "Фурна", "Колона"])
+    if is_lower:
+        leg_px = kraka_height * scale
+        draw.rectangle([sx + 5, sy + h_px, sx + 10, sy + h_px + leg_px], fill="black")
+        draw.rectangle([sx + w_px - 10, sy + h_px, sx + w_px - 5, sy + h_px + leg_px], fill="black")
+
+    # Линия за две врати
+    if vr_cnt == 2:
+        draw.line([(sx + w_px/2, sy), (sx + w_px/2, sy + h_px)], fill="black", width=1)
+        
+    # Линии за чекмеджета (ако типът съдържа "Чекмеджета")
+    if "Чекмеджета" in tip:
+        for i in [0.33, 0.66]:
+            y_l = sy + h_px * i
+            draw.line([(sx, y_l), (sx + w_px, y_l)], fill="black", width=1)
+
+    return img
     if height <= 950: return 2
     elif height <= 1300: return 3
     else: return 4

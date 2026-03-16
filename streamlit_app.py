@@ -88,6 +88,32 @@ def calculate_hinges(height):
     elif height <= 1300: return 3
     else: return 4
 
+# --- НОВО: ФУНКЦИЯ ЗА МИНЮ ПРЕВЮ ---
+def draw_mini_preview(mod_meta, kraka_height):
+    # Малко изображение 200x250 пиксела
+    img = Image.new('RGB', (200, 250), 'white')
+    draw = ImageDraw.Draw(img)
+    W, H = float(mod_meta['W']), float(mod_meta['H'])
+    # Мащабиране
+    scale = 150.0 / max(W, H) if max(W, H) > 0 else 1
+    w_px, h_px = W * scale, H * scale
+    sx, sy = (200 - w_px)/2, (220 - h_px)/2
+    
+    # Чертане на кутията
+    draw.rectangle([sx, sy, sx+w_px, sy+h_px], outline="black", width=2)
+    
+    # Цокъл за долни модули
+    is_lower = any(t in mod_meta['Тип'] for t in ["Долен", "Мивка", "Чекмеджета", "Фурна", "Колона"])
+    if is_lower:
+        leg_px = kraka_height * scale
+        draw.line([(sx, sy+h_px-leg_px), (sx+w_px, sy+h_px-leg_px)], fill="gray", width=2)
+    
+    # Линия за две врати
+    if mod_meta.get('vr_cnt', 1) == 2:
+        draw.line([(sx+w_px/2, sy), (sx+w_px/2, sy+h_px-(leg_px if is_lower else 0))], fill="black", width=1)
+    
+    return img
+
 # --- СТРАНИЧНО МЕНЮ ---
 with st.sidebar:
     st.header("⚙️ Глобални Настройки")

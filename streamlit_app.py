@@ -2398,16 +2398,11 @@ if st.session_state.order_list:
 
         
 
-        st.markdown("### 📊 Оферта и Калкулация:")
-
+         st.markdown("### 📊 Оферта и Калкулация:")
         st.write(f"Материали/разкрой/обков: **{total_materials_all:.2f} €** | Труд: **{total_labor_cost:.2f} €** | Разходи: **{(total_fixed_project + total_services):.2f} €**")
-
         st.info(f"Вътрешна себестойност: **{sebestoinost:.2f} €**")
-
         st.success(f"ОФЕРТА КЪМ КЛИЕНТ: **{final_offer:.2f} €**")
-
         st.write(f"🌟 **Чиста печалба:** {profit_val:.2f} €")
-
-except Exception as e: 
+        
+    except Exception as e: 
         st.warning(f"Въведи валидни числа. Грешка: {e}")
-      

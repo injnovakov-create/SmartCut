@@ -193,7 +193,7 @@ with col1:
     st.image(preview_img, caption=f"Превю: {tip}")
     st.markdown("---")
 
-        if st.button("➕ Добави към списъка"):
+    if st.button("➕ Добави към списъка"):
           
         new_items = []
         new_hw = []

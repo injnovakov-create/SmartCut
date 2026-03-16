@@ -157,17 +157,23 @@ with col2:
             st.download_button(label="📊 Свали в Excel (.xlsx)", data=output.getvalue(), file_name="razkroi_vitya_kuhni.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         
         with col_ex2:
-            # --- ИНТЕГРАЦИЯ С ОПТИМИК (.TXT) - ИЗЧИСТЕНИ КОЛОНИ ---
+            # --- ИНТЕГРАЦИЯ С ОПТИМИК (.TXT) - СПЕЦИАЛНО ЗА WINDOWS ---
             df_optimik = df.copy()
-            # Преименуваме колоните точно както Оптимик ги очаква
+            # Преименуваме колоните (въпреки че няма да ги експортираме, за да сме сигурни в подредбата)
             df_optimik = df_optimik.rename(columns={"Бр": "Количество", "Детайл": "Описание"})
-            # Взимаме САМО тези 5 колони
             optimik_cols = ["№", "Описание", "Дължина", "Ширина", "Количество"]
             df_optimik = df_optimik[optimik_cols]
             
-            # Експорт като .txt файл с табулация
-            txt_optimik = df_optimik.to_csv(index=False, sep='\t').encode('utf-8-sig')
-            st.download_button(label="📥 Експорт за ОПТИМИК (.txt)", data=txt_optimik, file_name="Export_Optimik.txt", mime="text/plain")
+            # 1. header=False маха заглавния ред (Оптимик ще чете директно числата)
+            # 2. encode('windows-1251') превежда кирилицата на стария Windows стандарт
+            txt_optimik = df_optimik.to_csv(index=False, sep='\t', header=False).encode('windows-1251', errors='replace')
+            
+            st.download_button(
+                label="📥 Експорт за ОПТИМИК (.txt)", 
+                data=txt_optimik, 
+                file_name="Export_Optimik.txt", 
+                mime="text/plain"
+            )
 
 # --- PDF ГЕНЕРАТОР С 3D ПОДОБРЕНИЯ ---
 def generate_improved_pdf(meta, orders, k_h):

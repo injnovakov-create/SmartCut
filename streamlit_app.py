@@ -87,7 +87,6 @@ def calculate_hinges(height):
     if height <= 950: return 2
     elif height <= 1300: return 3
     else: return 4
-
 # --- НОВО: ФУНКЦИЯ ЗА МИНЮ ПРЕВЮ ---
 def draw_mini_preview(mod_meta, kraka_height):
     # Малко изображение 200x250 пиксела

@@ -157,12 +157,15 @@ with col2:
             st.download_button(label="📊 Свали в Excel (.xlsx)", data=output.getvalue(), file_name="razkroi_vitya_kuhni.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         
         with col_ex2:
-            # --- ИНТЕГРАЦИЯ С ОПТИМИК (.TXT) ---
+            # --- ИНТЕГРАЦИЯ С ОПТИМИК (.TXT) - ИЗЧИСТЕНИ КОЛОНИ ---
             df_optimik = df.copy()
-            df_optimik = df_optimik.rename(columns={"Бр": "Количество", "Детайл": "Описание", "Плоскост": "Материал"})
-            optimik_cols = ["№", "Описание", "Дължина", "Ширина", "Количество", "Материал", "Д1", "Д2", "Ш1", "Ш2"]
+            # Преименуваме колоните точно както Оптимик ги очаква
+            df_optimik = df_optimik.rename(columns={"Бр": "Количество", "Детайл": "Описание"})
+            # Взимаме САМО тези 5 колони
+            optimik_cols = ["№", "Описание", "Дължина", "Ширина", "Количество"]
             df_optimik = df_optimik[optimik_cols]
-            # Използваме ТАБУЛАЦИЯ (\t) и разширение .txt, тъй като Оптимик очаква точно това
+            
+            # Експорт като .txt файл с табулация
             txt_optimik = df_optimik.to_csv(index=False, sep='\t').encode('utf-8-sig')
             st.download_button(label="📥 Експорт за ОПТИМИК (.txt)", data=txt_optimik, file_name="Export_Optimik.txt", mime="text/plain")
 

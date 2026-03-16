@@ -306,7 +306,7 @@ with col1:
                 new_items.extend([
                     add_item(name, tip, "Страница", 2, h, d, "1д", mat_korpus, val_fl_korpus),
                     add_item(name, tip, "Дъно/Таван", 2, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
-                    add_item(name, tip, "Гръб (Фазер)", 1, h - otstyp_f, w - НА ЕТИКЕТИ ---
+                    add_item(name, tip, "Гръб (Фазер)", 1, h - otstyp_f, w - otstyp_f, "Без", mat_fazer, "Няма"),
 def draw_edge_marking(draw, x, y, w, h, side, edge_type, font):
     if not edge_type: return
     text = f" {edge_type} "

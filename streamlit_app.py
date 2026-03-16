@@ -92,32 +92,68 @@ def calculate_hinges(height):
         return 4
 
 def draw_mini_preview(mod_meta, kraka_height):
-    # Всичко тук трябва да е с 4 интервала навътре
     img = Image.new('RGB', (200, 250), 'white')
     draw = ImageDraw.Draw(img)
+    
+    # Вземаме размерите
     W = float(mod_meta.get('W', 600))
     H = float(mod_meta.get('H', 720))
     D = float(mod_meta.get('D', 550))
     tip = mod_meta.get('Тип', '')
     vr_cnt = int(mod_meta.get('vr_cnt', 1))
+    app_type = mod_meta.get('app_type', "Без уреди")
+    ld_h = float(mod_meta.get('ld_h', 0)) # височина на долната част при колона
+
+    # Мащабиране
     scale = 110.0 / max(W, H, D) if max(W, H, D) > 0 else 1
     w_px, h_px, d_px = W * scale, H * scale, D * scale * 0.5
     ox, oy = d_px * 0.8, d_px * 0.5
     sx, sy = (200 - (w_px + ox)) / 2, (250 - (h_px + oy)) / 2 + oy
-    draw.polygon([(sx, sy), (sx + ox, sy - oy), (sx + w_px + ox, sy - oy), (sx + w_px, sy)], fill="#e0e0e0", outline="black")
-    draw.polygon([(sx + w_px, sy), (sx + w_px + ox, sy - oy), (sx + w_px + ox, sy + h_px - oy), (sx + w_px, sy + h_px)], fill="#d0d0d0", outline="black")
-    draw.polygon([(sx, sy), (sx + w_px, sy), (sx + w_px, sy + h_px), (sx, sy + h_px)], fill="#f5f5f5", outline="black", width=2)
-    is_lower = any(t in tip for t in ["Долен", "Мивка", "Чекмеджета", "Фурна", "Колона"])
-    if is_lower:
+
+    # 1. Рисуване на корпуса (3D тяло)
+    draw.polygon([(sx, sy), (sx+ox, sy-oy), (sx+w_px+ox, sy-oy), (sx+w_px, sy)], fill="#e0e0e0", outline="black")
+    draw.polygon([(sx+w_px, sy), (sx+w_px+ox, sy-oy), (sx+w_px+ox, sy+h_px-oy), (sx+w_px, sy+h_px)], fill="#d0d0d0", outline="black")
+    draw.polygon([(sx, sy), (sx+w_px, sy), (sx+w_px, sy+h_px), (sx, sy+h_px)], fill="#f5f5f5", outline="black", width=2)
+
+    # 2. Крачета (за долни модули)
+    if any(t in tip for t in ["Долен", "Мивка", "Чекмеджета", "Фурна", "Колона"]):
         leg_px = kraka_height * scale
-        draw.rectangle([sx + 5, sy + h_px, sx + 10, sy + h_px + leg_px], fill="black")
-        draw.rectangle([sx + w_px - 10, sy + h_px, sx + w_px - 5, sy + h_px + leg_px], fill="black")
-    if vr_cnt == 2:
+        draw.rectangle([sx+5, sy+h_px, sx+10, sy+h_px+leg_px], fill="black")
+        draw.rectangle([sx+w_px-10, sy+h_px, sx+w_px-5, sy+h_px+leg_px], fill="black")
+
+    # 3. Визуализация на Лицето (Чела/Врати/Уреди)
+    
+    # --- ЛОГИКА ЗА ЧЕКМЕДЖЕТА ---
+    if "Чекмеджета" in tip and "Колона" not in tip:
+        # Рисуваме хоризонтални линии за 3-те стандартни или динамичните чекмеджета
+        num_ch = 3 # по подразбиране
+        for i in range(1, num_ch):
+            y_line = sy + (h_px / num_ch) * i
+            draw.line([(sx, y_line), (sx + w_px, y_line)], fill="black", width=1)
+
+    # --- ЛОГИКА ЗА КОЛОНА С УРЕДИ ---
+    elif tip == "Шкаф Колона":
+        curr_y = sy + h_px # започваме от долу нагоре
+        # 1. Долна част (врата или чекмеджета)
+        if ld_h > 0:
+            split_y = sy + h_px - (ld_h * scale)
+            draw.line([(sx, split_y), (sx + w_px, split_y)], fill="black", width=2)
+            curr_y = split_y
+            
+        # 2. Ниши за уреди
+        if "Фурна" in app_type:
+            f_h = 595 * scale
+            draw.rectangle([sx+5, curr_y - f_h + 5, sx+w_px-5, curr_y - 5], outline="red", width=1) # Фурна
+            curr_y -= f_h
+        if "Микровълнова" in app_type:
+            m_h = 380 * scale
+            draw.rectangle([sx+10, curr_y - m_h + 5, sx+w_px-10, curr_y - 5], outline="blue", width=1) # МВ
+            
+    # 4. Вертикална линия за 2 врати
+    if vr_cnt == 2 and "Чекмеджета" not in tip:
         draw.line([(sx + w_px/2, sy), (sx + w_px/2, sy + h_px)], fill="black", width=1)
+
     return img
-    if height <= 950: return 2
-    elif height <= 1300: return 3
-    else: return 4
 
 # --- СТРАНИЧНО МЕНЮ ---
 with st.sidebar:

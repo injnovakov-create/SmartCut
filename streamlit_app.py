@@ -340,22 +340,39 @@ with col1:
                 add_item(name, tip, "Гръб (Фазер)", 1, h_shkaf_korpus - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма")
             ])
             
-            # Лице за стандартни долни
+            # Лице и кутии за стандартни долни (ДИНАМИЧНИ)
             if tip == "Шкаф 3 Чекмеджета":
-                cw = w - (2*deb) - 49
-                for ch_h in [180, 250, 330]:
-                    new_items.append(add_item(name, tip, "Чело", 1, ch_h - fuga_obshto, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice))
-                new_items.extend([
-                    add_item(name, tip, "Царги", 6, cw, 120, "1д", mat_chekm, val_fl_chekm),
-                    add_item(name, tip, "Страници чекм", 6, runner_len-10, 135, "2д", mat_chekm, val_fl_chekm)
-                ])
+                cw = w - (2 * deb) - 49  # Вътрешна ширина на кутията
+                
+                # Обхождаме всяко чекмедже, което си задал в менюто
+                for idx, ch_h in enumerate(ch_heights):
+                    # ПРАВИЛО: Височина на царгата = Височина на челото - 60мм
+                    h_tsarga = ch_h - 60
+                    if h_tsarga < 70: h_tsarga = 70  # Минимум 70мм за кутията
+                    
+                    # 1. Чело (Лице)
+                    new_items.append(add_item(name, tip, f"Чело {idx+1}", 1, ch_h - fuga_obshto, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice))
+                    
+                    # 2. Царги (Хоризонтални детайли на кутията)
+                    new_items.append(add_item(name, tip, f"Царга ч.{idx+1}", 2, cw, h_tsarga, "1д", mat_chekm, val_fl_chekm))
+                    
+                    # 3. Страници на чекмеджето (спрямо водача)
+                    # Височината тук обикновено е същата като на царгата или +15мм за стабилност на фазера
+                    new_items.append(add_item(name, tip, f"Стр. кутия ч.{idx+1}", 2, runner_len - 10, h_tsarga + 15, "2д", mat_chekm, val_fl_chekm))
+                    
+                    # 4. Дъно на чекмеджето (Фазер)
+                    new_items.append(add_item(name, tip, f"Дъно ч.{idx+1}", 1, runner_len - 13, cw + 12, "Без", mat_fazer, "Няма"))
+                
+                # Добавяме обков (водачи) според броя чекмеджета
+                new_hw.append({"№": name, "Артикул": "Комплект водачи", "Брой": len(ch_heights)})
+
             elif tip == "Шкаф за Фурна":
                 new_items.append(add_item(name, tip, "Чело чекмедже", 1, 157, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice))
                 new_items.append(add_item(name, tip, "Рафт ниша фурна", 1, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus))
+            
             else:
                 w_v = (w/vrati_broi) - fuga_obshto
                 new_items.append(add_item(name, tip, "Врата", vrati_broi, h_vrata_standart, w_v, "4 страни", mat_lice, val_fl_lice))
-
         # --- ГОРНИ ШКАФОВЕ ---
         elif "Горен" in tip:
             new_items.extend([

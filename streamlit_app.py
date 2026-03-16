@@ -32,7 +32,7 @@ if 'order_list' not in st.session_state: st.session_state.order_list = []
 if 'hardware_list' not in st.session_state: st.session_state.hardware_list = []
 if 'modules_meta' not in st.session_state: st.session_state.modules_meta = [] 
 
-# --- ЛОГИКА ЗА ЗАПИС ---
+# --- ЛОГИКА ЗА ЗАПИС ТОЧНО КАТО В EXCEL ---
 def add_item(modul, tip, detail, count, l, w, kant_str, material, flader, note=""):
     thick = 2 if any(x in str(detail).lower() for x in ["врата", "чело", "дублираща"]) else 1
     d1 = d2 = sh1 = sh2 = ""
@@ -514,7 +514,7 @@ def generate_labels_pdf(boards_per_mat):
     
     label_w = int(44 * px_per_mm)    # 519 px
     label_h = int(20 * px_per_mm)    # 236 px
-    margin_x = int(9 * px_per_mm)    # 106 px
+    margin_x = int(4 * px_per_mm)    # ТУК Е ПРОМЯНАТА (от 9 на 4)
     margin_y = int(9 * px_per_mm)    # 106 px
     gap_x = int(6 * px_per_mm)       # 70 px
     gap_y = int(6.5 * px_per_mm)     # 76 px

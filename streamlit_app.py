@@ -337,6 +337,35 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         pdf_bytes = io.BytesIO(); pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
         return pdf_bytes.getvalue()
     return None
+  # --- ТОВА ВРЪЩА ТАБЛИЦАТА НА ЕКРАНА ---
+with col2:
+    st.subheader("📋 Списък за разкрой (Редактируем)")
+    if st.session_state.order_list:
+        df = pd.DataFrame(st.session_state.order_list)
+        # Подреждаме колоните, за да изглеждат добре
+        cols_order = ["Плоскост", "№", "Тип", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
+        df = df[[c for c in cols_order if c in df.columns]]
+        
+        # Основният редактор на таблицата
+        edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, height=450, key="main_editor")
+        st.session_state.order_list = edited_df.to_dict('records')
+        
+        # Бутон за сваляне на Excel
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            edited_df.to_excel(writer, index=False, sheet_name='Разкрой')
+        st.download_button(label="📊 Свали в Excel (.xlsx)", data=output.getvalue(), file_name="razkroi_vitya.xlsx")
+        
+        # Показваме и обкова под таблицата
+        if st.session_state.hardware_list:
+            st.markdown("#### 🔩 Количествена сметка: Обков")
+            hw_df = pd.DataFrame(st.session_state.hardware_list)
+            hw_summary = hw_df.groupby("Артикул")["Брой"].sum().reset_index()
+            st.table(hw_summary)
+    else:
+        st.info("Списъкът е празен. Добави първия си модул отляво!")
+
+# --- СЛЕД ТОВА СЛОЖИ ОСТАНАЛИТЕ СИ БУТОНИ ЗА PDF И ЕТИКЕТИ ---
 
 # --- ПОМОЩНА ФУНКЦИЯ ЗА КАНТ ЛИНИИ НА ЕТИКЕТИ ---
 def draw_edge_marking(draw, x, y, w, h, side, edge_type, font):

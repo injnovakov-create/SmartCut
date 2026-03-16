@@ -156,7 +156,7 @@ with col1:
     elif tip == "Шкаф Колона":
         w = st.number_input("Ширина (W) на корпуса (мм)", value=600)
         h_korpus = st.number_input("Височина на корпуса без крака (H) мм", value=2040)
-        d = st.number_input("Дълбочина (D) страници (мм)", value=550)
+        d = st.number_input("Дълбочина (D) страници (мм)", value=560)
         
         appliances_type = st.radio("Вградени уреди:", ["Без уреди", "Само Фурна", "Фурна + Микровълнова"], horizontal=True)
         

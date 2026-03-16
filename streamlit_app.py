@@ -431,19 +431,24 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                 draw.rectangle([sx+40, curr_y_px - (f_h*scale) + 5, sx+w_px-40, curr_y_px - 5], outline="red", width=3)
                 curr_y_px -= (f_h * scale)
                 curr_h_total += f_h
-                # Рафт над фурната
-                draw.line([(sx, curr_y_px), (sx + w_px, curr_y_px)], fill="black", width=4, dash=(10,10))
-                draw.text((sx + w_px/2, curr_y_px - 25), f"Център рафт: {int(curr_h_total)}", font=font_dim, fill="blue", anchor="mm")
+                
+                # РАФТ НАД ФУРНАТА (Ръчно начертан пунктир)
+                for x in range(int(sx), int(sx + w_px), 20):
+                    draw.line([(x, curr_y_px), (min(x + 10, sx + w_px), curr_y_px)], fill="black", width=4)
+                
+                draw.text((sx + w_px/2, curr_y_px - 35), f"Център рафт: {int(curr_h_total)}", font=font_dim, fill="blue", anchor="mm")
 
             if "Микровълнова" in app_type:
                 m_h = 380
                 draw.rectangle([sx+60, curr_y_px - (m_h*scale) + 5, sx+w_px-60, curr_y_px - 5], outline="green", width=3)
                 curr_y_px -= (m_h * scale)
                 curr_h_total += m_h
-                # Рафт над микровълновата
-                draw.line([(sx, curr_y_px), (sx + w_px, curr_y_px)], fill="black", width=4, dash=(10,10))
-                draw.text((sx + w_px/2, curr_y_px - 25), f"Център рафт: {int(curr_h_total)}", font=font_dim, fill="blue", anchor="mm")
-
+                
+                # РАФТ НАД МВ (Ръчно начертан пунктир)
+                for x in range(int(sx), int(sx + w_px), 20):
+                    draw.line([(x, curr_y_px), (min(x + 10, sx + w_px), curr_y_px)], fill="black", width=4)
+                
+                draw.text((sx + w_px/2, curr_y_px - 35), f"Център рафт: {int(curr_h_total)}", font=font_dim, fill="blue", anchor="mm")
         # Габаритни коти
         draw_dim_line((sx, sy), (sx, sy+h_px), 120, f"H={int(H)}")
         draw_dim_line((sx, sy+h_px), (sx+w_px, sy+h_px), 150, f"W={int(W)}", vertical=False)

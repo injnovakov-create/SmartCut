@@ -32,7 +32,7 @@ if 'order_list' not in st.session_state: st.session_state.order_list = []
 if 'hardware_list' not in st.session_state: st.session_state.hardware_list = []
 if 'modules_meta' not in st.session_state: st.session_state.modules_meta = [] 
 
-# --- ЛОГИКА ЗА ЗАПИС ---
+# --- ЛОГИКА ЗА ЗАПИС ТОЧНО КАТО В EXCEL ---
 def add_item(modul, tip, detail, count, l, w, kant_str, material, flader, note=""):
     thick = 2 if any(x in str(detail).lower() for x in ["врата", "чело", "дублираща"]) else 1
     d1 = d2 = sh1 = sh2 = ""
@@ -134,8 +134,7 @@ with col1:
     tip = st.selectbox("Тип модул", options=list(icons.keys()), format_func=lambda x: f"{icons.get(x, '📌')} {x}")
     name = st.text_input("Име/№ на модула", value=tip)
     
-    # Инициализация на променливи за колоната
-    has_appliances = False
+    appliances_type = "Без уреди"
     split_doors = False
     lower_door_h = 0
     lower_type = "Врата"
@@ -159,9 +158,9 @@ with col1:
         h_korpus = st.number_input("Височина на корпуса без крака (H) мм", value=2040)
         d = st.number_input("Дълбочина (D) страници (мм)", value=550)
         
-        has_appliances = st.checkbox("С място за фурна (595мм) и микровълнова (380мм)?", value=False)
+        appliances_type = st.radio("Вградени уреди:", ["Без уреди", "Само Фурна", "Фурна + Микровълнова"], horizontal=True)
         
-        if has_appliances:
+        if appliances_type != "Без уреди":
             lower_door_h = st.number_input("Височина на долната част (под фурната) мм", value=718)
             lower_type = st.radio("Тип долна част:", ["Врата", "2 Чекмеджета", "3 Чекмеджета"], horizontal=True)
             if "Чекмеджета" in lower_type:
@@ -211,7 +210,7 @@ with col1:
         
         meta_dict = {"№": name, "Тип": tip, "W": w, "H": h, "D": d}
         if tip == "Шкаф Колона":
-            meta_dict.update({"has_app": has_appliances, "ld_h": lower_door_h, "lower_type": lower_type})
+            meta_dict.update({"app_type": appliances_type, "ld_h": lower_door_h, "lower_type": lower_type})
         st.session_state.modules_meta.append(meta_dict)
 
         if tip in ["Стандартен Долен", "Шкаф Мивка", "Шкаф Бутилки 15см", "Глух Ъгъл (Долен)", "Шкаф за Фурна", "Шкаф 3 Чекмеджета", "Шкаф Колона"]:
@@ -264,18 +263,26 @@ with col1:
                 add_item(name, tip, "Гръб (Фазер)", 1, h_korpus - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма")
             ])
             
-            if has_appliances:
+            if appliances_type != "Без уреди":
                 h_furn = 595
-                h_mw = 380
+                h_mw = 380 if appliances_type == "Фурна + Микровълнова" else 0
                 h_door_upper = h_korpus - lower_door_h - h_furn - h_mw - (fuga_obshto * 2) 
                 
-                new_items.extend([
-                    add_item(name, tip, "Рафт тв. (под фурна)", 1, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
-                    add_item(name, tip, "Рафт тв. (под МВ)", 1, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
-                    add_item(name, tip, "Рафт тв. (над МВ)", 1, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
-                    add_item(name, tip, "Рафт подвижен", 2, w-(2*deb), d-10, "1д", mat_korpus, val_fl_korpus)
-                ])
-                new_hw.append({"№": name, "Артикул": "Рафтоносачи", "Брой": 8})
+                if appliances_type == "Фурна + Микровълнова":
+                    new_items.extend([
+                        add_item(name, tip, "Рафт тв. (под фурна)", 1, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
+                        add_item(name, tip, "Рафт тв. (под МВ)", 1, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
+                        add_item(name, tip, "Рафт тв. (над МВ)", 1, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
+                        add_item(name, tip, "Рафт подвижен", 2, w-(2*deb), d-10, "1д", mat_korpus, val_fl_korpus)
+                    ])
+                    new_hw.append({"№": name, "Артикул": "Рафтоносачи", "Брой": 8})
+                elif appliances_type == "Само Фурна":
+                    new_items.extend([
+                        add_item(name, tip, "Рафт тв. (под фурна)", 1, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
+                        add_item(name, tip, "Рафт тв. (над фурна)", 1, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
+                        add_item(name, tip, "Рафт подвижен", 2, w-(2*deb), d-10, "1д", mat_korpus, val_fl_korpus)
+                    ])
+                    new_hw.append({"№": name, "Артикул": "Рафтоносачи", "Брой": 8})
                 
                 if lower_type == "Врата":
                     new_items.append(add_item(name, tip, "Врата долна", vrati_broi, lower_door_h, w_izbrana, "4 страни", mat_lice, val_fl_lice))
@@ -517,7 +524,7 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         vrati_count = 1
         has_split = False
         ld_h = mod.get("ld_h", 0)
-        has_app = mod.get("has_app", False)
+        has_app = mod.get("app_type", "Без уреди") != "Без уреди"
         lower_type = mod.get("lower_type", "Врата")
 
         for p in parts:
@@ -531,14 +538,16 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                 split_y_1 = start_y + h_px - leg_h_px - (ld_h * scale)
                 draw.line([(start_x, split_y_1), (start_x + w_px, split_y_1)], fill="black", width=4)
                 
-                if has_app:
+                app_type = mod.get("app_type", "Без уреди")
+                if app_type != "Без уреди":
                     split_y_2 = split_y_1 - (595 * scale)
                     draw.line([(start_x, split_y_2), (start_x + w_px, split_y_2)], fill="black", width=4)
                     draw.text((start_x + w_px/2, split_y_1 - (297 * scale)), "ФУРНА\n595", fill="#555555", font=font_dim, anchor="mm", align="center")
                     
-                    split_y_3 = split_y_2 - (380 * scale)
-                    draw.line([(start_x, split_y_3), (start_x + w_px, split_y_3)], fill="black", width=4)
-                    draw.text((start_x + w_px/2, split_y_2 - (190 * scale)), "М.В.\n380", fill="#555555", font=font_dim, anchor="mm", align="center")
+                    if app_type == "Фурна + Микровълнова":
+                        split_y_3 = split_y_2 - (380 * scale)
+                        draw.line([(start_x, split_y_3), (start_x + w_px, split_y_3)], fill="black", width=4)
+                        draw.text((start_x + w_px/2, split_y_2 - (190 * scale)), "М.В.\n380", fill="#555555", font=font_dim, anchor="mm", align="center")
                 
                 if "Чекмеджета" in lower_type:
                     if lower_type == "2 Чекмеджета":
@@ -673,7 +682,7 @@ def generate_labels_pdf(boards_per_mat):
     
     label_w = int(44 * px_per_mm)    # 519 px
     label_h = int(20 * px_per_mm)    # 236 px
-    margin_x = int(4 * px_per_mm)    # Променено на 4 мм (според снимката)
+    margin_x = int(4 * px_per_mm)    # Променено на 4 мм 
     margin_y = int(9 * px_per_mm)    # 106 px
     gap_x = int(6 * px_per_mm)       # 70 px
     gap_y = int(6.5 * px_per_mm)     # 76 px
@@ -856,7 +865,7 @@ with col_pdf:
                 st.warning("Няма добавени модули за чертане!")
             else:
                 with st.spinner("Генериране..."):
-                    pdf_data = generate_technical_pdf(st.session_state.modules_meta, st.session_state.order_list, kraka_h)
+                    pdf_data = generate_technical_pdf(st.session_state.modules_meta, st.session_state.order_list, kraka)
                     if pdf_data:
                         st.download_button(label="📥 ИЗТЕГЛИ PDF", data=pdf_data, file_name="Vitya_M_Чертежи.pdf", mime="application/pdf")
                         

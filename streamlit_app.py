@@ -514,7 +514,7 @@ def generate_labels_pdf(boards_per_mat):
     
     label_w = int(44 * px_per_mm)    # 519 px
     label_h = int(20 * px_per_mm)    # 236 px
-    margin_x = int(4 * px_per_mm)    # ТУК Е ПРОМЯНАТА (от 9 на 4)
+    margin_x = int(4 * px_per_mm)    # Променено на 4 мм (според снимката)
     margin_y = int(9 * px_per_mm)    # 106 px
     gap_x = int(6 * px_per_mm)       # 70 px
     gap_y = int(6.5 * px_per_mm)     # 76 px
@@ -572,8 +572,8 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
         except: pass
     try: 
         f_title = ImageFont.truetype(font_path, 60)
-        f_part = ImageFont.truetype(font_path, 35)
-        f_dim = ImageFont.truetype(font_path, 35)
+        f_part = ImageFont.truetype(font_path, 50) # Увеличено
+        f_dim = ImageFont.truetype(font_path, 50)  # Увеличено
     except: 
         f_title = f_part = f_dim = ImageFont.load_default()
 
@@ -586,7 +586,7 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
             img = Image.new('RGB', (page_w, page_h), 'white')
             draw = ImageDraw.Draw(img)
             
-            draw.text((margin, margin), f"МАТЕРИАЛ: {mat_name} | ПЛОЧА {idx+1} от {len(boards)}", fill="black", font=f_title)
+            draw.text((margin, margin), f"МАТЕРИАЛ: {mat_name} [2800x2070 мм] | ПЛОЧА {idx+1} от {len(boards)}", fill="black", font=f_title)
             
             draw_w = page_w - 2 * margin
             draw_h = page_h - 2 * margin - 150
@@ -619,8 +619,8 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
                 if sh2_w: draw.line([(px+pw, py), (px+pw, py+ph)], fill="black", width=sh2_w)
                 
                 if pw > 100 and ph > 100:
-                    draw.text((px+pw/2, py+ph/2 - 25), p['name'][:15], fill="black", font=f_part, anchor="mm")
-                    draw.text((px+pw/2, py+ph/2 + 25), f"{int(p['l'])}/{int(p['w'])}", fill="black", font=f_dim, anchor="mm")
+                    draw.text((px+pw/2, py+ph/2 - 35), p['name'][:15], fill="black", font=f_part, anchor="mm")
+                    draw.text((px+pw/2, py+ph/2 + 35), f"{int(p['l'])}/{int(p['w'])}", fill="black", font=f_dim, anchor="mm")
                     
             pages.append(img)
             
@@ -726,15 +726,15 @@ with col_visuals:
         else:
             boards_per_mat, board_l, board_w, trim = get_optimized_boards(st.session_state.order_list)
             for mat_name, boards in boards_per_mat.items():
-                st.markdown(f"#### 🪵 {mat_name} (Нужни: {len(boards)} бр.)")
+                st.markdown(f"#### 🪵 {mat_name} [2800x2070 мм] (Нужни: {len(boards)} бр.)")
                 for idx, b_parts in enumerate(boards):
                     svg = f'<svg viewBox="0 0 {board_l} {board_w}" style="background-color:#ffffff; border:2px solid #333; margin-bottom: 20px; width: 100%; max-width: 900px;">'
                     svg += f'<rect x="{trim}" y="{trim}" width="{board_l - 2*trim}" height="{board_w - 2*trim}" fill="none" stroke="black" stroke-width="4" stroke-dasharray="20,20"/>'
                     for p in b_parts:
                         px, py, pl, pw = p['x'] + trim, p['y'] + trim, p['l'], p['w']
                         svg += f'<rect x="{px}" y="{py}" width="{pl}" height="{pw}" fill="#ffffff" stroke="#000000" stroke-width="2"/>'
-                        svg += f'<text x="{px + pl/2}" y="{py + pw/2 - 15}" font-size="30" fill="black" text-anchor="middle" dominant-baseline="middle" font-weight="bold">{p["name"]}</text>'
-                        svg += f'<text x="{px + pl/2}" y="{py + pw/2 + 25}" font-size="35" fill="black" text-anchor="middle" dominant-baseline="middle">{int(pl)}/{int(pw)}</text>'
+                        svg += f'<text x="{px + pl/2}" y="{py + pw/2 - 25}" font-size="45" fill="black" text-anchor="middle" dominant-baseline="middle" font-weight="bold">{p["name"]}</text>'
+                        svg += f'<text x="{px + pl/2}" y="{py + pw/2 + 35}" font-size="50" fill="black" text-anchor="middle" dominant-baseline="middle">{int(pl)}/{int(pw)}</text>'
                     svg += '</svg>'
                     st.markdown(svg, unsafe_allow_html=True)
 

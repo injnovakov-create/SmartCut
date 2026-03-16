@@ -156,17 +156,39 @@ with col2:
                     hw_df.to_excel(writer, index=False, sheet_name='Обков')
             st.download_button(label="📊 Свали в Excel (.xlsx)", data=output.getvalue(), file_name="razkroi_vitya_kuhni.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         
-        with col_ex2:
-            # --- ИНТЕГРАЦИЯ С ОПТИМИК (.TXT) - СПЕЦИАЛНО ЗА WINDOWS ---
-            df_optimik = df.copy()
-            # Преименуваме колоните (въпреки че няма да ги експортираме, за да сме сигурни в подредбата)
-            df_optimik = df_optimik.rename(columns={"Бр": "Количество", "Детайл": "Описание"})
-            optimik_cols = ["№", "Описание", "Дължина", "Ширина", "Количество"]
-            df_optimik = df_optimik[optimik_cols]
+       with col_ex2:
+            # --- ИНТЕГРАЦИЯ С ОПТИМИК (СПЕЦИАЛЕН ФОРМАТ ПО ДОКУМЕНТАЦИЯ) ---
+            optimik_lines = []
             
-            # 1. header=False маха заглавния ред (Оптимик ще чете директно числата)
-            # 2. encode('windows-1251') превежда кирилицата на стария Windows стандарт
-            txt_optimik = df_optimik.to_csv(index=False, sep='\t', header=False).encode('windows-1251', errors='replace')
+            # 1. Създаваме заглавния ред за Поръчката (Job), започващ със [Z]
+            # Формат: [Z] | Име | Описание | Дата
+            optimik_lines.append("[Z]\tSMART_CUT_Order\tИмпорт от SMART CUT\t")
+            
+            # 2. Генерираме всеки детайл, започващ с [D]
+            for _, row in df.iterrows():
+                mat = str(row['Плоскост']).strip()
+                qty = int(row['Бр'])
+                l = int(row['Дължина'])
+                w = int(row['Ширина'])
+                
+                # Логика за фладер: [=] = Не се върти (Има фладер), [X] = Върти се свободно
+                rot = "[=]" if row['Фладер'] == "Да" else "[X]"
+                
+                desc = str(row['Детайл']).strip()
+                mod_set = str(row['№']).strip()
+                
+                # Кантове (Д1=Горе, Ш1=Дясно, Д2=Долу, Ш2=Ляво)
+                e_top = str(row['Д1']).strip()
+                e_right = str(row['Ш1']).strip()
+                e_bot = str(row['Д2']).strip()
+                e_left = str(row['Ш2']).strip()
+                
+                # Формат: [D] | Материал | Брой | Дължина | Ширина | Въртене | Описание | Модул | Кант1 | Кант2 | Кант3 | Кант4
+                line = f"[D]\t{mat}\t{qty}\t{l}\t{w}\t{rot}\t{desc}\t{mod_set}\t{e_top}\t{e_right}\t{e_bot}\t{e_left}"
+                optimik_lines.append(line)
+            
+            # Събираме всичко в един текст с Windows кодировка
+            txt_optimik = "\n".join(optimik_lines).encode('windows-1251', errors='replace')
             
             st.download_button(
                 label="📥 Експорт за ОПТИМИК (.txt)", 

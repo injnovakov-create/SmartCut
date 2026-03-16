@@ -84,7 +84,7 @@ def get_module_abbrev(tip):
     return tip[:12]
 
 def calculate_hinges(height):
-# --- ФУНКЦИЯ ЗА МИНИ ПРЕВЮ (Скица) ---
+    # --- ФУНКЦИЯ ЗА МИНИ ПРЕВЮ (Скица) ---
 def draw_mini_preview(mod_meta, kraka_height):
     # Създаваме бяло платно
     img = Image.new('RGB', (200, 250), 'white')

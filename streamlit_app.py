@@ -242,6 +242,23 @@ with col1:
             if tip in ["Стандартен Долен", "Шкаф Мивка"]:
                 def_vrati = 0 if w <= 500 else 1
                 vrati_broi = st.radio("Брой врати:", [1, 2], index=def_vrati, horizontal=True)
+              elif tip == "Шкаф 3 Чекмеджета":
+            w = st.number_input("Ширина (W) на корпуса (мм)", value=600, key="w_ch_dyn")
+            num_ch = st.slider("Брой чекмеджета:", 1, 6, 3, key="num_ch_slider")
+            
+            # ТОВА СЪЗДАВА СПИСЪКА, КОЙТО ЛИПСВА:
+            ch_heights = []
+            st.markdown("##### Височини на челата (мм):")
+            cols_h = st.columns(num_ch)
+            for i in range(num_ch):
+                with cols_h[i]:
+                    default_h = int(718 / num_ch) # Автоматично разпределяне
+                    val = st.number_input(f"Чело {i+1}", value=default_h, key=f"dyn_ch_h_{i}")
+                    ch_heights.append(val)
+            
+            runner_len = st.number_input("Дължина водач (мм)", value=500, step=50, key="run_dyn_ch")
+            d = st.number_input("Дълбочина (D) страници (мм)", value=520, key="d_ch_dyn")
+            h = 742 + kraka + 38
 
     # --- ВИЗУАЛИЗАЦИЯ (Преди бутона за добавяне) ---
     st.markdown("---")

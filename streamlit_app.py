@@ -404,16 +404,16 @@ with col2:
         st.info("Списъкът е празен. Добави първия си модул отляво!")
 
 # --- ГЕНЕРИРАНЕ НА PDF С ЧЕРТЕЖИ (ЧЕРНО-БЯЛО) ---
-def generate_technical_pdf(modules_meta, order_list, kraka_height=100):
+def generate_technical_pdf(modules_meta, order_list, kraka_height):
     font_path = "Roboto-Regular.ttf"
     if not os.path.exists(font_path):
         try: urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf", font_path)
         except: pass
     try: 
         font_title = ImageFont.truetype(font_path, 80)
-        font_text = ImageFont.truetype(font_path, 40) 
-        font_dim = ImageFont.truetype(font_path, 50)
-        font_bold = ImageFont.truetype(font_path, 45)
+        font_text = ImageFont.truetype(font_path, 50) 
+        font_dim = ImageFont.truetype(font_path, 60)
+        font_bold = ImageFont.truetype(font_path, 55)
     except: 
         font_title = font_text = font_dim = font_bold = ImageFont.load_default()
 
@@ -422,172 +422,148 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height=100):
         img = Image.new('RGB', (2480, 3508), 'white')
         draw = ImageDraw.Draw(img)
         
-        # 1. Заглавие
-        draw.text((150, 150), f"ТЕХНИЧЕСКИ ЧЕРТЕЖ: {mod['№']} - {mod['Тип']}", fill="black", font=font_title)
-        draw.line([(150, 260), (2330, 260)], fill="black", width=5)
-
+        draw.text((150, 150), f"МОДУЛ: {mod['№']} - {mod['Тип']}", fill="black", font=font_title)
+        draw.line([(150, 250), (2330, 250)], fill="black", width=5)
+        
         W, H, D = float(mod['W']), float(mod['H']), float(mod['D'])
-        scale = 800.0 / max(W, H, D) if max(W, H, D) > 0 else 1
+        max_dim = max(W, H, D)
+        if max_dim == 0: max_dim = 1
+        scale = 1000.0 / max_dim
+        
         w_px, h_px, d_px = W * scale, H * scale, D * scale * 0.5
+        offset_x, offset_y = d_px * 0.866, d_px * 0.5
         
-        # 3D перспектива
-        ox, oy = d_px * 0.8, d_px * 0.5
-        sx, sy = 1450 - (w_px + ox)/2, 1100 - (h_px + oy)/2
-
-        # --- ФУНКЦИЯ ЗА ЗАВЪРТАН ТЕКСТ ---
-        def draw_rotated_text(image, center_x, center_y, text, font, color):
-            txt_w = int(font.getlength(text))
-            txt_h = int(font.size)
-            txt_img = Image.new('RGBA', (txt_w + 40, txt_h + 40), (255, 255, 255, 0))
-            d = ImageDraw.Draw(txt_img)
-            d.text((20, 20), text, font=font, fill=color)
-            rotated = txt_img.rotate(90, expand=True)
-            paste_x = int(center_x - rotated.width / 2)
-            paste_y = int(center_y - rotated.height / 2)
-            image.paste(rotated, (paste_x, paste_y), rotated)
-
-        # --- ФУНКЦИЯ ЗА СТЪПАЛОВИДНИ КОТИ ---
-        def draw_vitya_dim(p_top_y, p_bottom_y, offset_x, text, color="black"):
-            line_x = sx - offset_x
-            draw.line([(line_x, p_top_y), (line_x, p_bottom_y)], fill=color, width=3)
-            draw.line([(line_x - 20, p_top_y), (line_x + 10, p_top_y)], fill=color, width=3)
-            draw.line([(line_x - 20, p_bottom_y), (line_x + 10, p_bottom_y)], fill=color, width=3)
-            draw_rotated_text(img, line_x - 45, (p_top_y + p_bottom_y)/2, text, font_dim, color)
-
-        # 2. РИСУВАНЕ НА КОРПУСА В 3D
-        draw.polygon([(sx, sy), (sx+ox, sy-oy), (sx+w_px+ox, sy-oy), (sx+w_px, sy)], fill="#eeeeee", outline="black", width=3)
-        draw.polygon([(sx+w_px, sy), (sx+w_px+ox, sy-oy), (sx+w_px+ox, sy+h_px-oy), (sx+w_px, sy+h_px)], fill="#dddddd", outline="black", width=3)
-        draw.polygon([(sx, sy), (sx+w_px, sy), (sx+w_px, sy+h_px), (sx, sy+h_px)], fill="white", outline="black", width=5)
+        start_x = 1240 - (w_px + offset_x)/2
+        start_y = 1000 - (h_px + offset_y)/2
         
-        # Крачета 100мм (за долни модули)
-        is_lower = any(t in mod['Тип'] for t in ["Долен", "Мивка", "Чекмеджета", "Фурна", "Колона"])
-        leg_px = 100 * scale if is_lower else 0
-        if is_lower:
-            draw.rectangle([sx+40, sy+h_px, sx+90, sy+h_px+leg_px], fill="black")
-            draw.rectangle([sx+w_px-90, sy+h_px, sx+w_px-40, sy+h_px+leg_px], fill="black")
-
-        # Най-външна кота: Обща височина
-        draw_vitya_dim(sy, sy+h_px, 450, f"{int(H)}")
-
-        # Вземаме детайлите за текущия модул, за да ги четем
-        mod_parts = [p for p in order_list if str(p.get("№", "")) == str(mod["№"])]
-
-        # --- СПЕЦИФИЧНА ЛОГИКА ЗА ЛИЦЕТО СПОРЕД ТИПА ---
+        f_tl, f_tr = (start_x, start_y), (start_x + w_px, start_y)
+        f_bl, f_br = (start_x, start_y + h_px), (start_x + w_px, start_y + h_px)
+        r_tl, r_tr = (start_x + offset_x, start_y - offset_y), (start_x + w_px + offset_x, start_y - offset_y)
+        r_bl, r_br = (start_x + offset_x, start_y + h_px - offset_y), (start_x + w_px + offset_x, start_y + h_px - offset_y)
         
-        # А) ШКАФ КОЛОНА (както го направихме досега)
-        if mod['Тип'] == "Шкаф Колона":
-            offsets = [120, 230, 340] 
-            off_idx = 0
-            ld_h = float(mod.get('ld_h', 718))
-            app_type = mod.get('app_type', "Без уреди")
+        draw.polygon([f_tl, r_tl, r_tr, f_tr], fill="#e0e0e0", outline="black", width=5) 
+        draw.polygon([f_tr, r_tr, r_br, f_br], fill="#d0d0d0", outline="black", width=5) 
+        draw.polygon([f_tl, f_tr, f_br, f_bl], fill="#f5f5f5", outline="black", width=5) 
+        
+        tip = mod['Тип']
+        lower_types = ["Долен", "Мивка", "Чекмеджета", "Фурна", "Бутилки", "Колона"]
+        
+        leg_h_px = 0
+        if any(t in tip for t in lower_types):
+            kraka_px = kraka_height * scale
+            leg_h_px = kraka_px
+            plinth_y = start_y + h_px - kraka_px
+            draw.line([(start_x, plinth_y), (start_x + w_px, plinth_y)], fill="#555555", width=4)
+            draw.line([(start_x + w_px, plinth_y), (start_x + w_px + offset_x, plinth_y - offset_y)], fill="#555555", width=4)
             
-            y_shelf = sy + h_px - (ld_h * scale)
-            for x in range(int(sx), int(sx + w_px), 25): draw.line([(x, y_shelf), (min(x+12, sx+w_px), y_shelf)], fill="black", width=3)
-            draw_vitya_dim(y_shelf, sy+h_px, offsets[off_idx], f"{int(ld_h)}")
-            off_idx += 1
-            
-            top_y = y_shelf; total_h = ld_h
+            leg_w = 40 * scale
+            offset = 50 * scale
+            draw.rectangle([start_x+offset, start_y+h_px-kraka_px, start_x+offset+leg_w, start_y+h_px], outline="black", width=3)
+            draw.rectangle([start_x+w_px-offset-leg_w, start_y+h_px-kraka_px, start_x+w_px-offset, start_y+h_px], outline="black", width=3)
+            draw.rectangle([start_x+offset+offset_x, start_y+h_px-kraka_px-offset_y, start_x+offset+leg_w+offset_x, start_y+h_px-offset_y], outline="black", width=2)
+            draw.rectangle([start_x+w_px-offset-leg_w+offset_x, start_y+h_px-kraka_px-offset_y, start_x+w_px-offset+offset_x, start_y+h_px-offset_y], outline="black", width=2)
 
-            if "Фурна" in app_type:
-                f_h = 600
-                y_top = top_y - (f_h * scale)
-                draw.rectangle([sx, y_top, sx+w_px, top_y], outline="black", width=4)
-                draw.rectangle([sx+80*scale, y_top+80*scale, sx+w_px-80*scale, top_y-80*scale], outline="#333", width=2)
-                draw.text((sx + w_px/2, (y_top + top_y)/2), "ФУРНА", font=font_dim, fill="#333", anchor="mm")
+        parts = [p for p in order_list if str(p.get("№", "")) == str(mod["№"])]
+        vrati_count = 1
+        has_split = False
+        ld_h = mod.get("ld_h", 0)
+        has_app = mod.get("app_type", "Без уреди") != "Без уреди"
+        lower_type = mod.get("lower_type", "Врата")
+
+        for p in parts:
+            if "врата" in str(p['Детайл']).lower():
+                vrati_count = int(p['Бр'])
+            if "врата долна" in str(p['Детайл']).lower() or "чело долно" in str(p['Детайл']).lower():
+                has_split = True
                 
-                top_y = y_top; total_h += f_h
-                for x in range(int(sx), int(sx + w_px), 25): draw.line([(x, top_y), (min(x+12, sx+w_px), top_y)], fill="black", width=3)
-                draw_vitya_dim(top_y, sy+h_px, offsets[off_idx], f"{int(total_h)}")
-                off_idx += 1
-
-            if "Микровълнова" in app_type:
-                m_h = 380
-                y_top = top_y - (m_h * scale)
-                draw.rectangle([sx, y_top, sx+w_px, top_y], outline="black", width=4)
-                draw.rectangle([sx+80*scale, y_top+60*scale, sx+w_px-80*scale, top_y-60*scale], outline="#333", width=2)
-                draw.text((sx + w_px/2, (y_top + top_y)/2), "МВ", font=font_dim, fill="#333", anchor="mm")
+        if tip == "Шкаф Колона":
+            if ld_h > 0:
+                split_y_1 = start_y + h_px - leg_h_px - (ld_h * scale)
+                draw.line([(start_x, split_y_1), (start_x + w_px, split_y_1)], fill="black", width=4)
                 
-                top_y = y_top; total_h += m_h
-                for x in range(int(sx), int(sx + w_px), 25): draw.line([(x, top_y), (min(x+12, sx+w_px), top_y)], fill="black", width=3)
-                draw_vitya_dim(top_y, sy+h_px, offsets[off_idx], f"{int(total_h)}")
-                off_idx += 1
-
-            if (H - total_h) > 600:
-                mid_h = total_h + ((H - total_h) / 2)
-                y_mid = sy + h_px - (mid_h * scale)
-                for x in range(int(sx), int(sx + w_px), 25): draw.line([(x, y_mid), (min(x+12, sx+w_px), y_mid)], fill="gray", width=3)
-                draw_vitya_dim(y_mid, sy+h_px, offsets[off_idx], f"{int(mid_h)}")
-
-        # Б) ШКАФ С ЧЕКМЕДЖЕТА (Динамични чела)
-        elif "Чекмеджета" in mod['Тип']:
-            chela = [p for p in mod_parts if "Чело" in str(p['Детайл'])]
-            if chela:
-                curr_y = sy
-                for c in chela:
-                    c_h = float(c['Дължина']) # Височината на челото
-                    c_h_px = c_h * scale
-                    # Чертаем хоризонтална линия за разделител между челата
-                    draw.line([(sx, curr_y + c_h_px), (sx + w_px, curr_y + c_h_px)], fill="black", width=4)
-                    # Слагаме кота само за това чело (последователно)
-                    draw_vitya_dim(curr_y, curr_y + c_h_px, 120, f"{int(c_h)}")
-                    curr_y += c_h_px
-
-        # В) ШКАФ ЗА ФУРНА (Долен)
-        elif mod['Тип'] == "Шкаф за Фурна":
-            f_h = 595
-            f_h_px = f_h * scale
+                app_type = mod.get("app_type", "Без уреди")
+                if app_type != "Без уреди":
+                    split_y_2 = split_y_1 - (595 * scale)
+                    draw.line([(start_x, split_y_2), (start_x + w_px, split_y_2)], fill="black", width=4)
+                    draw.text((start_x + w_px/2, split_y_1 - (297 * scale)), "ФУРНА\n595", fill="#555555", font=font_dim, anchor="mm", align="center")
+                    
+                    if app_type == "Фурна + Микровълнова":
+                        split_y_3 = split_y_2 - (380 * scale)
+                        draw.line([(start_x, split_y_3), (start_x + w_px, split_y_3)], fill="black", width=4)
+                        draw.text((start_x + w_px/2, split_y_2 - (190 * scale)), "М.В.\n380", fill="#555555", font=font_dim, anchor="mm", align="center")
+                
+                if "Чекмеджета" in lower_type:
+                    if lower_type == "2 Чекмеджета":
+                        mid_y = start_y + h_px - leg_h_px - ((ld_h/2) * scale)
+                        draw.line([(start_x, mid_y), (start_x + w_px, mid_y)], fill="#333333", width=6)
+                    elif lower_type == "3 Чекмеджета":
+                        y1 = start_y + h_px - leg_h_px - ((ld_h - 180) * scale)
+                        y2 = y1 + (250 * scale)
+                        draw.line([(start_x, y1), (start_x + w_px, y1)], fill="#333333", width=6)
+                        draw.line([(start_x, y2), (start_x + w_px, y2)], fill="#333333", width=6)
+                        
+        if "3 Чекмеджета" in tip and tip != "Шкаф Колона":
+            d1_y = start_y + (180 * scale)
+            draw.line([(start_x, d1_y), (start_x + w_px, d1_y)], fill="#333333", width=6)
+            d2_y = d1_y + (250 * scale)
+            draw.line([(start_x, d2_y), (start_x + w_px, d2_y)], fill="#333333", width=6)
+            draw.text((start_x + w_px + 20, start_y + 70*scale), "180", fill="black", font=font_dim)
+            draw.text((start_x + w_px + 20, d1_y + 100*scale), "250", fill="black", font=font_dim)
+            draw.text((start_x + w_px + 20, d2_y + 120*scale), "330", fill="black", font=font_dim)
             
-            # 1. Фурна най-горе
-            draw.rectangle([sx, sy, sx+w_px, sy+f_h_px], outline="black", width=4)
-            draw.rectangle([sx+60*scale, sy+60*scale, sx+w_px-60*scale, sy+f_h_px-60*scale], outline="#333", width=2)
-            draw.text((sx + w_px/2, sy + f_h_px/2), "ФУРНА", font=font_dim, fill="#333", anchor="mm")
-            draw_vitya_dim(sy, sy+f_h_px, 120, f"{int(f_h)}")
-            
-            # 2. Врата отдолу (цяла)
-            door_h = H - f_h
-            if door_h > 0:
-                draw_vitya_dim(sy+f_h_px, sy+h_px, 120, f"{int(door_h)}")
+        elif "Фурна" in tip and tip != "Шкаф Колона":
+            d_y = start_y + h_px - leg_h_px - (157 * scale)
+            draw.line([(start_x, d_y), (start_x + w_px, d_y)], fill="#333333", width=6)
 
-        # Г) СТАНДАРТНИ ШКАФОВЕ (С 1 или 2 врати)
-        else:
-            # Търсим дали има детайл "Врата" и колко бройки е
-            vrati = [p for p in mod_parts if "Врата" in str(p['Детайл'])]
-            vr_cnt = mod.get('vr_cnt', 1)
-            if vrati: vr_cnt = int(vrati[0]['Бр'])
-            
-            if vr_cnt == 2: # Ако са 2 врати, чертаем вертикална линия по средата
-                draw.line([(sx + w_px/2, sy), (sx + w_px/2, sy + h_px)], fill="black", width=4)
+        if vrati_count == 2 and tip != "Шкаф Колона":
+            draw.line([(start_x + w_px/2, start_y), (start_x + w_px/2, start_y + h_px - leg_h_px)], fill="black", width=3)
+        elif vrati_count == 2 and tip == "Шкаф Колона":
+            draw.line([(start_x + w_px/2, start_y), (start_x + w_px/2, start_y + h_px - leg_h_px)], fill="black", width=3)
 
-        # --- Ширина и Дълбочина ---
-        draw.line([(sx, sy + h_px + leg_px + 80), (sx + w_px, sy + h_px + leg_px + 80)], fill="black", width=3)
-        draw.line([(sx, sy + h_px + leg_px + 60), (sx, sy + h_px + leg_px + 100)], fill="black", width=3)
-        draw.line([(sx+w_px, sy + h_px + leg_px + 60), (sx+w_px, sy + h_px + leg_px + 100)], fill="black", width=3)
-        draw.text((sx + w_px/2, sy + h_px + leg_px + 130), f"{int(W)}", font=font_dim, fill="black", anchor="mm")
+        draw.text((start_x + w_px/2 - 100, start_y + h_px + 30), f"W: {int(W)}", fill="black", font=font_dim)
+        draw.text((start_x - 250, start_y + h_px/2 - 30), f"H: {int(H)}", fill="black", font=font_dim)
+        draw.text((start_x + w_px + offset_x/2 + 30, start_y + h_px - offset_y/2 - 30), f"D: {int(D)}", fill="black", font=font_dim)
+
+        draw.text((150, 1800), "СПЕЦИФИКАЦИЯ НА ДЕТАЙЛИТЕ:", fill="black", font=font_title)
+        cols_x = [170, 850, 1150, 1400, 1600, 2000]
+        lines_x = [150, 830, 1130, 1380, 1580, 1980, 2350]
+        y_offset = 1950
+        start_y_table = y_offset - 20 
         
-        draw.text((sx + w_px + ox + 60, sy + h_px - oy/2), f"D: {int(D)}", font=font_dim, fill="#555", anchor="mm")
-
-        # --- ТАБЛИЦА СЪС СПЕЦИФИКАЦИЯ ---
-        draw.text((150, 2050), "СПЕЦИФИКАЦИЯ НА ДЕТАЙЛИТЕ (РАЗМЕРИ ЗА РАЗКРОЙ)", fill="black", font=font_bold)
-        y_tab = 2150
-        headers = ["ДЕТАЙЛ", "ДЪЛЖ.", "ШИР.", "БР.", "МАТЕРИАЛ", "КАНТ"]
-        tab_cols = [150, 850, 1100, 1300, 1500, 1950]
+        headers = ["ДЕТАЙЛ", "ДЪЛЖ.", "ШИР.", "БР.", "КАНТ", "ПЛОСКОСТ"]
+        for i, h_text in enumerate(headers):
+            draw.text((cols_x[i], y_offset), h_text, fill="black", font=font_bold)
+            
+        y_offset += 80
+        draw.line([(150, y_offset), (2350, y_offset)], fill="black", width=4) 
+        y_offset += 20
         
-        for i, h in enumerate(headers): draw.text((tab_cols[i], y_tab), h, font=font_bold, fill="black")
-        draw.line([(150, y_tab+60), (2330, y_tab+60)], fill="black", width=3)
-        y_tab += 90
-
-        for p in mod_parts:
-            draw.text((tab_cols[0], y_tab), str(p['Детайл'])[:25], font=font_text, fill="black")
-            draw.text((tab_cols[1], y_tab), str(int(p['Дължина'])), font=font_text, fill="black")
-            draw.text((tab_cols[2], y_tab), str(int(p['Ширина'])), font=font_text, fill="black")
-            draw.text((tab_cols[3], y_tab), str(int(p['Бр'])), font=font_text, fill="black")
-            draw.text((tab_cols[4], y_tab), str(p['Плоскост'])[:15], font=font_text, fill="black")
-            draw.text((tab_cols[5], y_tab), f"{p.get('Д1','-')}|{p.get('Ш1','-')}", font=font_text, fill="black")
-            y_tab += 70
-            if y_tab > 3350: break
-
+        for p in parts:
+            kant_str = ""
+            if p.get('Д1'): kant_str += f"Д1({p['Д1']}) "
+            if p.get('Д2'): kant_str += f"Д2({p['Д2']}) "
+            if p.get('Ш1'): kant_str += f"Ш1({p['Ш1']}) "
+            if p.get('Ш2'): kant_str += f"Ш2({p['Ш2']}) "
+            
+            row_data = [
+                str(p['Детайл'])[:18], str(int(p['Дължина'])), str(int(p['Ширина'])),
+                str(int(p['Бр'])), kant_str[:15], str(p['Плоскост'])[:15]
+            ]
+            for i, text in enumerate(row_data):
+                draw.text((cols_x[i], y_offset), text, fill="#222222", font=font_text)
+                
+            y_offset += 75
+            draw.line([(150, y_offset), (2350, y_offset)], fill="#aaaaaa", width=2) 
+            y_offset += 20
+            if y_offset > 3300: break 
+            
+        for lx in lines_x:
+            draw.line([(lx, start_y_table), (lx, y_offset)], fill="black", width=3)
+        draw.line([(150, start_y_table), (2350, start_y_table)], fill="black", width=4) 
+        draw.line([(150, y_offset), (2350, y_offset)], fill="black", width=4) 
+                
         pages.append(img)
-    
+        
     if pages:
         pdf_bytes = io.BytesIO()
         pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)

@@ -32,7 +32,7 @@ if 'order_list' not in st.session_state: st.session_state.order_list = []
 if 'hardware_list' not in st.session_state: st.session_state.hardware_list = []
 if 'modules_meta' not in st.session_state: st.session_state.modules_meta = [] 
 
-# --- ЛОГИКА ЗА ЗАПИС ТОЧНО КАТО В EXCEL ---
+# --- ЛОГИКА ЗА ЗАПИС ---
 def add_item(modul, tip, detail, count, l, w, kant_str, material, flader, note=""):
     thick = 2 if any(x in str(detail).lower() for x in ["врата", "чело", "дублираща"]) else 1
     d1 = d2 = sh1 = sh2 = ""
@@ -205,7 +205,6 @@ with col1:
             new_hw.append({"№": name, "Артикул": "Окачвачи за горен шкаф", "Брой": 2})
             new_hw.append({"№": name, "Артикул": "LED осветление (л.м.)", "Брой": w / 1000.0})
 
-        # --- ГЕНЕРИРАНЕ НА ПДЧ ДЕТАЙЛИ ---
         if tip == "Дублираща страница долен":
             new_items.append(add_item(name, tip, "Дублираща страница", 1, h, d, "4 страни", mat_lice, val_fl_lice))
         elif tip == "Нестандартен":
@@ -327,7 +326,7 @@ with col2:
     else:
         st.info("Списъкът е празен. Добави първия си модул отляво!")
 
-# --- ГЕНЕРИРАНЕ НА PDF С ЧЕРТЕЖИ И РЕШЕТКА ---
+# --- ГЕНЕРИРАНЕ НА PDF С ЧЕРТЕЖИ (ЧЕРНО-БЯЛО) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
     font_path = "Roboto-Regular.ttf"
     if not os.path.exists(font_path):
@@ -399,9 +398,9 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             draw.line([(start_x, d1_y), (start_x + w_px, d1_y)], fill="#333333", width=6)
             d2_y = d1_y + (250 * scale)
             draw.line([(start_x, d2_y), (start_x + w_px, d2_y)], fill="#333333", width=6)
-            draw.text((start_x + w_px + 20, start_y + 70*scale), "180", fill="#CC0000", font=font_dim)
-            draw.text((start_x + w_px + 20, d1_y + 100*scale), "250", fill="#CC0000", font=font_dim)
-            draw.text((start_x + w_px + 20, d2_y + 120*scale), "330", fill="#CC0000", font=font_dim)
+            draw.text((start_x + w_px + 20, start_y + 70*scale), "180", fill="black", font=font_dim)
+            draw.text((start_x + w_px + 20, d1_y + 100*scale), "250", fill="black", font=font_dim)
+            draw.text((start_x + w_px + 20, d2_y + 120*scale), "330", fill="black", font=font_dim)
             
         elif "Фурна" in tip:
             d_y = start_y + h_px - leg_h_px - (157 * scale)
@@ -410,9 +409,9 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         elif vrati_count == 2:
             draw.line([(start_x + w_px/2, start_y), (start_x + w_px/2, start_y + h_px - leg_h_px)], fill="black", width=3)
 
-        draw.text((start_x + w_px/2 - 100, start_y + h_px + 30), f"W: {int(W)}", fill="#CC0000", font=font_dim)
-        draw.text((start_x - 250, start_y + h_px/2 - 30), f"H: {int(H)}", fill="#CC0000", font=font_dim)
-        draw.text((start_x + w_px + offset_x/2 + 30, start_y + h_px - offset_y/2 - 30), f"D: {int(D)}", fill="#CC0000", font=font_dim)
+        draw.text((start_x + w_px/2 - 100, start_y + h_px + 30), f"W: {int(W)}", fill="black", font=font_dim)
+        draw.text((start_x - 250, start_y + h_px/2 - 30), f"H: {int(H)}", fill="black", font=font_dim)
+        draw.text((start_x + w_px + offset_x/2 + 30, start_y + h_px - offset_y/2 - 30), f"D: {int(D)}", fill="black", font=font_dim)
 
         draw.text((150, 1800), "СПЕЦИФИКАЦИЯ НА ДЕТАЙЛИТЕ:", fill="black", font=font_title)
         cols_x = [170, 850, 1150, 1400, 1600, 2000]
@@ -460,17 +459,43 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         return pdf_bytes.getvalue()
     return None
 
-# --- ГЕНЕРИРАНЕ НА ЕТИКЕТИ С 44 БРОЯ НА А4 ---
+# --- ПОМОЩНА ФУНКЦИЯ ЗА КАНТ ЛИНИИ НА ЕТИКЕТИ ---
+def draw_edge_marking(draw, x, y, w, h, side, edge_type, font):
+    if not edge_type: return
+    text = f" {edge_type} "
+    bbox = draw.textbbox((0,0), text, font=font)
+    tw = bbox[2] - bbox[0]
+    th = bbox[3] - bbox[1]
+    lw = 2 if edge_type == '0.8' else 8
+    
+    if side == 'top':
+        draw.line([(x, y), (x+w/2-tw/2, y)], fill="black", width=lw)
+        draw.line([(x+w/2+tw/2, y), (x+w, y)], fill="black", width=lw)
+        draw.text((x+w/2, y), text, fill="black", font=font, anchor="mm")
+    elif side == 'bottom':
+        draw.line([(x, y+h), (x+w/2-tw/2, y+h)], fill="black", width=lw)
+        draw.line([(x+w/2+tw/2, y+h), (x+w, y+h)], fill="black", width=lw)
+        draw.text((x+w/2, y+h), text, fill="black", font=font, anchor="mm")
+    elif side == 'left':
+        draw.line([(x, y), (x, y+h/2-th/2)], fill="black", width=lw)
+        draw.line([(x, y+h/2+th/2), (x, y+h)], fill="black", width=lw)
+        draw.text((x+15, y+h/2), text, fill="black", font=font, anchor="lm")
+    elif side == 'right':
+        draw.line([(x+w, y), (x+w, y+h/2-th/2)], fill="black", width=lw)
+        draw.line([(x+w, y+h/2+th/2), (x+w, y+h)], fill="black", width=lw)
+        draw.text((x+w-15, y+h/2), text, fill="black", font=font, anchor="rm")
+
+# --- ГЕНЕРИРАНЕ НА ЕТИКЕТИ С 44 БРОЯ НА А4 (ЧЕРНО-БЯЛО С КАНТ ЛИНИИ) ---
 def generate_labels_pdf(boards_per_mat):
     font_path = "Roboto-Regular.ttf"
     if not os.path.exists(font_path):
         try: urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf", font_path)
         except: pass
     try: 
-        font_small = ImageFont.truetype(font_path, 28)
-        font_text = ImageFont.truetype(font_path, 34)
-        font_huge = ImageFont.truetype(font_path, 60)
-        font_edge = ImageFont.truetype(font_path, 26)
+        font_small = ImageFont.truetype(font_path, 20)
+        font_text = ImageFont.truetype(font_path, 24)
+        font_huge = ImageFont.truetype(font_path, 45)
+        font_edge = ImageFont.truetype(font_path, 18)
     except: 
         font_small = font_text = font_huge = font_edge = ImageFont.load_default()
 
@@ -482,12 +507,18 @@ def generate_labels_pdf(boards_per_mat):
                 
     if not labels: return None
 
-    # Формат A4 на 300 DPI: 44 етикета (4 колони х 11 реда, 48.5 х 25.4 мм)
+    # Точни размери за 300 DPI (1 мм = 11.811 px)
+    px_per_mm = 11.811
     page_w, page_h = 2480, 3508
     cols, rows = 4, 11
-    label_w, label_h = 573, 300
-    margin_x = (page_w - (cols * label_w)) // 2
-    margin_y = (page_h - (rows * label_h)) // 2
+    
+    label_w = int(44 * px_per_mm)    # 519 px
+    label_h = int(20 * px_per_mm)    # 236 px
+    margin_x = int(9 * px_per_mm)    # 106 px
+    margin_y = int(9 * px_per_mm)    # 106 px
+    gap_x = int(6 * px_per_mm)       # 70 px
+    gap_y = int(6.5 * px_per_mm)     # 76 px
+    padding = int(3 * px_per_mm)     # 35 px отстояние от ръбовете вътре
     
     pages = []
     current_page = Image.new('RGB', (page_w, page_h), 'white')
@@ -501,43 +532,103 @@ def generate_labels_pdf(boards_per_mat):
             
         col = (i % (cols * rows)) % cols
         row = (i % (cols * rows)) // cols
-        x = margin_x + col * label_w
-        y = margin_y + row * label_h
+        x = margin_x + col * (label_w + gap_x)
+        y = margin_y + row * (label_h + gap_y)
         
+        # Рамка за рязане/ориентация (по избор, правим я много бледа)
         draw.rectangle([x, y, x+label_w, y+label_h], outline="#eeeeee", width=1)
         
-        d1_v = "0.8" if lbl['d1'] in ['1', '1.0'] else ("2" if lbl['d1'] in ['2', '2.0'] else "")
-        d2_v = "0.8" if lbl['d2'] in ['1', '1.0'] else ("2" if lbl['d2'] in ['2', '2.0'] else "")
-        sh1_v = "0.8" if lbl['sh1'] in ['1', '1.0'] else ("2" if lbl['sh1'] in ['2', '2.0'] else "")
-        sh2_v = "0.8" if lbl['sh2'] in ['1', '1.0'] else ("2" if lbl['sh2'] in ['2', '2.0'] else "")
+        d1_t = "0.8" if lbl['d1'] in ['1', '1.0'] else ("2" if lbl['d1'] in ['2', '2.0'] else "")
+        d2_t = "0.8" if lbl['d2'] in ['1', '1.0'] else ("2" if lbl['d2'] in ['2', '2.0'] else "")
+        sh1_t = "0.8" if lbl['sh1'] in ['1', '1.0'] else ("2" if lbl['sh1'] in ['2', '2.0'] else "")
+        sh2_t = "0.8" if lbl['sh2'] in ['1', '1.0'] else ("2" if lbl['sh2'] in ['2', '2.0'] else "")
         
-        if d1_v: 
-            draw.line([(x, y), (x+label_w, y)], fill="black", width=12)
-            draw.text((x + label_w/2, y + 10), d1_v, fill="black", font=font_edge, anchor="mt")
-        if d2_v: 
-            draw.line([(x, y+label_h), (x+label_w, y+label_h)], fill="black", width=12)
-            draw.text((x + label_w/2, y + label_h - 10), d2_v, fill="black", font=font_edge, anchor="mb")
-        if sh1_v: 
-            draw.line([(x, y), (x, y+label_h)], fill="black", width=12)
-            draw.text((x + 15, y + label_h/2), sh1_v, fill="black", font=font_edge, anchor="lm")
-        if sh2_v: 
-            draw.line([(x+label_w, y), (x+label_w, y+label_h)], fill="black", width=12)
-            draw.text((x + label_w - 15, y + label_h/2), sh2_v, fill="black", font=font_edge, anchor="rm")
+        draw_edge_marking(draw, x, y, label_w, label_h, 'top', d1_t, font_edge)
+        draw_edge_marking(draw, x, y, label_w, label_h, 'bottom', d2_t, font_edge)
+        draw_edge_marking(draw, x, y, label_w, label_h, 'left', sh1_t, font_edge)
+        draw_edge_marking(draw, x, y, label_w, label_h, 'right', sh2_t, font_edge)
             
         mod_abbr = get_module_abbrev(lbl['mod_tip'])
         top_text = f"[{lbl['mod_num']}] {mod_abbr} | {lbl['part_name']}"
         dim_text = f"{int(lbl['l'])} x {int(lbl['w'])}"
         bot_text = f"{lbl['mat'][:20]}"
         
-        draw.text((x + label_w/2, y + 45), top_text, fill="black", font=font_text, anchor="mt")
-        draw.text((x + label_w/2, y + label_h/2), dim_text, fill="#CC0000", font=font_huge, anchor="mm")
-        draw.text((x + label_w/2, y + label_h - 45), bot_text, fill="#555555", font=font_small, anchor="mb")
+        # Разполагаме текста съобразно 3мм padding (отстояние)
+        draw.text((x + label_w/2, y + padding), top_text, fill="black", font=font_text, anchor="mt")
+        draw.text((x + label_w/2, y + label_h/2), dim_text, fill="black", font=font_huge, anchor="mm")
+        draw.text((x + label_w/2, y + label_h - padding), bot_text, fill="black", font=font_small, anchor="mb")
         
     pages.append(current_page)
     
     pdf_bytes = io.BytesIO()
     pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
     return pdf_bytes.getvalue()
+
+# --- ГЕНЕРИРАНЕ НА РАЗКРОЙ В А4 PDF ---
+def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
+    font_path = "Roboto-Regular.ttf"
+    if not os.path.exists(font_path):
+        try: urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf", font_path)
+        except: pass
+    try: 
+        f_title = ImageFont.truetype(font_path, 60)
+        f_part = ImageFont.truetype(font_path, 35)
+        f_dim = ImageFont.truetype(font_path, 35)
+    except: 
+        f_title = f_part = f_dim = ImageFont.load_default()
+
+    page_w, page_h = 3508, 2480 # A4 Landscape
+    margin = 150
+    pages = []
+    
+    for mat_name, boards in boards_per_mat.items():
+        for idx, b_parts in enumerate(boards):
+            img = Image.new('RGB', (page_w, page_h), 'white')
+            draw = ImageDraw.Draw(img)
+            
+            draw.text((margin, margin), f"МАТЕРИАЛ: {mat_name} | ПЛОЧА {idx+1} от {len(boards)}", fill="black", font=f_title)
+            
+            draw_w = page_w - 2 * margin
+            draw_h = page_h - 2 * margin - 150
+            scale = min(draw_w / board_l, draw_h / board_w)
+            
+            act_w = board_l * scale
+            act_h = board_w * scale
+            sx = margin + (draw_w - act_w) / 2
+            sy = margin + 150 + (draw_h - act_h) / 2
+            
+            draw.rectangle([sx, sy, sx+act_w, sy+act_h], outline="black", width=4)
+            t_px = trim * scale
+            draw.rectangle([sx+t_px, sy+t_px, sx+act_w-t_px, sy+act_h-t_px], outline="#aaaaaa", width=2)
+            
+            for p in b_parts:
+                px = sx + (p['x'] + trim) * scale
+                py = sy + (p['y'] + trim) * scale
+                pw = p['l'] * scale
+                ph = p['w'] * scale
+                draw.rectangle([px, py, px+pw, py+ph], outline="black", width=3)
+                
+                d1_w = 8 if p['d1'] in ['2', '2.0'] else (3 if p['d1'] in ['1', '1.0'] else 0)
+                d2_w = 8 if p['d2'] in ['2', '2.0'] else (3 if p['d2'] in ['1', '1.0'] else 0)
+                sh1_w = 8 if p['sh1'] in ['2', '2.0'] else (3 if p['sh1'] in ['1', '1.0'] else 0)
+                sh2_w = 8 if p['sh2'] in ['2', '2.0'] else (3 if p['sh2'] in ['1', '1.0'] else 0)
+                
+                if d1_w: draw.line([(px, py+ph), (px+pw, py+ph)], fill="black", width=d1_w)
+                if d2_w: draw.line([(px, py), (px+pw, py)], fill="black", width=d2_w)
+                if sh1_w: draw.line([(px, py), (px, py+ph)], fill="black", width=sh1_w)
+                if sh2_w: draw.line([(px+pw, py), (px+pw, py+ph)], fill="black", width=sh2_w)
+                
+                if pw > 100 and ph > 100:
+                    draw.text((px+pw/2, py+ph/2 - 25), p['name'][:15], fill="black", font=f_part, anchor="mm")
+                    draw.text((px+pw/2, py+ph/2 + 25), f"{int(p['l'])}/{int(p['w'])}", fill="black", font=f_dim, anchor="mm")
+                    
+            pages.append(img)
+            
+    if pages:
+        pdf_bytes = io.BytesIO()
+        pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
+        return pdf_bytes.getvalue()
+    return None
 
 # --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ ---
 def get_optimized_boards(list_for_cutting):
@@ -619,7 +710,18 @@ with col_pdf:
 
 with col_visuals:
     st.subheader("✂️ Схема на разкроя (Плочи)")
-    if st.button("Генерирай 2D разкрой"):
+    
+    if st.button("📄 Свали Разкрой (A4 PDF)"):
+        if not st.session_state.order_list:
+            st.warning("Добави детайли за разкроя!")
+        else:
+            with st.spinner("Генериране на PDF..."):
+                boards_per_mat, board_l, board_w, trim = get_optimized_boards(st.session_state.order_list)
+                cut_pdf = generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim)
+                if cut_pdf:
+                    st.download_button(label="📥 ИЗТЕГЛИ РАЗКРОЙ", data=cut_pdf, file_name="Vitya_M_Разкрой.pdf", mime="application/pdf")
+                    
+    if st.button("Генерирай 2D разкрой на екрана"):
         if not st.session_state.order_list: st.warning("Добави детайли, за да генерираш разкрой!")
         else:
             boards_per_mat, board_l, board_w, trim = get_optimized_boards(st.session_state.order_list)
@@ -627,7 +729,7 @@ with col_visuals:
                 st.markdown(f"#### 🪵 {mat_name} (Нужни: {len(boards)} бр.)")
                 for idx, b_parts in enumerate(boards):
                     svg = f'<svg viewBox="0 0 {board_l} {board_w}" style="background-color:#ffffff; border:2px solid #333; margin-bottom: 20px; width: 100%; max-width: 900px;">'
-                    svg += f'<rect x="{trim}" y="{trim}" width="{board_l - 2*trim}" height="{board_w - 2*trim}" fill="none" stroke="red" stroke-width="4" stroke-dasharray="20,20"/>'
+                    svg += f'<rect x="{trim}" y="{trim}" width="{board_l - 2*trim}" height="{board_w - 2*trim}" fill="none" stroke="black" stroke-width="4" stroke-dasharray="20,20"/>'
                     for p in b_parts:
                         px, py, pl, pw = p['x'] + trim, p['y'] + trim, p['l'], p['w']
                         svg += f'<rect x="{px}" y="{py}" width="{pl}" height="{pw}" fill="#ffffff" stroke="#000000" stroke-width="2"/>'

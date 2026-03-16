@@ -89,7 +89,7 @@ def calculate_hinges(height):
     else: return 4
 # --- НОВО: ФУНКЦИЯ ЗА МИНЮ ПРЕВЮ ---
 def draw_mini_preview(mod_meta, kraka_height):
-    # Създаваме платно (намалено с 25% както поиска - 200x250)
+    # Създаваме платно 200x250
     img = Image.new('RGB', (200, 250), 'white')
     draw = ImageDraw.Draw(img)
     
@@ -97,43 +97,45 @@ def draw_mini_preview(mod_meta, kraka_height):
     H = float(mod_meta.get('H', 720))
     D = float(mod_meta.get('D', 550))
     tip = mod_meta.get('Тип', '')
-    vr_cnt = int(mod_meta.get('vr_cnt', 1)) # Взимаме броя врати
+    
+    # ВНИМАНИЕ: Тук взимаме точния брой врати от метаданните
+    vr_cnt = int(mod_meta.get('vr_cnt', 1)) 
 
-    # Мащабиране за 3D изглед
+    # Мащабиране за 3D
     scale = 120.0 / max(W, H, D)
     w_px, h_px, d_px = W * scale, H * scale, D * scale * 0.5
     
-    # Координати за 3D ефект (изометрия)
+    # Координати за 3D ефект
     offset_x, offset_y = d_px * 0.8, d_px * 0.5
     sx, sy = (200 - (w_px + offset_x)) / 2, (250 - (h_px + offset_y)) / 2 + offset_y
 
     # 1. Чертане на страниците и гърба (3D обем)
-    # Таван/Горна част
+    # Таван
     draw.polygon([(sx, sy), (sx + offset_x, sy - offset_y), (sx + w_px + offset_x, sy - offset_y), (sx + w_px, sy)], fill="#e0e0e0", outline="black")
-    # Страница (видима дясна)
+    # Страница
     draw.polygon([(sx + w_px, sy), (sx + w_px + offset_x, sy - offset_y), (sx + w_px + offset_x, sy + h_px - offset_y), (sx + w_px, sy + h_px)], fill="#d0d0d0", outline="black")
-    # Лице (предна част)
+    # Лице
     draw.polygon([(sx, sy), (sx + w_px, sy), (sx + w_px, sy + h_px), (sx, sy + h_px)], fill="#f5f5f5", outline="black", width=2)
 
-    # 2. Крачета (вместо линия за цокъл)
+    # 2. Крачета
     is_lower = any(t in tip for t in ["Долен", "Мивка", "Чекмеджета", "Фурна", "Колона"])
     leg_px = 0
     if is_lower:
         leg_px = kraka_height * scale
-        # Предни крачета
         draw.rectangle([sx + 5, sy + h_px, sx + 10, sy + h_px + leg_px], fill="black")
         draw.rectangle([sx + w_px - 10, sy + h_px, sx + w_px - 5, sy + h_px + leg_px], fill="black")
-        # Задно краче (видимо под ъгъл)
         draw.rectangle([sx + w_px + offset_x - 8, sy + h_px - offset_y, sx + w_px + offset_x - 3, sy + h_px - offset_y + leg_px], fill="#555")
 
-    # 3. Детайли по лицето
-    # Ако е с чекмеджета
+    # 3. ДИНАМИЧНИ ЛИНИИ (ВРАТИ / ЧЕКМЕДЖЕТА)
     if "Чекмеджета" in tip:
+        # Линии за чекмеджета
         for i in [0.3, 0.6]:
             y = sy + h_px * i
             draw.line([(sx, y), (sx + w_px, y)], fill="black", width=1)
-    # Ако са врати - чертаем разделител само ако vr_cnt е 2
+    
+    # ТУК Е КЛЮЧЪТ: Чертаем вертикална линия САМО ако типът НЕ е чекмеджета И vr_cnt е точно 2
     elif vr_cnt == 2:
+        # Линия точно по средата на лицето
         draw.line([(sx + w_px/2, sy), (sx + w_px/2, sy + h_px)], fill="black", width=1)
         
     return img

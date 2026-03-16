@@ -2407,3 +2407,7 @@ if st.session_state.order_list:
         st.success(f"ОФЕРТА КЪМ КЛИЕНТ: **{final_offer:.2f} €**")
 
         st.write(f"🌟 **Чиста печалба:** {profit_val:.2f} €")
+
+except Exception as e: 
+        st.warning(f"Въведи валидни числа. Грешка: {e}")
+      

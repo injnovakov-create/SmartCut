@@ -253,9 +253,9 @@ with col1:
             new_hw.append({"№": name, "Артикул": "Панти в една равнина (за глухи)", "Брой": hw_hinges})
             new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": 1})
             
-        if tip == "Шкаф 3 Чекмеджета":
-            new_hw.append({"№": name, "Артикул": "Комплект водачи за чекмедже", "Брой": 3})
-            new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": 3})
+       if tip == "Шкаф 3 Чекмеджета":
+            new_hw.append({"№": name, "Артикул": "Комплект водачи за чекмедже", "Брой": len(ch_heights)})
+            new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": len(ch_heights)})
         elif tip == "Шкаф за Фурна":
             new_hw.append({"№": name, "Артикул": "Комплект водачи за чекмедже", "Брой": 1})
             new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": 1})
@@ -334,13 +334,24 @@ with col1:
                     new_hw.append({"№": name, "Артикул": "Комплект водачи за чекмедже", "Брой": 2})
                     new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": 2})
                 elif lower_type == "3 Чекмеджета":
-                    ch1 = 180 - fuga_obshto
-                    ch2 = 250 - fuga_obshto
-                    ch3 = lower_door_h - 180 - 250 - fuga_obshto
+                    ch_h = lower_door_h / 3.0  # Разделяме височината на 3 равни чела
                     cargi_w = w - (2*deb) - 49
                     duno_w = cargi_w + 12
                     duno_l = runner_len - 13
                     block_note = "В БЛОК" if val_fl_lice == "Да" else ""
+                    
+                    h_tsarga = max(70, ch_h - 60) # Автоматична височина на кутията
+                    
+                    for idx in range(3):
+                        new_items.extend([
+                            add_item(name, tip, f"Чело долно {idx+1}", 1, ch_h - fuga_obshto, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice, block_note),
+                            add_item(name, tip, f"Царги чекм. {idx+1}", 2, cargi_w, h_tsarga, "1д", mat_chekm, val_fl_chekm),
+                            add_item(name, tip, f"Страници чекм. {idx+1}", 2, runner_len - 10, h_tsarga + 15, "2д", mat_chekm, val_fl_chekm)
+                        ])
+                    
+                    new_items.append(add_item(name, tip, "Дъно чекмедже", 3, duno_l, duno_w, "Без", mat_fazer, "Няма"))
+                    new_hw.append({"№": name, "Артикул": "Комплект водачи за чекмедже", "Брой": 3})
+                    new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": 3})
                     
                     new_items.extend([
                         add_item(name, tip, "Чело долно 1", 1, ch1, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice, block_note),

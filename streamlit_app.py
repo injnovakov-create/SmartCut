@@ -88,15 +88,53 @@ def calculate_hinges(height):
     elif height <= 1300: return 3
     else: return 4
 # --- НОВО: ФУНКЦИЯ ЗА МИНЮ ПРЕВЮ ---
-def draw_mini_preview(mod_meta, kraka_height):
+def def draw_mini_preview(mod_meta, kraka_height):
     # Малко изображение 200x250 пиксела
     img = Image.new('RGB', (200, 250), 'white')
     draw = ImageDraw.Draw(img)
-    W, H = float(mod_meta['W']), float(mod_meta['H'])
+    
+    try:
+        W = float(mod_meta['W'])
+        H = float(mod_meta['H'])
+    except:
+        W, H = 600, 720
+
     # Мащабиране
     scale = 150.0 / max(W, H) if max(W, H) > 0 else 1
     w_px, h_px = W * scale, H * scale
     sx, sy = (200 - w_px)/2, (220 - h_px)/2
+    
+    # 1. Чертане на основната кутия
+    draw.rectangle([sx, sy, sx+w_px, sy+h_px], outline="black", width=2)
+    
+    # 2. Цокъл за долни модули
+    is_lower = any(t in mod_meta['Тип'] for t in ["Долен", "Мивка", "Чекмеджета", "Фурна", "Колона"])
+    leg_px = 0
+    if is_lower:
+        leg_px = kraka_height * scale
+        draw.line([(sx, sy+h_px-leg_px), (sx+w_px, sy+h_px-leg_px)], fill="gray", width=2)
+    
+    # 3. ЛОГИКА ЗА ЛИНИИ (ВРАТИ / ЧЕКМЕДЖЕТА)
+    tip = mod_meta['Тип']
+    
+    # Ако е шкаф с чекмеджета - чертаем хоризонтални линии (чела)
+    if "Чекмеджета" in tip:
+        # Чертаем две хоризонтални линии за подсказка, че е с чекмеджета
+        line1_y = sy + (h_px - leg_px) * 0.3
+        line2_y = sy + (h_px - leg_px) * 0.6
+        draw.line([(sx, line1_y), (sx+w_px, line1_y)], fill="black", width=1)
+        draw.line([(sx, line2_y), (sx+w_px, line2_y)], fill="black", width=1)
+        
+    # Ако е шкаф за фурна - чертаем ниша
+    elif "Фурна" in tip:
+        furn_y = sy + (h_px - leg_px) * 0.2
+        draw.rectangle([sx+5, furn_y, sx+w_px-5, furn_y + 40], outline="gray", width=1)
+
+    # Само ако НЕ е чекмеджета/фурна и е широк шкаф - чертаем вертикална линия (2 врати)
+    elif W > 500:
+        draw.line([(sx+w_px/2, sy), (sx+w_px/2, sy+h_px-leg_px)], fill="black", width=1)
+    
+    return img
     
     # Чертане на кутията
     draw.rectangle([sx, sy, sx+w_px, sy+h_px], outline="black", width=2)

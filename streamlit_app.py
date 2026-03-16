@@ -353,7 +353,7 @@ with col1:
 
 # --- ФУНКЦИЯ ЗА ЧЕРТЕЖИ ---
 # --- ФУНКЦИЯ ЗА ЧЕРТЕЖИ (3D Версия + Спецификация) ---
-def generate_technical_pdf(modules_meta, order_list, kraka_height):
+def generate_technical_pdf(modules_meta, order_list, kraka_height=100):
     font_path = "Roboto-Regular.ttf"
     if not os.path.exists(font_path):
         try: urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf", font_path)
@@ -376,12 +376,11 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         draw.line([(150, 260), (2330, 260)], fill="black", width=5)
 
         W, H, D = float(mod['W']), float(mod['H']), float(mod['D'])
-        scale = 850.0 / max(W, H, D) if max(W, H, D) > 0 else 1
+        scale = 800.0 / max(W, H, D) if max(W, H, D) > 0 else 1
         w_px, h_px, d_px = W * scale, H * scale, D * scale * 0.5
         ox, oy = d_px * 0.8, d_px * 0.5
         sx, sy = 1240 - (w_px + ox)/2, 1100 - (h_px + oy)/2
 
-        # --- ФУНКЦИЯ ЗА ЗАВЪРТАН ТЕКСТ (90 градуса) ---
         def draw_rotated_text(image, position, text, font, color):
             txt_bbox = font.getbbox(text)
             txt_w, txt_h = txt_bbox[2] - txt_bbox[0], txt_bbox[3] - txt_bbox[1]
@@ -391,66 +390,91 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             w_img = txt_img.rotate(90, expand=1)
             image.paste(w_img, position, w_img)
 
-        # --- ФУНКЦИЯ ЗА СТЪПАЛОВИДНИ КОТИ ---
         def draw_dim_line(p1, p2, offset_x, text, color="black"):
             line_x = sx - offset_x
-            # Вертикална линия
             draw.line([(line_x, p1[1]), (line_x, p2[1])], fill=color, width=3)
-            # Напречни чертички (ограничители)
-            draw.line([(line_x - 25, p1[1]), (line_x + 10, p1[1])], fill=color, width=2)
-            draw.line([(line_x - 25, p2[1]), (line_x + 10, p2[1])], fill=color, width=2)
-            # Завъртян текст до линията
-            draw_rotated_text(img, (int(line_x - 70), int((p1[1] + p2[1])/2 - 60)), text, font_dim, color)
+            draw.line([(line_x - 20, p1[1]), (line_x + 10, p1[1])], fill=color, width=2)
+            draw.line([(line_x - 20, p2[1]), (line_x + 10, p2[1])], fill=color, width=2)
+            # Добавено отстояние (line_x - 85) вместо -70, за да не опира в линията
+            draw_rotated_text(img, (int(line_x - 85), int((p1[1] + p2[1])/2 - 60)), text, font_dim, color)
 
-        # Рисуване на корпуса
-        draw.polygon([(sx, sy), (sx+ox, sy-oy), (sx+w_px+ox, sy-oy), (sx+w_px, sy)], fill="#eeeeee", outline="black", width=3)
-        draw.polygon([(sx+w_px, sy), (sx+w_px+ox, sy-oy), (sx+w_px+ox, sy+h_px-oy), (sx+w_px, sy+h_px)], fill="#dddddd", outline="black", width=3)
+        # Корпус
         draw.rectangle([sx, sy, sx+w_px, sy+h_px], outline="black", width=5)
+        
+        # Крачета 100мм
+        leg_px = 100 * scale
+        draw.rectangle([sx+40, sy+h_px, sx+90, sy+h_px+leg_px], fill="black")
+        draw.rectangle([sx+w_px-90, sy+h_px, sx+w_px-40, sy+h_px+leg_px], fill="black")
 
-        # 1. Най-външна кота: Обща височина
-        draw_dim_line((sx, sy), (sx, sy+h_px), 350, f"H={int(H)}")
+        # Обща височина
+        draw_dim_line((sx, sy), (sx, sy+h_px), 450, f"H={int(H)}")
 
-        # --- ЛОГИКА ЗА РАФТОВЕ ПРИ КОЛОНА ---
+        # Логика за рафтове и уреди
+        curr_y_px = sy + h_px
+        curr_h_abs = 0
+        offsets = [120, 200, 280, 360]
+        off_idx = 0
+
         if mod['Тип'] == "Шкаф Колона":
-            app_type = mod.get('app_type', "Без уреди")
             ld_h = float(mod.get('ld_h', 718))
+            app_type = mod.get('app_type', "Без уреди")
             
-            # Кота 1: Рафт под фурна (най-близо до шкафа)
-            y_shelf1 = sy + h_px - (ld_h * scale)
-            draw.line([(sx, y_shelf1), (sx + w_px, y_shelf1)], fill="black", width=4)
-            draw_dim_line((sx, y_shelf1), (sx, sy+h_px), 110, f"{int(ld_h)}", color="blue")
-
-            curr_y_px = y_shelf1
-            curr_h_abs = ld_h
-            base_offset = 110
+            # Рафт под фурна
+            y_shelf = sy + h_px - (ld_h * scale)
+            draw.line([(sx, y_shelf), (sx + w_px, y_shelf)], fill="black", width=4)
+            draw_dim_line((sx, y_shelf), (sx, sy+h_px), offsets[off_idx], f"{int(ld_h)}", "blue")
+            off_idx += 1
+            
+            top_of_last_app_y = y_shelf
+            total_h_apps = ld_h
 
             if "Фурна" in app_type:
                 f_h = 595
-                draw.rectangle([sx+40, curr_y_px - (f_h*scale) + 5, sx+w_px-40, curr_y_px - 5], outline="red", width=3)
-                curr_y_px -= (f_h * scale)
-                curr_h_abs += f_h
-                # Кота 2: Рафт над фурна (малко по-вляво)
-                for x in range(int(sx), int(sx + w_px), 25):
-                    draw.line([(x, curr_y_px), (min(x + 12, sx + w_px), curr_y_px)], fill="black", width=3)
-                draw_dim_line((sx, curr_y_px), (sx, sy+h_px), 190, f"{int(curr_h_abs)}", color="red")
+                draw.rectangle([sx+40, top_of_last_app_y - (f_h*scale), sx+w_px-40, top_of_last_app_y], outline="red", width=3)
+                top_of_last_app_y -= (f_h * scale)
+                total_h_apps += f_h
+                draw_dim_line((sx, top_of_last_app_y), (sx, sy+h_px), offsets[off_idx], f"{int(total_h_apps)}", "red")
+                off_idx += 1
 
             if "Микровълнова" in app_type:
                 m_h = 380
-                draw.rectangle([sx+60, curr_y_px - (m_h*scale) + 5, sx+w_px-60, curr_y_px - 5], outline="green", width=3)
-                curr_y_px -= (m_h * scale)
-                curr_h_abs += m_h
-                # Кота 3: Рафт над МВ (още по-вляво)
-                for x in range(int(sx), int(sx + w_px), 25):
-                    draw.line([(x, curr_y_px), (min(x + 12, sx + w_px), curr_y_px)], fill="black", width=3)
-                draw_dim_line((sx, curr_y_px), (sx, sy+h_px), 270, f"{int(curr_h_abs)}", color="green")
+                draw.rectangle([sx+60, top_of_last_app_y - (m_h*scale), sx+w_px-60, top_of_last_app_y], outline="green", width=3)
+                top_of_last_app_y -= (m_h * scale)
+                total_h_apps += m_h
+                draw_dim_line((sx, top_of_last_app_y), (sx, sy+h_px), offsets[off_idx], f"{int(total_h_apps)}", "green")
+                off_idx += 1
 
-        # Хоризонтална кота за ширина (отдолу)
-        draw.line([(sx, sy + h_px + 150), (sx + w_px, sy + h_px + 150)], fill="black", width=3)
-        draw.line([(sx, sy + h_px + 130), (sx, sy + h_px + 170)], fill="black", width=3)
-        draw.line([(sx+w_px, sy + h_px + 130), (sx+w_px, sy + h_px + 170)], fill="black", width=3)
-        draw.text(((sx + sx + w_px)/2, sy + h_px + 180), f"W={int(W)}", font=font_dim, fill="black", anchor="mm")
+            # Празно пространство над уредите - Автоматичен рафт
+            remaining_h = H - total_h_apps
+            if remaining_h > 600:
+                mid_shelf_h = total_h_apps + (remaining_h / 2)
+                y_mid = sy + h_px - (mid_shelf_h * scale)
+                for x in range(int(sx), int(sx + w_px), 30):
+                    draw.line([(x, y_mid), (x + 15, y_mid)], fill="gray", width=2)
+                draw_dim_line((sx, y_mid), (sx, sy+h_px), offsets[off_idx], f"{int(mid_shelf_h)}", "gray")
 
-        # Таблицата отдолу остава същата
+        # Списък с детайли отдолу
+        draw.text((150, 2000), "СПЕЦИФИКАЦИЯ НА ДЕТАЙЛИТЕ (РАЗМЕРИ ЗА РАЗКРОЙ)", fill="black", font=font_bold)
+        y_tab = 2100
+        headers = ["ДЕТАЙЛ", "ДЪЛЖ.", "ШИР.", "БР.", "МАТЕРИАЛ", "КАНТ"]
+        tab_cols = [150, 850, 1100, 1300, 1500, 1950]
+        
+        for i, h in enumerate(headers):
+            draw.text((tab_cols[i], y_tab), h, font=font_bold, fill="black")
+        draw.line([(150, y_tab+60), (2330, y_tab+60)], fill="black", width=3)
+        y_tab += 90
+
+        mod_parts = [p for p in order_list if str(p.get("№", "")) == str(mod["№"])]
+        for p in mod_parts:
+            draw.text((tab_cols[0], y_tab), str(p['Детайл'])[:25], font=font_text, fill="black")
+            draw.text((tab_cols[1], y_tab), str(int(p['Дължина'])), font=font_text, fill="black")
+            draw.text((tab_cols[2], y_tab), str(int(p['Ширина'])), font=font_text, fill="black")
+            draw.text((tab_cols[3], y_tab), str(int(p['Бр'])), font=font_text, fill="black")
+            draw.text((tab_cols[4], y_tab), str(p['Плоскост'])[:15], font=font_text, fill="black")
+            draw.text((tab_cols[5], y_tab), f"{p.get('Д1','-')}|{p.get('Ш1','-')}", font=font_text, fill="black")
+            y_tab += 70
+            if y_tab > 3350: break
+
         pages.append(img)
     
     if pages:

@@ -45,12 +45,22 @@ def add_item(modul, tip, detail, count, l, w, kant_str, material, flader, note="
     
     final_l, final_w = float(l), float(w)
     
+    # --- ЛОГИКА ЗА ЗАПИС ТОЧНО КАТО В EXCEL ---
+def add_item(modul, tip, detail, count, l, w, kant_str, material, flader, note=""):
+    thick = 2 if any(x in str(detail).lower() for x in ["врата", "чело", "дублираща"]) else 1
+    d1 = d2 = sh1 = sh2 = ""
+    k = str(kant_str).lower()
+    if "1д" in k: d1 = thick
+    if "2д" in k or "4" in k: d1 = thick; d2 = thick
+    if "1к" in k or "1ш" in k: sh1 = thick
+    if "2к" in k or "2ш" in k or "4" in k: sh1 = thick; sh2 = thick
+    
+    final_l, final_w = float(l), float(w)
+    
     # ЛОГИКА ЗА ПРИСПАДАНЕ НА КАНТА
     if st.session_state.get("deduct_edge", False):
-        # Кант по дължината (Д1/Д2) се лепи на дългата страна -> увеличава ширината (W). Затова вадим от W.
         if d1: final_w -= thick
         if d2: final_w -= thick
-        # Кант по ширината (Ш1/Ш2) се лепи на късата страна -> увеличава дължината (L). Затова вадим от L.
         if sh1: final_l -= thick
         if sh2: final_l -= thick
 
@@ -59,8 +69,6 @@ def add_item(modul, tip, detail, count, l, w, kant_str, material, flader, note="
         "Дължина": int(final_l), "Ширина": int(final_w), 
         "Фладер": flader, "Бр": count, "Д1": d1, "Д2": d2, "Ш1": sh1, "Ш2": sh2, "Забележка": note
     }
-
-def get_abbrev(detail_name):
 
 def get_abbrev(detail_name):
     d = str(detail_name).lower()
@@ -88,6 +96,7 @@ def get_abbrev(detail_name):
 
 def get_module_abbrev(tip):
     t = str(tip).lower()
+    if "шкаф с чекмеджета" in t: return "Шк чекм"
     if "3 чекмеджета" in t: return "Шк 3 ч-та"
     if "стандартен долен" in t: return "Долен шк"
     if "горен шкаф" in t: return "Горен шк"

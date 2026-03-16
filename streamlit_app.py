@@ -307,30 +307,20 @@ with col1:
                     add_item(name, tip, "Страница", 2, h, d, "1д", mat_korpus, val_fl_korpus),
                     add_item(name, tip, "Дъно/Таван", 2, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
                     add_item(name, tip, "Гръб (Фазер)", 1, h - otstyp_f, w - otstyp_f, "Без", mat_fazer, "Няма"),
-def draw_edge_marking(draw, x, y, w, h, side, edge_type, font):
-    if not edge_type: return
-    text = f" {edge_type} "
-    bbox = draw.textbbox((0,0), text, font=font)
-    tw = bbox[2] - bbox[0]
-    th = bbox[3] - bbox[1]
-    lw = 2 if edge_type == '0.8' else 8
-    
-    if side == 'top':
-        draw.line([(x, y), (x+w/2-tw/2, y)], fill="black", width=lw)
-        draw.line([(x+w/2+tw/2, y), (x+w, y)], fill="black", width=lw)
-        draw.text((x+w/2, y), text, fill="black", font=font, anchor="mm")
-    elif side == 'bottom':
-        draw.line([(x, y+h), (x+w/2-tw/2, y+h)], fill="black", width=lw)
-        draw.line([(x+w/2+tw/2, y+h), (x+w, y+h)], fill="black", width=lw)
-        draw.text((x+w/2, y+h), text, fill="black", font=font, anchor="mm")
-    elif side == 'left':
-        draw.line([(x, y), (x, y+h/2-th/2)], fill="black", width=lw)
-        draw.line([(x, y+h/2+th/2), (x, y+h)], fill="black", width=lw)
-        draw.text((x+15, y+h/2), text, fill="black", font=font, anchor="lm")
-    elif side == 'right':
-        draw.line([(x+w, y), (x+w, y+h/2-th/2)], fill="black", width=lw)
-        draw.line([(x+w, y+h/2+th/2), (x+w, y+h)], fill="black", width=lw)
-        draw.text((x+w-15, y+h/2), text, fill="black", font=font, anchor="rm")
+                    add_item(name, tip, "Врата", vrati_broi, h - fuga_obshto, (w/vrati_broi) - fuga_obshto, "4 страни", mat_lice, val_fl_lice)
+                ])
+            else:
+                new_items.extend([
+                    add_item(name, tip, "Дъно", 1, w, 480 if "Мивка" in tip else d, "1д", mat_korpus, val_fl_korpus),
+                    add_item(name, tip, "Страница", 2, h_str, d, "1д", mat_korpus, val_fl_korpus),
+                    add_item(name, tip, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus),
+                    add_item(name, tip, "Врата", vrati_broi, h_v_std, (w/vrati_broi)-fuga_obshto, "4 страни", mat_lice, val_fl_lice)
+                ])
+
+        st.session_state.order_list.extend(new_items)
+        st.session_state.hardware_list.extend(new_hw)
+        st.success(f"Модул {name} добавен!")
+        st.rerun()
 
 # --- ГЕНЕРИРАНЕ НА ЕТИКЕТИ С 44 БРОЯ НА А4 (ЧЕРНО-БЯЛО С КАНТ ЛИНИИ) ---
 def generate_labels_pdf(boards_per_mat):

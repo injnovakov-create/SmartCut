@@ -208,41 +208,59 @@ with col1:
 
         # --- Коригирана Колона (Уреди + Чекмеджета) ---
         elif tip == "Шкаф Колона":
-            # Уреди
+            # 1. Изчисляваме височините на уредите спрямо избора
+            # has_app идва от селектора: "Без уреди", "Само Фурна", "Само Микровълнова", "Фурна + Микровълнова"
             h_furn = 595 if "Фурна" in has_app else 0
             h_mw = 380 if "Микровълнова" in has_app else 0
             
-            # Долна част
+            # 2. Долна част (Врата или Чекмеджета)
             if lower_mode == "До 3 чекмеджета":
-                c_w = w - (2*deb) - 49
+                c_w = w - (2*deb) - 49 # ширина на царгите
+                total_lower_h = sum(ch_heights) # сбор от височините на избраните чела
+                
                 for idx, ch_h in enumerate(ch_heights):
+                    # Добавяме чело
                     new_items.append(add_item(name, tip, f"Чело колона {idx+1}", 1, ch_h - fuga_obshto, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice))
+                    # Добавяме детайли за чекмеджето (кутията)
                     new_items.extend([
                         add_item(name, tip, f"Царги ч.{idx+1}", 2, c_w, 160, "1д", mat_chekm, val_fl_chekm),
-                        add_item(name, tip, f"Страници ч.{idx+1}", 2, runner_len-10, 175, "2д", mat_chekm, val_fl_chekm),
-                        add_item(name, tip, f"Дъно ч.{idx+1}", 1, runner_len-13, c_w+12, "Без", mat_fazer, "Няма")
+                        add_item(name, tip, f"Страници ч.{idx+1}", 2, runner_len - 10, 175, "2д", mat_chekm, val_fl_chekm),
+                        add_item(name, tip, f"Дъно ч.{idx+1}", 1, runner_len - 13, c_w + 12, "Без", mat_fazer, "Няма")
                     ])
-                new_hw.append({"№": name, "Артикул": "Водачи", "Брой": len(ch_heights)})
+                new_hw.append({"№": name, "Артикул": "Комплект водачи за колона", "Брой": len(ch_heights)})
             else:
-                new_items.append(add_item(name, tip, "Врата долна", vrati_broi, lower_door_h, (w/vrati_broi)-fuga_obshto, "4 страни", mat_lice, val_fl_lice))
+                # Ако е врата
+                total_lower_h = lower_door_h
+                w_v = (w / vrati_broi) - fuga_obshto
+                new_items.append(add_item(name, tip, "Врата долна", vrati_broi, lower_door_h, w_v, "4 страни", mat_lice, val_fl_lice))
+                new_hw.append({"№": name, "Артикул": "Панти покрит кант", "Брой": calculate_hinges(lower_door_h) * vrati_broi})
 
-            # Рафтове за уреди
-            if h_furn > 0: new_items.append(add_item(name, tip, "Рафт тв. (под фурна)", 1, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus))
-            if h_mw > 0: new_items.append(add_item(name, tip, "Рафт тв. (под МВ)", 1, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus))
+            # 3. Рафтове и ниши за уреди
+            # Рафт под фурната (винаги е твърд/конструктивен)
+            if h_furn > 0:
+                new_items.append(add_item(name, tip, "Рафт тв. (под фурна)", 1, w - (2*deb), d, "1д", mat_korpus, val_fl_korpus))
             
-            # Горна врата (остатък)
-            used_h = (sum(ch_heights) if lower_mode == "До 3 чекмеджета" else lower_door_h) + h_furn + h_mw
-            h_upper_v = h - kraka - deb - used_h - (fuga_obshto * 2)
-            if h_upper_v > 100:
-                new_items.append(add_item(name, tip, "Врата горна", vrati_broi, h_upper_v, (w/vrati_broi)-fuga_obshto, "4 страни", mat_lice, val_fl_lice))
+            # Рафт под микровълновата
+            if h_mw > 0:
+                new_items.append(add_item(name, tip, "Рафт тв. (под МВ)", 1, w - (2*deb), d, "1д", mat_korpus, val_fl_korpus))
+            
+            # Таван над уредите (ако има уреди)
+            if h_furn > 0 or h_mw > 0:
+                new_items.append(add_item(name, tip, "Рафт тв. (над уреди)", 1, w - (2*deb), d, "1д", mat_korpus, val_fl_korpus))
 
-        elif tip == "Нестандартен":
-            m_c = mat_korpus if "Корп" in custom_mat_type else mat_lice
-            new_items.append(add_item(name, tip, custom_detail, custom_count, custom_l, custom_w, custom_kant, m_c, "Да"))
-
-        st.session_state.order_list.extend(new_items)
-        st.session_state.hardware_list.extend(new_hw)
-        st.rerun()
+            # 4. Горна врата (изчисляване на остатъка)
+            # Височина на корпуса без крака и без дебелината на дъното (ако страниците стъпват върху него)
+            # Използваме h_korp от предходната секция
+            h_v_upper = (h - kraka) - total_lower_h - h_furn - h_mw - (fuga_obshto * 2)
+            
+            if h_v_upper > 150: # Чертаем врата само ако има смислена височина
+                w_v = (w / vrati_broi) - fuga_obshto
+                new_items.append(add_item(name, tip, "Врата горна", vrati_broi, h_v_upper, w_v, "4 страни", mat_lice, val_fl_lice))
+                new_hw.append({"№": name, "Артикул": "Панти покрит кант", "Брой": calculate_hinges(h_v_upper) * vrati_broi})
+            
+            # Добавяме и подвижни рафтове в останалото пространство
+            new_items.append(add_item(name, tip, "Рафт подвижен", 2, w - (2*deb), d - 10, "1д", mat_korpus, val_fl_korpus))
+            new_hw.append({"№": name, "Артикул": "Рафтоносачи", "Брой": 8})
 
 # --- КРАЙ НА ОСНОВНИЯ КОД - ФИНАНСИ И PDF (ЗАПАЗЕНИ) ---
 with col2:

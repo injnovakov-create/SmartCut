@@ -122,9 +122,9 @@ with col1:
 
     if cat_choice == "🍳 Кухненски Шкафове":
         icons = {
-            "Стандартен Долен": "🗄️", "Горен Шкаф": "⬆️", "Трети ред (Надстройка)": "🔝", 
-            "Шкаф Мивка": "🚰", "Шкаф 3 Чекмеджета": "🔢", "Шкаф Бутилки 15см": "🍾", 
-            "Шкаф за Фурна": "🍳", "Глух Ъгъл (Долен)": "📐", "Глух Ъгъл (Горен)": "📐"
+            "Стандартен Долен": "🗄️", "Горен Шкаф": "⬆️", "Шкаф Мивка": "🚰", 
+            "Шкаф 3 Чекмеджета": "🔢", "Шкаф Бутилки 15см": "🍾", "Шкаф за Фурна": "🍳", 
+            "Глух Ъгъл (Долен)": "📐", "Глух Ъгъл (Горен)": "📐"
         }
     else:
         icons = {
@@ -134,22 +134,15 @@ with col1:
     tip = st.selectbox("Тип модул", options=list(icons.keys()), format_func=lambda x: f"{icons.get(x, '📌')} {x}")
     name = st.text_input("Име/№ на модула", value=tip)
     
-    # Инициализация на променливи
     appliances_type = "Без уреди"
     split_doors = False
     lower_door_h = 0
     lower_type = "Врата"
-    vrati_broi = 1 # По подразбиране
     
     if tip == "Дублираща страница долен":
         h = st.number_input("Височина (H) мм", value=860)
         d = st.number_input("Дълбочина (D) мм", value=580)
         w = deb
-    elif tip == "Трети ред (Надстройка)":
-        w = st.number_input("Ширина (W) на корпуса (мм)", value=600)
-        h = st.number_input("Височина (H) в мм", value=350)
-        d = st.number_input("Дълбочина (D) в мм", value=500)
-        vrati_broi = st.radio("Брой врати:", [1, 2], index=0, horizontal=True)
     elif tip == "Нестандартен":
         custom_detail = st.text_input("Име на детайла", value="Нестандартен детайл")
         colA, colB, colC = st.columns(3)
@@ -165,13 +158,10 @@ with col1:
         h_korpus = st.number_input("Височина на корпуса без крака (H) мм", value=2040)
         d = st.number_input("Дълбочина (D) страници (мм)", value=550)
         
-        # РАЗШИРЕНА ОПЦИЯ ЗА УРЕДИ
-        appliances_type = st.radio("Вградени уреди:", 
-                                   ["Без уреди", "Само Фурна", "Само Микровълнова", "Фурна + Микровълнова"], 
-                                   horizontal=True)
+        appliances_type = st.radio("Вградени уреди:", ["Без уреди", "Само Фурна", "Фурна + Микровълнова"], horizontal=True)
         
         if appliances_type != "Без уреди":
-            lower_door_h = st.number_input("Височина на долната част (под уредите) мм", value=718)
+            lower_door_h = st.number_input("Височина на долната част (под фурната) мм", value=718)
             lower_type = st.radio("Тип долна част:", ["Врата", "2 Чекмеджета", "3 Чекмеджета"], horizontal=True)
             if "Чекмеджета" in lower_type:
                 runner_len = st.number_input("Дължина водач (мм)", value=500, step=50)
@@ -211,15 +201,6 @@ with col1:
             if tip in ["Стандартен Долен", "Шкаф Мивка"]:
                 def_vrati = 0 if w <= 500 else 1
                 vrati_broi = st.radio("Брой врати:", [1, 2], index=def_vrati, horizontal=True)
-
-    # --- ВИЗУАЛИЗАЦИЯ (Преди бутона за добавяне) ---
-    st.markdown("---")
-    # Използваме функцията за превю, за да виждаш какво правиш
-    # vr_cnt се предава динамично според избора ти
-    temp_meta = {"Тип": tip, "W": w, "H": h, "D": d, "vr_cnt": vrati_broi}
-    preview_img = draw_mini_preview(temp_meta, kraka)
-    st.image(preview_img, caption=f"Скица на модула")
-    st.markdown("---")
 
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("➕ Добави към списъка"):

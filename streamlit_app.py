@@ -352,25 +352,93 @@ with col1:
         st.success(f"Модул {name} добавен!"); st.rerun()
 
 # --- ФУНКЦИЯ ЗА ЧЕРТЕЖИ ---
+# --- ФУНКЦИЯ ЗА ЧЕРТЕЖИ (3D Версия + Спецификация) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
     font_path = "Roboto-Regular.ttf"
+    if not os.path.exists(font_path):
+        try: urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf", font_path)
+        except: pass
     try: 
-        font_title = ImageFont.truetype(font_path, 80); font_text = ImageFont.truetype(font_path, 50)
+        font_title = ImageFont.truetype(font_path, 80)
+        font_text = ImageFont.truetype(font_path, 45) 
+        font_dim = ImageFont.truetype(font_path, 60)
     except: 
-        font_title = font_text = ImageFont.load_default()
+        font_title = font_text = font_dim = ImageFont.load_default()
+
     pages = []
     for mod in modules_meta:
-        img = Image.new('RGB', (2480, 3508), 'white'); draw = ImageDraw.Draw(img)
-        draw.text((150, 150), f"МОДУЛ: {mod['№']} - {mod['Тип']}", fill="black", font=font_title)
-        draw.line([(150, 250), (2330, 250)], fill="black", width=5)
-        # Опростен 3D блок за PDF
+        # Създаваме A4 страница (300 DPI)
+        img = Image.new('RGB', (2480, 3508), 'white')
+        draw = ImageDraw.Draw(img)
+        
+        # 1. ЗАГЛАВИЕ
+        draw.text((150, 150), f"ТЕХНИЧЕСКИ ЧЕРТЕЖ: {mod['№']}", fill="black", font=font_title)
+        draw.text((150, 250), f"Тип: {mod['Тип']} | Размери: {mod['W']} x {mod['H']} x {mod['D']} мм", fill="gray", font=font_text)
+        draw.line([(150, 320), (2330, 320)], fill="black", width=5)
+
+        # 2. 3D ВИЗУАЛИЗАЦИЯ (Математика за перспектива)
         W, H, D = float(mod['W']), float(mod['H']), float(mod['D'])
-        scale = 1000.0 / max(W, H, D) if max(W, H, D) > 0 else 1
-        w_px, h_px = W * scale, H * scale
-        draw.rectangle([740, 500, 740+w_px, 500+h_px], outline="black", width=5)
+        scale = 1100.0 / max(W, H, D) if max(W, H, D) > 0 else 1
+        
+        w_px, h_px, d_px = W * scale, H * scale, D * scale * 0.5
+        ox, oy = d_px * 0.8, d_px * 0.5 # Отместване за 3D ефект
+        
+        # Центриране
+        sx = 1240 - (w_px + ox) / 2
+        sy = 1050 - (h_px + oy) / 2
+
+        # Точки за 3D кутията
+        f_tl, f_tr = (sx, sy), (sx + w_px, sy)
+        f_bl, f_br = (sx, sy + h_px), (sx + w_px, sy + h_px)
+        r_tl, r_tr = (sx + ox, sy - oy), (sx + w_px + ox, sy - oy)
+        r_br = (sx + w_px + ox, sy + h_px - oy)
+
+        # Рисуване на стените със засенчване
+        draw.polygon([f_tl, r_tl, r_tr, f_tr], fill="#f0f0f0", outline="black", width=4) # Таван
+        draw.polygon([f_tr, r_tr, r_br, f_br], fill="#d9d9d9", outline="black", width=4) # Страница
+        draw.polygon([f_tl, f_tr, f_br, f_bl], fill="#ffffff", outline="black", width=6) # Лице
+
+        # Добавяне на линии за врати/чекмеджета според типа
+        if mod.get('vr_cnt') == 2:
+            draw.line([(sx + w_px/2, sy), (sx + w_px/2, sy + h_px)], fill="black", width=3)
+        
+        # 3. РАЗМЕРИ НА ЧЕРТЕЖА
+        draw.text((sx + w_px/2 - 50, sy + h_px + 30), f"W: {int(W)}", fill="black", font=font_dim)
+        draw.text((sx - 250, sy + h_px/2), f"H: {int(H)}", fill="black", font=font_dim)
+
+        # 4. ТАБЛИЦА СЪС СПЕЦИФИКАЦИЯ (Долната част на листа)
+        draw.text((150, 1850), "СПЕЦИФИКАЦИЯ НА ДЕТАЙЛИТЕ:", fill="black", font=font_title)
+        y_table = 2000
+        headers = ["ДЕТАЙЛ", "ДЪЛЖ.", "ШИР.", "БР.", "КАНТ"]
+        cols = [170, 950, 1250, 1550, 1800]
+        
+        # Заглавия на таблицата
+        for i, h_txt in enumerate(headers):
+            draw.text((cols[i], y_table), h_txt, fill="black", font=font_text)
+        draw.line([(150, y_table + 70), (2330, y_table + 70)], fill="black", width=4)
+        
+        y_table += 100
+        # Филтрираме детайлите само за текущия шкаф
+        mod_parts = [p for p in order_list if str(p.get("№", "")) == str(mod["№"])]
+        
+        for p in mod_parts:
+            # Комбинираме канта за по-лесно четене
+            kant = f"{p.get('Д1','-')}/{p.get('Д2','-')}/{p.get('Ш1','-')}/{p.get('Ш2','-')}"
+            
+            draw.text((cols[0], y_table), str(p['Детайл'])[:30], fill="black", font=font_text)
+            draw.text((cols[1], y_table), str(int(p['Дължина'])), fill="black", font=font_text)
+            draw.text((cols[2], y_table), str(int(p['Ширина'])), fill="black", font=font_text)
+            draw.text((cols[3], y_table), str(int(p['Бр'])), fill="black", font=font_text)
+            draw.text((cols[4], y_table), kant, fill="#444444", font=font_text)
+            
+            y_table += 80
+            if y_table > 3300: break # Защита от излизане от листа
+
         pages.append(img)
+        
     if pages:
-        pdf_bytes = io.BytesIO(); pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
+        pdf_bytes = io.BytesIO()
+        pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
         return pdf_bytes.getvalue()
     return None
   # --- ТОВА ВРЪЩА ТАБЛИЦАТА НА ЕКРАНА ---

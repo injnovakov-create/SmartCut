@@ -122,9 +122,9 @@ with col1:
 
     if cat_choice == "🍳 Кухненски Шкафове":
         icons = {
-            "Стандартен Долен": "🗄️", "Горен Шкаф": "⬆️", "Шкаф Мивка": "🚰", 
-            "Шкаф 3 Чекмеджета": "🔢", "Шкаф Бутилки 15см": "🍾", "Шкаф за Фурна": "🍳", 
-            "Глух Ъгъл (Долен)": "📐", "Глух Ъгъл (Горен)": "📐"
+            "Стандартен Долен": "🗄️", "Горен Шкаф": "⬆️", "Трети ред (Надстройка)": "🔝", 
+            "Шкаф Мивка": "🚰", "Шкаф 3 Чекмеджета": "🔢", "Шкаф Бутилки 15см": "🍾", 
+            "Шкаф за Фурна": "🍳", "Глух Ъгъл (Долен)": "📐", "Глух Ъгъл (Горен)": "📐"
         }
     else:
         icons = {
@@ -787,12 +787,18 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
                 if sh1_w: draw.line([(px, py), (px, py+ph)], fill="black", width=sh1_w)
                 if sh2_w: draw.line([(px+pw, py), (px+pw, py+ph)], fill="black", width=sh2_w)
                 
-                if p['l'] <= 85 or p['w'] <= 85:
-                    draw.text((px+pw/2, py+ph/2), f"{int(p['l'])}/{int(p['w'])}", fill="black", font=f_small, anchor="mm")
+                # --- УМНО СЪКРАЩАВАНЕ НА ТЕКСТА ЗА ДА СЕ ПОБИРА В ПРАВОЪГЪЛНИКА (PDF) ---
+                name_str = p['name'][:10] + '..' if len(p['name']) > 10 and p['l'] < 300 else p['name'][:18]
+                dim_str = f"{int(p['l'])}/{int(p['w'])}"
+
+                if p['l'] < 120 or p['w'] < 120:
+                    draw.text((px+pw/2, py+ph/2), dim_str, fill="black", font=f_small, anchor="mm")
                 else:
-                    if pw > 80 and ph > 80: 
-                        draw.text((px+pw/2, py+ph/2 - 35), p['name'][:15], fill="black", font=f_part, anchor="mm")
-                        draw.text((px+pw/2, py+ph/2 + 35), f"{int(p['l'])}/{int(p['w'])}", fill="black", font=f_dim, anchor="mm")
+                    curr_f_name = f_small if p['l'] < 250 or p['w'] < 200 else f_part
+                    curr_f_dim = f_small if p['l'] < 250 or p['w'] < 200 else f_dim
+                    shift = min(35, ph * 0.2)
+                    draw.text((px+pw/2, py+ph/2 - shift), name_str, fill="black", font=curr_f_name, anchor="mm")
+                    draw.text((px+pw/2, py+ph/2 + shift), dim_str, fill="black", font=curr_f_dim, anchor="mm")
                     
             pages.append(img)
             
@@ -906,11 +912,19 @@ with col_visuals:
                         px, py, pl, pw = p['x'] + trim, p['y'] + trim, p['l'], p['w']
                         svg += f'<rect x="{px}" y="{py}" width="{pl}" height="{pw}" fill="#ffffff" stroke="#000000" stroke-width="2"/>'
                         
-                        if p['l'] <= 85 or p['w'] <= 85:
-                            svg += f'<text x="{px + pl/2}" y="{py + pw/2}" font-size="30" fill="black" text-anchor="middle" dominant-baseline="middle" font-weight="bold">{int(p["l"])}/{int(p["w"])}</text>'
+                        # --- УМНО СЪКРАЩАВАНЕ И ДИНАМИЧЕН ШРИФТ ЗА ЕКРАННАТА СХЕМА ---
+                        name_str = p["name"][:10] + '..' if len(p["name"]) > 10 and pl < 300 else p["name"][:18]
+                        dim_str = f"{int(p['l'])}/{int(p['w'])}"
+                        
+                        if pl < 120 or pw < 120:
+                            svg += f'<text x="{px + pl/2}" y="{py + pw/2}" font-size="25" fill="black" text-anchor="middle" dominant-baseline="middle" font-weight="bold">{dim_str}</text>'
                         else:
-                            svg += f'<text x="{px + pl/2}" y="{py + pw/2 - 25}" font-size="45" fill="black" text-anchor="middle" dominant-baseline="middle" font-weight="bold">{p["name"]}</text>'
-                            svg += f'<text x="{px + pl/2}" y="{py + pw/2 + 35}" font-size="50" fill="black" text-anchor="middle" dominant-baseline="middle">{int(p["l"])}/{int(p["w"])}</text>'
+                            f_size_name = min(45, max(15, int(pl / len(name_str) * 1.2)))
+                            f_size_dim = min(50, max(20, int(pl / 5)))
+                            shift = min(30, pw * 0.2)
+                            
+                            svg += f'<text x="{px + pl/2}" y="{py + pw/2 - shift}" font-size="{f_size_name}" fill="black" text-anchor="middle" dominant-baseline="middle" font-weight="bold">{name_str}</text>'
+                            svg += f'<text x="{px + pl/2}" y="{py + pw/2 + shift}" font-size="{f_size_dim}" fill="black" text-anchor="middle" dominant-baseline="middle">{dim_str}</text>'
                     svg += '</svg>'
                     st.markdown(svg, unsafe_allow_html=True)
 
@@ -1050,4 +1064,3 @@ if st.session_state.order_list:
         
     except Exception as e: 
         st.warning(f"Въведи валидни числа. Грешка: {e}")
-      

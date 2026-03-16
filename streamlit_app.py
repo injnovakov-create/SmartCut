@@ -33,7 +33,9 @@ if 'hardware_list' not in st.session_state: st.session_state.hardware_list = []
 if 'modules_meta' not in st.session_state: st.session_state.modules_meta = [] 
 
 # --- ЛОГИКА ЗА ЗАПИС ТОЧНО КАТО В EXCEL ---
+# --- ЛОГИКА ЗА ЗАПИС ТОЧНО КАТО В EXCEL ---
 def add_item(modul, tip, detail, count, l, w, kant_str, material, flader, note=""):
+    # Определяме дебелината на канта (2мм за лица, 1мм за корпуси)
     thick = 2 if any(x in str(detail).lower() for x in ["врата", "чело", "дублираща"]) else 1
     d1 = d2 = sh1 = sh2 = ""
     k = str(kant_str).lower()
@@ -41,10 +43,23 @@ def add_item(modul, tip, detail, count, l, w, kant_str, material, flader, note="
     if "2д" in k or "4" in k: d1 = thick; d2 = thick
     if "1к" in k or "1ш" in k: sh1 = thick
     if "2к" in k or "2ш" in k or "4" in k: sh1 = thick; sh2 = thick
+    
+    final_l, final_w = float(l), float(w)
+    
+    # ЛОГИКА ЗА ПРИСПАДАНЕ НА КАНТА
+    if st.session_state.get("deduct_edge", False):
+        # Кант по дължината (Д1/Д2) се лепи на дългата страна -> увеличава ширината (W). Затова вадим от W.
+        if d1: final_w -= thick
+        if d2: final_w -= thick
+        # Кант по ширината (Ш1/Ш2) се лепи на късата страна -> увеличава дължината (L). Затова вадим от L.
+        if sh1: final_l -= thick
+        if sh2: final_l -= thick
+
     return {
-        # ЗАКРЪГЛЯНЕ НАДОЛУ: Използваме int(), за да отрежем всичко след десетичната запетая
-        "Плоскост": material, "№": modul, "Тип": tip, "Детайл": detail, "Дължина": int(float(l)), "Ширина": int(float(w)), 
+        "Плоскост": material, "№": modul, "Тип": tip, "Детайл": detail, 
+        "Дължина": int(final_l), "Ширина": int(final_w), 
         "Фладер": flader, "Бр": count, "Д1": d1, "Д2": d2, "Ш1": sh1, "Ш2": sh2, "Забележка": note
+    }
     }
 
 def get_abbrev(detail_name):
@@ -95,6 +110,9 @@ with st.sidebar:
     deb = st.number_input("Дебелина ПДЧ (мм)", value=18)
     fuga_obshto = st.number_input("Фуга врати/чела (мм)", value=3.0)
     kraka = st.number_input("Височина крака (мм)", value=100)
+    
+    # НОВО: Отметка за автоматично приспадане на канта
+    deduct_edge = st.checkbox("Приспадай дебелината на канта от разкроя", value=False, key="deduct_edge")
     
     st.markdown("---")
     st.header("🎨 Материали и Фладер")

@@ -20,6 +20,15 @@ html { zoom: 0.95; }
 .block-container { padding-top: 2.5rem !important; padding-bottom: 1.5rem !important; }
 h1, h2, h3, h4, h5 { padding-top: 0.3rem !important; padding-bottom: 0.3rem !important; margin-bottom: 0 !important; }
 
+/* СТИЛ ЗА НОВАТА МАРКА */
+.opti-text { color: #000000; font-weight: bold; }
+.vik-text { 
+    color: #FF0000; 
+    font-weight: bold; 
+    font-style: italic; 
+    text-decoration: underline wavy; 
+}
+
 /* Разделителни линии */
 hr { margin-top: 0.8rem !important; margin-bottom: 0.8rem !important; border-color: #a3b0bd !important; }
 

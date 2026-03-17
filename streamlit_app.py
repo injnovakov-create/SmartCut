@@ -1041,7 +1041,6 @@ def get_optimized_boards(list_for_cutting):
 
 # --- ГЕНЕРИРАНЕ НА РАЗКРОЙ В А4 PDF ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
-    # (Тази функция си остава същата, както си я имал в старата версия)
     pass
 
 def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
@@ -1051,7 +1050,7 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
         except: pass
         
     page_w, page_h = 3508, 2480 
-    margin = 150
+    margin = 80 # СИЛНО НАМАЛЕН МАРЖ ЗА ПОВЕЧЕ МЯСТО
     pages = []
     
     for mat_name, boards in boards_per_mat.items():
@@ -1068,7 +1067,6 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
                         if thick == "0.8": total_08 += length
                         elif thick == "2": total_20 += length
         
-        # Добавяме 10% фира за общото количество
         total_08_m = (total_08 / 1000.0) * 1.10
         total_20_m = (total_20 / 1000.0) * 1.10
 
@@ -1093,47 +1091,45 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
                         if thick == "0.8": kant_08_sum += length
                         elif thick == "2": kant_20_sum += length
             
-            # Добавяме 10% фира и към текущата плоча
             k08_board_m = (kant_08_sum / 1000.0) * 1.10
             k20_board_m = (kant_20_sum / 1000.0) * 1.10
             kant_text = f"Кант за плочата (+10%): 0.8мм ≈ {k08_board_m:.1f}м | 2.0мм ≈ {k20_board_m:.1f}м"
             
-            # Изчисляване на най-големия чист остатък 
             rem_l = max(0, board_l - max_x - (2 * trim))
             rem_w = board_w - (2 * trim)
             ost_text = f"Най-голям остатък: ≈ {int(rem_l)} x {int(rem_w)} мм"
 
-            # --- ЛОГО OPTIVIK ---
-            try: f_logo = ImageFont.truetype(font_path, 80)
+            # --- ЛОГО OPTIVIK (Оптимизирано пространство) ---
+            try: f_logo = ImageFont.truetype(font_path, 70) # Леко намалено лого
             except: f_logo = ImageFont.load_default()
-            draw.text((margin, 60), "OPTI", fill="black", font=f_logo)
-            bbox_opti = draw.textbbox((margin, 60), "OPTI", font=f_logo)
-            draw.text((bbox_opti[2], 60), "VIK", fill="red", font=f_logo)
-            draw.line([(margin, 160), (page_w - margin, 160)], fill="#eeeeee", width=3)
+            draw.text((margin, 40), "OPTI", fill="black", font=f_logo)
+            bbox_opti = draw.textbbox((margin, 40), "OPTI", font=f_logo)
+            draw.text((bbox_opti[2], 40), "VIK", fill="red", font=f_logo)
+            draw.line([(margin, 120), (page_w - margin, 120)], fill="#eeeeee", width=3)
 
-            # --- ТЕХНИЧЕСКА ИНФОРМАЦИЯ ---
+            # --- ТЕХНИЧЕСКА ИНФОРМАЦИЯ (Сгъстени редове) ---
             try:
-                f_title = ImageFont.truetype(font_path, 60)
-                f_info = ImageFont.truetype(font_path, 45)
+                f_title = ImageFont.truetype(font_path, 50)
+                f_info = ImageFont.truetype(font_path, 40)
             except: f_title = f_info = ImageFont.load_default()
 
-            y_offset = 200
+            y_offset = 140
             draw.text((margin, y_offset), f"МАТЕРИАЛ: {mat_name} [2800x2070 мм]", fill="black", font=f_title)
-            y_offset += 80
+            y_offset += 60
             
-            # АКО ТОВА Е ПЪРВАТА ПЛОЧА -> ПОКАЗВАМЕ ОБЩОТО В ЧЕРВЕНО
             if idx == 0:
                 total_text = f"ОБЩО ЗА ДЕКОРА (+10% фира): 0.8мм ≈ {total_08_m:.1f}м | 2.0мм ≈ {total_20_m:.1f}м"
                 draw.text((margin, y_offset), total_text, fill="#FF0000", font=f_info)
-                y_offset += 70
+                y_offset += 50
             
             draw.text((margin, y_offset), f"ПЛОЧА {idx+1} от {len(boards)} | {kant_text}", fill="#008080", font=f_info)
-            y_offset += 60
+            y_offset += 50
             draw.text((margin, y_offset), ost_text, fill="#555555", font=f_info)
-            y_offset += 80
+            y_offset += 60 # Отстояние преди чертежа
             
+            # --- ЧЕРТЕЖЪТ ЗАЕМА МАКСИМАЛНО МЯСТО ---
             draw_w = page_w - 2 * margin
-            draw_h = page_h - 2 * margin - y_offset 
+            draw_h = page_h - margin - y_offset 
             scale = min(draw_w / board_l, draw_h / board_w)
             
             act_w = board_l * scale
@@ -1141,7 +1137,6 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
             sx = margin + (draw_w - act_w) / 2
             sy = y_offset + (draw_h - act_h) / 2 
             
-            # Чертане на плочата
             draw.rectangle([sx, sy, sx+act_w, sy+act_h], outline="black", width=4)
             t_px = trim * scale
             draw.rectangle([sx+t_px, sy+t_px, sx+act_w-t_px, sy+act_h-t_px], outline="#aaaaaa", width=2)
@@ -1153,7 +1148,6 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
                 ph = p['w'] * scale
                 draw.rectangle([px, py, px+pw, py+ph], outline="black", width=3)
                 
-                # Кантове (линии)
                 for side, width in [('d1', 8 if get_edge_label_text(p['d1'])=="2" else 3), 
                                     ('d2', 8 if get_edge_label_text(p['d2'])=="2" else 3),
                                     ('sh1', 8 if get_edge_label_text(p['sh1'])=="2" else 3),
@@ -1225,7 +1219,6 @@ with col_pdf:
             else:
                 with st.spinner("Генериране на етикети..."):
                     boards_per_mat, _, _, _ = get_optimized_boards(st.session_state.order_list)
-                    # ЗАБЕЛЕЖКА: Функция generate_labels_pdf трябва да е дефинирана по-нагоре в твоя код!
                     labels_pdf = generate_labels_pdf(boards_per_mat) 
                     if labels_pdf:
                         st.download_button(label="📥 ИЗТЕГЛИ ЕТИКЕТИ", data=labels_pdf, file_name="OPTIVIK_Етикети.pdf", mime="application/pdf")

@@ -11,6 +11,7 @@ st.set_page_config(page_title="SMART CUT: Витя-М", layout="wide")
 # --- CSS ЗА СБИТ ДИЗАЙН ---
 st.markdown("""
 <style>
+html { zoom: 0.95; } /* НОВО: Смалява целия интерфейс с 5% */
 .block-container { padding-top: 2.5rem !important; padding-bottom: 1.5rem !important; }
 h1, h2, h3, h4, h5 { padding-top: 0.3rem !important; padding-bottom: 0.3rem !important; margin-bottom: 0 !important; }
 hr { margin-top: 0.8rem !important; margin-bottom: 0.8rem !important; }
@@ -19,7 +20,7 @@ hr { margin-top: 0.8rem !important; margin-bottom: 0.8rem !important; }
 [data-testid="stSidebar"] { background-color: #f0fafa !important; }
 .stTextInput, .stNumberInput, .stSelectbox, .stRadio { margin-bottom: -0.5rem !important; }
 </style>
-""", unsafe_allow_html=True)
+""", unsafe_allow_html=True))
 
 st.markdown("""
 <h1 style='font-size: 28px; margin-top: 10px;'>

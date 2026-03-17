@@ -553,7 +553,7 @@ with col2:
         # Автоматично сортиране по номер на модул, за да са групирани перфектно
         df = df.sort_values(by="№")
         
-        edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, height=350, key="editor")
+        edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, height=600, key="editor")
         st.session_state.order_list = edited_df.to_dict('records')
         
         if st.session_state.hardware_list:

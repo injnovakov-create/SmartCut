@@ -200,21 +200,30 @@ with st.sidebar:
             mime="application/json"
         )
     
-    uploaded_file = st.file_uploader("📂 Зареди проект", type="json")
+    uploaded_file = st.file_uploader("📂 Зареди проект", type="json", key="uploader")
+    
     if uploaded_file is not None:
-        # Прочитаме данните директно
         try:
-            file_details = json.load(uploaded_file)
-            if st.button("🔄 ПОТВЪРДИ ВЪЗСТАНОВЯВАНЕ"):
-                st.session_state.order_list = file_details.get("order", [])
-                st.session_state.hardware_list = file_details.get("hw", [])
-                st.session_state.modules_meta = file_details.get("meta", [])
-                st.session_state.history = [] 
-                st.success("Проектът е зареден успешно!")
+            # 1. Прочитаме данните от файла
+            file_content = json.load(uploaded_file)
+            
+            # 2. Показваме бутон за потвърждение
+            if st.button("🔄 ВЪЗСТАНОВИ ДАННИТЕ В ТАБЛИЦАТА"):
+                # 3. Записваме ги в паметта (Session State)
+                st.session_state.order_list = file_content.get("order", [])
+                st.session_state.hardware_list = file_content.get("hw", [])
+                # Важно: ако във файла няма 'meta', слагаме празен списък
+                st.session_state.modules_meta = file_content.get("meta", [])
+                
+                # Изчистваме историята за Undo, за да не се обърка
+                st.session_state.history = []
+                
+                st.success("✅ Проектът е зареден успешно!")
+                # 4. Форсираме презареждане на страницата
                 st.rerun()
+                
         except Exception as e:
-            st.error(f"Грешка при четене на файла: {e}")
-
+            st.error(f"❌ Грешка при четенето: {e}")
 # --- ОСНОВЕН ИНТЕРФЕЙС ---
 col1, col2 = st.columns([1, 2.5])
 

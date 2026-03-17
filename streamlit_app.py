@@ -21,10 +21,10 @@ html { zoom: 0.95; }
 .opti-text { color: #000000; font-weight: bold; }
 .vik-text { color: #FF0000; font-weight: bold; font-style: italic; }
 
-/* НОВО: ЧЕРВЕНА РАМКА ЗА ПАДАЩИТЕ МЕНЮТА */
+/* ВЕЧЕ ЗЕЛЕНА РАМКА ЗА ПАДАЩИТЕ МЕНЮТА */
 div[data-baseweb="select"] {
-    border: 2px solid #FF0000 !important;
-    border-radius: 4px !important;
+    border: 2px solid #008080 !important;
+    border-radius: 6px !important;
 }
 
 /* Разделителни линии */

@@ -202,17 +202,18 @@ with st.sidebar:
     
     uploaded_file = st.file_uploader("📂 Зареди проект", type="json")
     if uploaded_file is not None:
-        if st.button("🔄 Възстанови от файла"):
-            try:
-                data = json.load(uploaded_file)
-                st.session_state.order_list = data.get("order", [])
-                st.session_state.hardware_list = data.get("hw", [])
-                st.session_state.modules_meta = data.get("meta", [])
+        # Прочитаме данните директно
+        try:
+            file_details = json.load(uploaded_file)
+            if st.button("🔄 ПОТВЪРДИ ВЪЗСТАНОВЯВАНЕ"):
+                st.session_state.order_list = file_details.get("order", [])
+                st.session_state.hardware_list = file_details.get("hw", [])
+                st.session_state.modules_meta = file_details.get("meta", [])
                 st.session_state.history = [] 
                 st.success("Проектът е зареден успешно!")
                 st.rerun()
-            except Exception as e:
-                st.error(f"Грешка при зареждане: {e}")
+        except Exception as e:
+            st.error(f"Грешка при четене на файла: {e}")
 
 # --- ОСНОВЕН ИНТЕРФЕЙС ---
 col1, col2 = st.columns([1, 2.5])

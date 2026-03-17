@@ -576,10 +576,12 @@ with col1:
                 ])
                 
                 for idx, ch_h in enumerate(ch_heights):
-                    # НОВО: Точно чело - 60 мм за всички размери
-                    h_tsarga = int(ch_h - 60)
+                    # НОВО: Тук вадим профила Gola (30мм) и фугата (3мм) за всяко едно чело!
+                    final_front_h = ch_h - fuga_obshto - gola_offset
+                    h_tsarga = int(final_front_h - 60)
+                    
                     new_items.extend([
-                        add_item(name, tip, f"Чело {idx+1}", 1, ch_h - fuga_obshto, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice, block_note),
+                        add_item(name, tip, f"Чело {idx+1}", 1, final_front_h, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice, block_note),
                         add_item(name, tip, f"Царги чекм. {idx+1}", 2, cargi_w, h_tsarga, "1д", mat_chekm, val_fl_chekm),
                         add_item(name, tip, f"Страници чекм. {idx+1}", 2, runner_len - 10, h_tsarga, "2д", mat_chekm, val_fl_chekm)
                     ])

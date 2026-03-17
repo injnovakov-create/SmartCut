@@ -253,41 +253,37 @@ with col1:
         h = h_korpus + kraka 
     elif tip == "Шкаф с чекмеджета":
         w = st.number_input("Ширина (W) мм", value=600, key="w_ch")
+        h_box = st.number_input("Височина на корпуса без крака (мм)", value=742, key="h_box_ch")
         num_ch = st.slider("Брой чекмеджета:", 1, 6, 3, key="n_ch")
         
-        # Обща височина за разпределение (Страница 742 + Дъно)
-        total_front_h = 742 + deb
+        # Обща височина за разпределение (Страница + Дъно)
+        total_front_h = h_box + deb
         st.markdown(f"##### ↕️ Разпределение на височината (Общо: {total_front_h} мм):")
         
         cols_ch = st.columns(num_ch)
-        
         accumulated_h = 0
         
-        # Въвеждаме всички чела БЕЗ последното
         for i in range(num_ch - 1):
             with cols_ch[i]:
-                # Програмата предлага поравно разпределение за удобство
                 rem_drawers = num_ch - i
                 default_h = int((total_front_h - accumulated_h) / rem_drawers)
                 val_h = st.number_input(f"Чело {i+1} (мм)", value=default_h, min_value=50, max_value=total_front_h, key=f"ch_h_inp_{i}")
                 ch_heights.append(val_h)
                 accumulated_h += val_h
                 
-        # Последното чело поема точния остатък
         last_ch_h = total_front_h - accumulated_h
         ch_heights.append(last_ch_h)
         
         with cols_ch[-1]:
             st.info(f"Чело {num_ch} (Остатък)")
             if last_ch_h < 50:
-                # Ако потребителят е задал твърде големи горни чекмеджета
                 st.error(f"⚠️ {last_ch_h} мм")
             else:
                 st.success(f"**{last_ch_h}** мм")
                 
         runner_len = st.number_input("Водач (мм)", value=500, step=50, key="run_ch")
         d = st.number_input("Дълбочина (D) мм", value=520, key="d_ch")
-        h = 742 + kraka + deb
+        h = h_box + kraka + deb
     else:
         default_w = 150 if tip == "Шкаф Бутилки 15см" else (1000 if "Глух" in tip else 600)
         w = st.number_input("Ширина (W) мм", value=default_w, key="w_std")

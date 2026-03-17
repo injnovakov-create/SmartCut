@@ -33,8 +33,12 @@ if 'hardware_list' not in st.session_state: st.session_state.hardware_list = []
 if 'modules_meta' not in st.session_state: st.session_state.modules_meta = [] 
 
 # --- ЛОГИКА ЗА ЗАПИС ТОЧНО КАТО В EXCEL ---
-def add_item(modul, tip, detail, count, l, w, kant_str, material, flader, note=""):
-    thick = 2 if any(x in str(detail).lower() for x in ["врата", "чело", "дублираща"]) else 1
+def add_item(modul, tip, detail, count, l, w, kant_str, material, flader, note="", custom_thick=None):
+    if custom_thick is not None:
+        thick = custom_thick
+    else:
+        thick = 2 if any(x in str(detail).lower() for x in ["врата", "чело", "дублираща"]) else 1
+        
     d1 = d2 = sh1 = sh2 = ""
     k = str(kant_str).lower()
     if "1д" in k: d1 = thick
@@ -44,7 +48,6 @@ def add_item(modul, tip, detail, count, l, w, kant_str, material, flader, note="
     
     final_l, final_w = float(l), float(w)
     
-    # ЛОГИКА ЗА ПРИСПАДАНЕ НА КАНТА
     if st.session_state.get("deduct_edge", False):
         if d1: final_w -= thick
         if d2: final_w -= thick
@@ -171,9 +174,16 @@ with col1:
         d = custom_w = colB.number_input("Ширина (W) мм", value=300)
         w = deb
         custom_count = colC.number_input("Брой", value=1, min_value=1)
-        colD, colE = st.columns(2)
-        custom_kant = colD.selectbox("Кант", ["Без", "1д", "2д", "1д+1к", "1д+2к", "2д+1к", "4 страни", "2д+2к"], index=6)
-        custom_mat_type = colE.selectbox("Вид материал", ["Корпус", "Лице", "Чекмеджета", "Фазер"])
+        
+        colD, colE, colF = st.columns(3)
+        custom_kant = colD.selectbox("Кант", ["Без", "1д", "2д", "1к", "2к", "1д+1к", "1д+2к", "2д+1к", "4 страни", "2д+2к"], index=8)
+        custom_mat_type = colE.selectbox("Вид материал", ["Корпус", "Лице", "Чекмеджета", "Фазер", "Специфичен (въведи)"])
+        custom_flader = colF.radio("Спазва фладер?", ["Да", "Не"], index=0, horizontal=True)
+        
+        colG, colH = st.columns(2)
+        custom_edge_thick = colG.radio("Дебелина на канта:", [1, 2], index=1, horizontal=True, format_func=lambda x: f"{x} мм")
+        if custom_mat_type == "Специфичен (въведи)":
+            custom_mat_name = colH.text_input("Въведи име на материала:", value="ПДЧ 18мм (Друго)")
     elif tip == "Шкаф Колона":
         w = st.number_input("Ширина (W) мм", value=600, key="w_col")
         h_korpus = st.number_input("Височина корпуса (H) мм", value=2040, key="h_col")
@@ -199,7 +209,7 @@ with col1:
                 ch_heights.append(val_h)
         runner_len = st.number_input("Водач (мм)", value=500, step=50, key="run_ch")
         d = st.number_input("Дълбочина (D) мм", value=520, key="d_ch")
-        h = 742 + kraka + deb  # <--- ТУК заместваме 38 с deb (дебелината на ПДЧ-то)
+        h = 742 + kraka + deb
     else:
         default_w = 150 if tip == "Шкаф Бутилки 15см" else (1000 if "Глух" in tip else 600)
         w = st.number_input("Ширина (W) мм", value=default_w, key="w_std")
@@ -210,18 +220,12 @@ with col1:
             vrati_orientacia = st.radio("Ориентация:", ["Вертикални", "Хоризонтални"], horizontal=True) if tip == "Горен Шкаф" else "Вертикални"
         else:
             d = st.number_input("Дълбочина (D) мм", value=(550 if tip == "Шкаф Мивка" else 520), key="d_low")
-            h = 742 + kraka + deb  # <--- И ТУК заместваме 38 с deb
+            h = 742 + kraka + deb 
             vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_low")
 
     st.markdown("---")
-    temp_meta = {"Тип": tip, "W": w, "H": h, "D": d, "vr_cnt": vrati_broi}
-    try:
-        preview_img = draw_mini_preview(temp_meta, kraka)
-        st.image(preview_img, caption="Скица на модула")
-    except:
-        pass
-
     st.markdown("<br>", unsafe_allow_html=True)
+    
     if st.button("➕ Добави към списъка"):
         new_items = []
         new_hw = []
@@ -284,11 +288,14 @@ with col1:
             ])
 
         elif tip == "Нестандартен":
-            m_choice = mat_korpus; f_choice = val_fl_korpus
-            if custom_mat_type == "Лице": m_choice = mat_lice; f_choice = val_fl_lice
-            elif custom_mat_type == "Чекмеджета": m_choice = mat_chekm; f_choice = val_fl_chekm
-            elif custom_mat_type == "Фазер": m_choice = mat_fazer; f_choice = "Няма"
-            new_items.append(add_item(name, tip, custom_detail, custom_count, custom_l, custom_w, custom_kant, m_choice, f_choice))
+            if custom_mat_type == "Лице": m_choice = mat_lice
+            elif custom_mat_type == "Чекмеджета": m_choice = mat_chekm
+            elif custom_mat_type == "Фазер": m_choice = mat_fazer
+            elif custom_mat_type == "Специфичен (въведи)": m_choice = custom_mat_name
+            else: m_choice = mat_korpus
+            
+            f_choice = custom_flader 
+            new_items.append(add_item(name, tip, custom_detail, custom_count, custom_l, custom_w, custom_kant, m_choice, f_choice, custom_thick=custom_edge_thick))
             
         elif tip == "Шкаф Колона":
             w_izbrana = int((w/2) - fuga_obshto) if vrati_broi == 2 else int(w - fuga_obshto)
@@ -569,8 +576,6 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         vrati_count = 1
         has_split = False
         ld_h = mod.get("ld_h", 0)
-        has_app = mod.get("app_type", "Без уреди") != "Без уреди"
-        lower_type = mod.get("lower_type", "Врата")
 
         for p in parts:
             if "врата" in str(p['Детайл']).lower():
@@ -594,6 +599,7 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                         draw.line([(start_x, split_y_3), (start_x + w_px, split_y_3)], fill="black", width=4)
                         draw.text((start_x + w_px/2, split_y_2 - (190 * scale)), "М.В.\n380", fill="#555555", font=font_dim, anchor="mm", align="center")
                 
+                lower_type = mod.get("lower_type", "Врата")
                 if "Чекмеджета" in lower_type:
                     if lower_type == "2 Чекмеджета":
                         mid_y = start_y + h_px - leg_h_px - ((ld_h/2) * scale)

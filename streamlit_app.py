@@ -12,13 +12,26 @@ st.set_page_config(page_title="SMART CUT: Витя-М", layout="wide")
 st.markdown("""
 <style>
 html { zoom: 0.95; }
-.stApp { background-color: #f4f5f7 !important; } /* НОВО: Светло сив фон на основната част */
+
+/* Основен фон на работната площ - много светло сиво */
+.stApp { background-color: #f4f5f7 !important; } 
+
 .block-container { padding-top: 2.5rem !important; padding-bottom: 1.5rem !important; }
 h1, h2, h3, h4, h5 { padding-top: 0.3rem !important; padding-bottom: 0.3rem !important; margin-bottom: 0 !important; }
-hr { margin-top: 0.8rem !important; margin-bottom: 0.8rem !important; }
+
+/* Разделителни линии - по-тъмни за контраст */
+hr { margin-top: 0.8rem !important; margin-bottom: 0.8rem !important; border-color: #d1d5db !important; }
+
+/* Бутони */
 .stButton>button { background-color: #008080 !important; color: white !important; font-weight: bold !important; border-radius: 6px !important; border: none !important; padding: 0.5rem 1rem !important; width: 100%; }
 .stButton>button:hover { background-color: #005959 !important; }
-[data-testid="stSidebar"] { background-color: #e8ecef !important; } /* НОВО: Една идея по-плътно сиво за менюто */
+
+/* Странично меню - по-тъмно сиво с разделителна линия */
+[data-testid="stSidebar"] { background-color: #d1d6dc !important; border-right: 2px solid #b0b8c0 !important; } 
+
+/* Блоковете на модулите (Падащото меню за изтриване) - по-тъмно сиво, за да изпъкват */
+[data-testid="stExpander"] { background-color: #dce1e6 !important; border: 1px solid #b0b8c0 !important; border-radius: 8px !important; }
+
 .stTextInput, .stNumberInput, .stSelectbox, .stRadio { margin-bottom: -0.5rem !important; }
 </style>
 """, unsafe_allow_html=True)

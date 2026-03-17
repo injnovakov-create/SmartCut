@@ -993,7 +993,7 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
         f_part = ImageFont.truetype(font_path, 50) 
         f_dim = ImageFont.truetype(font_path, 50)  
         f_small = ImageFont.truetype(font_path, 30) 
-        f_kant_info = ImageFont.truetype(font_path, 45) # Шрифт за канта
+        f_kant_info = ImageFont.truetype(font_path, 45) # Шрифт за канта и остатъка
     except: 
         f_title = f_part = f_dim = f_small = f_kant_info = ImageFont.load_default()
 
@@ -1002,7 +1002,7 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
     pages = []
     
     for mat_name, boards in boards_per_mat.items():
-        # --- 1. НОВО: ИЗЧИСЛЯВАНЕ НА ОБЩИЯ КАНТ ЗА ЦЕЛИЯ ДЕКОР ---
+        # --- 1. ИЗЧИСЛЯВАНЕ НА ОБЩИЯ КАНТ ЗА ЦЕЛИЯ ДЕКОР ---
         total_08 = 0
         total_20 = 0
         for b in boards:
@@ -1018,16 +1018,21 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
         # Добавяме 10% фира за общото количество
         total_08_m = (total_08 / 1000.0) * 1.10
         total_20_m = (total_20 / 1000.0) * 1.10
-        # ---------------------------------------------------------
 
         for idx, b_parts in enumerate(boards):
             img = Image.new('RGB', (page_w, page_h), 'white')
             draw = ImageDraw.Draw(img)
             
-            # --- ИЗЧИСЛЯВАНЕ НА КАНТА ЗА ТАЗИ КОНКРЕТНА ПЛОЧА ---
+            # --- 2. ИЗЧИСЛЯВАНЕ НА КАНТА И ОСТАТЪКА ЗА ТАЗИ ПЛОЧА ---
             kant_08_sum = 0
             kant_20_sum = 0
+            max_x = 0 # Най-дясната точка, до която стигат детайлите
+            
             for p in b_parts:
+                # Търсим докъде стига разкроят по дължина
+                if (p['x'] + p['l']) > max_x: 
+                    max_x = p['x'] + p['l']
+                    
                 for side in ['d1', 'd2', 'sh1', 'sh2']:
                     val = p.get(side, '')
                     if val:
@@ -1040,6 +1045,11 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
             k08_board_m = (kant_08_sum / 1000.0) * 1.10
             k20_board_m = (kant_20_sum / 1000.0) * 1.10
             kant_text = f"Кант за плочата (+10%): 0.8мм ≈ {k08_board_m:.1f}м | 2.0мм ≈ {k20_board_m:.1f}м"
+            
+            # Изчисляване на най-големия чист остатък (парчето накрая)
+            rem_l = max(0, board_l - max_x - (2 * trim))
+            rem_w = board_w - (2 * trim)
+            ost_text = f"Най-голям остатък: ≈ {int(rem_l)} x {int(rem_w)} мм"
             # ---------------------------------------------------------
 
             # --- ПОДРЕЖДАНЕ НА ТЕКСТА НАД ЧЕРТЕЖА ---
@@ -1053,9 +1063,13 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
                 draw.text((margin, y_offset), total_text, fill="#FF0000", font=f_kant_info)
                 y_offset += 70
             
-            # Инфо за текущата плоча
+            # Инфо за текущата плоча (Кант)
             draw.text((margin, y_offset), f"ПЛОЧА {idx+1} от {len(boards)} | {kant_text}", fill="#008080", font=f_kant_info)
-            y_offset += 100
+            y_offset += 60
+            
+            # НОВО: Инфо за остатъка
+            draw.text((margin, y_offset), ost_text, fill="#555555", font=f_kant_info)
+            y_offset += 80
             
             # Смятаме откъде да започне чертежът, за да не се застъпва с текста
             draw_w = page_w - 2 * margin
@@ -1110,72 +1124,6 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
         pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
         return pdf_bytes.getvalue()
     return None
-
-# --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ ---
-def get_optimized_boards(list_for_cutting):
-    kerf, trim, board_l, board_w = 8, 8, 2800, 2070
-    use_l, use_w = board_l - 2*trim, board_w - 2*trim
-    materials_dict = {}
-    
-    for item in list_for_cutting:
-        mat = item.get('Плоскост', 'Неизвестен')
-        if mat not in materials_dict: materials_dict[mat] = []
-        try:
-            for _ in range(int(item['Бр'])):
-                materials_dict[mat].append({
-                    'name': f"{item['№']} {get_abbrev(item['Детайл'])}", 
-                    'l': float(item['Дължина']), 'w': float(item['Ширина']),
-                    'd1': str(item.get('Д1', '')).strip(), 'd2': str(item.get('Д2', '')).strip(),
-                    'sh1': str(item.get('Ш1', '')).strip(), 'sh2': str(item.get('Ш2', '')).strip(),
-                    'mod_num': str(item.get('№', '')), 'mod_tip': str(item.get('Тип', '')),
-                    'part_name': get_abbrev(item['Детайл']), 'mat': mat
-                })
-        except: pass
-    
-    boards_per_material = {}
-    for mat_name, parts in materials_dict.items():
-        # НОВО: Сортираме по площ (най-големите първи), за да запълним плътно ъглите
-        parts.sort(key=lambda x: x['l'] * x['w'], reverse=True)
-        
-        boards, current_board = [], []
-        curr_x, curr_y, shelf_h = 0, 0, 0
-        
-        for p in parts:
-            part_l, part_w = p['l'], p['w']
-            
-            # Проверка дали детайлът влиза в текущия ред
-            if curr_x + part_l <= use_l and curr_y + part_w <= use_w:
-                p_copy = p.copy()
-                p_copy.update({'x': curr_x, 'y': curr_y})
-                current_board.append(p_copy)
-                curr_x += part_l + kerf
-                if part_w > shelf_h: shelf_h = part_w
-            else:
-                # Преминаваме на нов "ред" (нагоре по ширината)
-                curr_x = 0
-                curr_y += shelf_h + kerf
-                shelf_h = part_w
-                
-                # Ако няма място на тази плоча, почваме нова
-                if curr_y + part_w > use_w:
-                    boards.append(current_board)
-                    curr_y = 0
-                    p_copy = p.copy()
-                    p_copy.update({'x': curr_x, 'y': curr_y})
-                    current_board = [p_copy]
-                    curr_x = part_l + kerf
-                else:
-                    p_copy = p.copy()
-                    p_copy.update({'x': curr_x, 'y': curr_y})
-                    current_board.append(p_copy)
-                    curr_x = part_l + kerf
-
-        if current_board: boards.append(current_board)
-        boards_per_material[mat_name] = boards
-    return boards_per_material, board_l, board_w, trim
-
-st.markdown("---")
-col_visuals, col_pdf = st.columns(2)
 
 with col_pdf:
     st.subheader("📐 Технически PDF и Етикети")

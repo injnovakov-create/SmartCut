@@ -167,6 +167,13 @@ with col1:
         h = st.number_input("Височина (H) в мм", value=350, key="h_tret")
         d = st.number_input("Дълбочина (D) в мм", value=500, key="d_tret")
         vrati_broi = st.radio("Брой врати:", [1, 2], index=0, horizontal=True, key="vr_tret")
+    elif tip == "Трети ред (Надстройка)":
+        w = st.number_input("Ширина (W) на корпуса (мм)", value=600, key="w_tret")
+        h = st.number_input("Височина (H) в мм", value=350, key="h_tret")
+        d = st.number_input("Дълбочина (D) в мм", value=500, key="d_tret")
+        vrati_broi = st.radio("Брой врати:", [1, 2], index=0, horizontal=True, key="vr_tret")
+        
+    # ====== ЕТО ТОЗИ ЦЕЛИЯ БЛОК ЗАМЕНЯШ ======
     elif tip == "Нестандартен":
         custom_detail = st.text_input("Име на детайла", value="Нестандартен детайл")
         colA, colB, colC = st.columns(3)
@@ -180,10 +187,12 @@ with col1:
         custom_mat_type = colE.selectbox("Вид материал", ["Корпус", "Лице", "Чекмеджета", "Фазер", "Специфичен (въведи)"])
         custom_flader = colF.radio("Спазва фладер?", ["Да", "Не"], index=0, horizontal=True)
         
-        colG, colH = st.columns(2)
-        custom_edge_thick = colG.radio("Дебелина на канта:", [1, 2], index=1, horizontal=True, format_func=lambda x: f"{x} мм")
+        # НОВО: Вадим дебелината на канта на съвсем отделен ред, за да е супер видима!
+        st.markdown("##### 📏 Дебелина на канта (за точно приспадане)")
+        custom_edge_thick = st.radio("Избери:", [1, 2], index=1, horizontal=True, format_func=lambda x: f"{x} мм")
+        
         if custom_mat_type == "Специфичен (въведи)":
-            custom_mat_name = colH.text_input("Въведи име на материала:", value="ПДЧ 18мм (Друго)")
+            custom_mat_name = st.text_input("Въведи име на материала:", value="ПДЧ 18мм (Друго)")
     elif tip == "Шкаф Колона":
         w = st.number_input("Ширина (W) мм", value=600, key="w_col")
         h_korpus = st.number_input("Височина корпуса (H) мм", value=2040, key="h_col")

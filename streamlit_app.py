@@ -14,18 +14,17 @@ st.markdown("""
 <style>
 html { zoom: 0.95; }
 
-/* Основен фон на работната площ */
+/* Основен фон */
 .stApp { background-color: #dce1e6 !important; } 
 
-.block-container { padding-top: 2.5rem !important; padding-bottom: 1.5rem !important; }
-h1, h2, h3, h4, h5 { padding-top: 0.3rem !important; padding-bottom: 0.3rem !important; margin-bottom: 0 !important; }
-
-/* СТИЛ ЗА НОВАТА МАРКА OPTIVIK */
+/* СТИЛ ЗА OPTIVIK */
 .opti-text { color: #000000; font-weight: bold; }
-.vik-text { 
-    color: #FF0000; 
-    font-weight: bold; 
-    font-style: italic; 
+.vik-text { color: #FF0000; font-weight: bold; font-style: italic; }
+
+/* НОВО: ЧЕРВЕНА РАМКА ЗА ПАДАЩИТЕ МЕНЮТА */
+div[data-baseweb="select"] {
+    border: 2px solid #FF0000 !important;
+    border-radius: 4px !important;
 }
 
 /* Разделителни линии */

@@ -253,11 +253,12 @@ with col1:
         h = h_korpus + kraka 
     elif tip == "Шкаф с чекмеджета":
         w = st.number_input("Ширина (W) мм", value=600, key="w_ch")
-        h_box = st.number_input("Височина на корпуса без крака (мм)", value=742, key="h_box_ch")
+        # ВЕЧЕ Е 760:
+        h_box = st.number_input("Височина на корпуса без крака (мм)", value=760, key="h_box_ch")
         num_ch = st.slider("Брой чекмеджета:", 1, 6, 3, key="n_ch")
         
-        # Обща височина за разпределение (Страница + Дъно)
-        total_front_h = h_box + deb
+        # Обща височина за челата е точно височината на корпуса (760)
+        total_front_h = h_box
         st.markdown(f"##### ↕️ Разпределение на височината (Общо: {total_front_h} мм):")
         
         cols_ch = st.columns(num_ch)
@@ -283,7 +284,8 @@ with col1:
                 
         runner_len = st.number_input("Водач (мм)", value=500, step=50, key="run_ch")
         d = st.number_input("Дълбочина (D) мм", value=520, key="d_ch")
-        h = h_box + kraka + deb
+        # Крайната височина за алгоритъма е корпус + крака (напр. 760 + 100 = 860)
+        h = h_box + kraka
     else:
         default_w = 150 if tip == "Шкаф Бутилки 15см" else (1000 if "Глух" in tip else 600)
         w = st.number_input("Ширина (W) мм", value=default_w, key="w_std")

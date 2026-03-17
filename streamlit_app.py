@@ -146,21 +146,7 @@ def calculate_hinges(height):
     elif height <= 1300: return 3
     else: return 4
 
-# --- СТРАНИЧНО МЕНЮ ---
-with st.sidebar:
-    st.header("⚙️ Глобални Настройки")
-    deb = st.number_input("Дебелина ПДЧ (мм)", value=18)
-    fuga_obshto = st.number_input("Фуга врати/чела (мм)", value=3.0)
-    kraka = st.number_input("Височина крака (мм)", value=100)
-    
-    deduct_edge = st.checkbox("Приспадай дебелината на канта от разкроя", value=False, key="deduct_edge")
-    
-    # НОВО: Отметка за профил Gola
-    gola_profile = st.checkbox("Профил Gola (долни врати и чела -30мм)", value=False, key="gola_profile")
-    # Присвояваме стойността на gola_offset за по-лесно ползване в кода
-    gola_offset = 30 if gola_profile else 0
-    
-    # --- НОВО: ТУК СЛАГАМЕ БУТОНИТЕ ЗА ЗАПИС И ЗАРЕЖДАНЕ ---
+# --- НОВО: ТУК СЛАГАМЕ БУТОНИТЕ ЗА ЗАПИС И ЗАРЕЖДАНЕ ---
     st.markdown("---")
     st.header("💾 Управление на проекта")
     
@@ -178,6 +164,8 @@ with st.sidebar:
             mime="application/json"
         )
     
+    st.write("") # Малко празно място
+    
     # Поле за качване (Load)
     uploaded_file = st.file_uploader("📂 Зареди стар проект", type="json")
     if uploaded_file is not None:
@@ -190,7 +178,8 @@ with st.sidebar:
                 st.success("Проектът е зареден успешно!")
                 st.rerun()
             except Exception as e:
-                st.error(f"Грешка при четене на файла: {e}"
+                # ТУК БЕШЕ ГРЕШКАТА - добавихме липсващата скоба:
+                st.error(f"Грешка при четене на файла: {e}") 
     
     st.markdown("---")
     st.header("🎨 Материали и Фладер")

@@ -422,12 +422,13 @@ with col1:
                     duno_l = runner_len - 13
                     block_note = "В БЛОК" if val_fl_lice == "Да" else ""
                     
-                    h_tsarga = max(70, chelo_h - 60)
+                    # НОВО: Точно чело - 60 мм
+                    h_tsarga = int(chelo_h - 60)
                     new_items.extend([
                         add_item(name, tip, "Чело долно 1", 1, chelo_h - fuga_obshto, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice, block_note),
                         add_item(name, tip, "Чело долно 2", 1, chelo_h - fuga_obshto, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice, block_note),
                         add_item(name, tip, "Царги чекм.", 4, cargi_w, h_tsarga, "1д", mat_chekm, val_fl_chekm),
-                        add_item(name, tip, "Страници чекм.", 4, runner_len - 10, h_tsarga + 15, "2д", mat_chekm, val_fl_chekm),
+                        add_item(name, tip, "Страници чекм.", 4, runner_len - 10, h_tsarga, "2д", mat_chekm, val_fl_chekm),
                         add_item(name, tip, "Дъно чекмедже", 2, duno_l, duno_w, "Без", mat_fazer, "Няма")
                     ])
                     new_hw.append({"№": name, "Артикул": "Комплект водачи за чекмедже", "Брой": 2})
@@ -439,12 +440,13 @@ with col1:
                     duno_l = runner_len - 13
                     block_note = "В БЛОК" if val_fl_lice == "Да" else ""
                     
-                    h_tsarga = max(70, ch_h - 60)
+                    # НОВО: Точно чело - 60 мм
+                    h_tsarga = int(ch_h - 60)
                     for idx in range(3):
                         new_items.extend([
                             add_item(name, tip, f"Чело долно {idx+1}", 1, ch_h - fuga_obshto, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice, block_note),
                             add_item(name, tip, f"Царги чекм. {idx+1}", 2, cargi_w, h_tsarga, "1д", mat_chekm, val_fl_chekm),
-                            add_item(name, tip, f"Страници чекм. {idx+1}", 2, runner_len - 10, h_tsarga + 15, "2д", mat_chekm, val_fl_chekm)
+                            add_item(name, tip, f"Страници чекм. {idx+1}", 2, runner_len - 10, h_tsarga, "2д", mat_chekm, val_fl_chekm)
                         ])
                     
                     new_items.append(add_item(name, tip, "Дъно чекмедже", 3, duno_l, duno_w, "Без", mat_fazer, "Няма"))
@@ -535,11 +537,15 @@ with col1:
                 cargi_w = w - (2*deb) - 49
                 duno_w = cargi_w + 12
                 duno_l = runner_len - 13
+                
+                # НОВО: Точно чело - 60 мм (тъй като челото тук е винаги 157 мм, царгите стават точно 97 мм)
+                h_tsarga_furna = 157 - 60
                 new_items.extend([
                     add_item(name, tip, "Дъно", 1, w, d, "1д", mat_korpus, val_fl_korpus), add_item(name, tip, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus),
                     add_item(name, tip, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus), add_item(name, tip, "Рафт (под фурна)", 1, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
-                    add_item(name, tip, "Чело чекмедже", 1, 157, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice), add_item(name, tip, "Царги чекм.", 2, cargi_w, 70, "1д", mat_chekm, val_fl_chekm),
-                    add_item(name, tip, "Страници чекм.", 2, runner_len - 10, 85, "2д", mat_chekm, val_fl_chekm),
+                    add_item(name, tip, "Чело чекмедже", 1, 157, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice), 
+                    add_item(name, tip, "Царги чекм.", 2, cargi_w, h_tsarga_furna, "1д", mat_chekm, val_fl_chekm),
+                    add_item(name, tip, "Страници чекм.", 2, runner_len - 10, h_tsarga_furna, "2д", mat_chekm, val_fl_chekm),
                     add_item(name, tip, "Дъно чекмедже", 1, duno_l, duno_w, "Без", mat_fazer, "Няма")
                 ])
                 
@@ -557,11 +563,12 @@ with col1:
                 ])
                 
                 for idx, ch_h in enumerate(ch_heights):
-                    h_tsarga = max(70, ch_h - 60)
+                    # НОВО: Точно чело - 60 мм за всички размери
+                    h_tsarga = int(ch_h - 60)
                     new_items.extend([
                         add_item(name, tip, f"Чело {idx+1}", 1, ch_h - fuga_obshto, w - fuga_obshto, "4 страни", mat_lice, val_fl_lice, block_note),
                         add_item(name, tip, f"Царги чекм. {idx+1}", 2, cargi_w, h_tsarga, "1д", mat_chekm, val_fl_chekm),
-                        add_item(name, tip, f"Страници чекм. {idx+1}", 2, runner_len - 10, h_tsarga + 15, "2д", mat_chekm, val_fl_chekm)
+                        add_item(name, tip, f"Страници чекм. {idx+1}", 2, runner_len - 10, h_tsarga, "2д", mat_chekm, val_fl_chekm)
                     ])
                 
                 new_items.append(add_item(name, tip, "Дъно чекмедже", len(ch_heights), duno_l, duno_w, "Без", mat_fazer, "Няма"))
@@ -570,7 +577,6 @@ with col1:
         st.session_state.hardware_list.extend(new_hw)
         st.success(f"Модул {name} е добавен!")
         st.rerun()
-
 with col2:
     st.subheader("📋 Списък за разкрой (Редактируем)")
     

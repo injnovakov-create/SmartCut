@@ -988,16 +988,7 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
     if not os.path.exists(font_path):
         try: urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf", font_path)
         except: pass
-    try: 
-        f_title = ImageFont.truetype(font_path, 60)
-        f_logo = ImageFont.truetype(font_path, 80) # Шрифт за OPTIVIK
-        f_part = ImageFont.truetype(font_path, 50) 
-        f_dim = ImageFont.truetype(font_path, 50)  
-        f_small = ImageFont.truetype(font_path, 30) 
-        f_kant_info = ImageFont.truetype(font_path, 45)
-    except: 
-        f_title = f_logo = f_part = f_dim = f_small = f_kant_info = ImageFont.load_default()
-
+        
     page_w, page_h = 3508, 2480 
     margin = 150
     pages = []
@@ -1010,9 +1001,7 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
             # --- ИЗЧИСЛЯВАНЕ НА КАНТА И ОСТАТЪКА ---
             kant_08_sum = 0
             kant_20_sum = 0
-            max_x = 0
-            max_y = 0
-
+            max_x, max_y = 0, 0
             for p in b_parts:
                 if (p['x'] + p['l']) > max_x: max_x = p['x'] + p['l']
                 if (p['y'] + p['w']) > max_y: max_y = p['y'] + p['w']
@@ -1029,59 +1018,86 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
             rem_l = board_l - max_x - (2 * trim)
             rem_w = board_w - (2 * trim)
             
-            # --- 1. РИСУВАНЕ НА ЛОГОТО OPTIVIK ---
+            # --- ЛОГО OPTIVIK ---
+            try: f_logo = ImageFont.truetype(font_path, 80)
+            except: f_logo = ImageFont.load_default()
             draw.text((margin, 60), "OPTI", fill="black", font=f_logo)
-            # Изчисляваме широчината на "OPTI", за да залепим "VIK" за него
             bbox_opti = draw.textbbox((margin, 60), "OPTI", font=f_logo)
             draw.text((bbox_opti[2], 60), "VIK", fill="red", font=f_logo)
-            
-            # Линия под логото
             draw.line([(margin, 160), (page_w - margin, 160)], fill="#eeeeee", width=3)
-            # -------------------------------------
+
+            # --- ТЕХНИЧЕСКА ИНФОРМАЦИЯ ---
+            try:
+                f_title = ImageFont.truetype(font_path, 60)
+                f_info = ImageFont.truetype(font_path, 45)
+            except: f_title = f_info = ImageFont.load_default()
 
             kant_text = f"Кант (+10% фира): 0.8мм ≈ {k08_with_margin:.1f}м | 2.0мм ≈ {k20_with_margin:.1f}м"
-            ost_text = f"Остатък: ≈ {int(rem_l)} x {int(rem_w)} мм"
-
-            # Основна информация
             draw.text((margin, 200), f"МАТЕРИАЛ: {mat_name}", fill="black", font=f_title)
-            draw.text((margin, 280), f"ПЛОЧА {idx+1} от {len(boards)} | {kant_text}", fill="#008080", font=f_kant_info)
-            draw.text((margin, 345), ost_text, fill="#555555", font=f_kant_info)
+            draw.text((margin, 280), f"ПЛОЧА {idx+1} от {len(boards)} | {kant_text}", fill="#008080", font=f_info)
+            draw.text((margin, 345), f"Остатък: ≈ {int(rem_l)} x {int(rem_w)} мм", fill="#555555", font=f_info)
             
-            draw_w = page_w - 2 * margin
-            draw_h = page_h - 2 * margin - 450 
+            # --- НАСТРОЙКА НА СКАЛАТА ---
+            draw_w, draw_h = page_w - 2 * margin, page_h - 2 * margin - 450 
             scale = min(draw_w / board_l, draw_h / board_w)
+            sx, sy = margin + (draw_w - board_l * scale) / 2, margin + 450 + (draw_h - board_w * scale) / 2 
             
-            act_w = board_l * scale
-            act_h = board_w * scale
-            sx = margin + (draw_w - act_w) / 2
-            sy = margin + 450 + (draw_h - act_h) / 2 
-            
-            # Рисуване на плочата
-            draw.rectangle([sx, sy, sx+act_w, sy+act_h], outline="black", width=4)
+            # Начертаване на плочата
+            draw.rectangle([sx, sy, sx + board_l * scale, sy + board_w * scale], outline="black", width=4)
             t_px = trim * scale
-            draw.rectangle([sx+t_px, sy+t_px, sx+act_w-t_px, sy+act_h-t_px], outline="#aaaaaa", width=2)
+            draw.rectangle([sx+t_px, sy+t_px, sx + board_l*scale - t_px, sy + board_w*scale - t_px], outline="#aaaaaa", width=2)
             
             for p in b_parts:
-                px = sx + (p['x'] + trim) * scale
-                py = sy + (p['y'] + trim) * scale
-                pw = p['l'] * scale
-                ph = p['w'] * scale
+                px, py = sx + (p['x'] + trim) * scale, sy + (p['y'] + trim) * scale
+                pw, ph = p['l'] * scale, p['w'] * scale
                 draw.rectangle([px, py, px+pw, py+ph], outline="black", width=3)
                 
-                # Кантове
-                d1_w = 8 if get_edge_label_text(p['d1']) == "2" else (3 if get_edge_label_text(p['d1']) == "0.8" else 0)
-                d2_w = 8 if get_edge_label_text(p['d2']) == "2" else (3 if get_edge_label_text(p['d2']) == "0.8" else 0)
-                sh1_w = 8 if get_edge_label_text(p['sh1']) == "2" else (3 if get_edge_label_text(p['sh1']) == "0.8" else 0)
-                sh2_w = 8 if get_edge_label_text(p['sh2']) == "2" else (3 if get_edge_label_text(p['sh2']) == "0.8" else 0)
+                # Кантове (линии)
+                for side, width in [('d1', 8 if get_edge_label_text(p['d1'])=="2" else 3), 
+                                    ('d2', 8 if get_edge_label_text(p['d2'])=="2" else 3),
+                                    ('sh1', 8 if get_edge_label_text(p['sh1'])=="2" else 3),
+                                    ('sh2', 8 if get_edge_label_text(p['sh2'])=="2" else 3)]:
+                    if p.get(side) and width > 0:
+                        if side == 'd1': draw.line([(px, py+ph), (px+pw, py+ph)], fill="black", width=width)
+                        if side == 'd2': draw.line([(px, py), (px+pw, py)], fill="black", width=width)
+                        if side == 'sh1': draw.line([(px, py), (px, py+ph)], fill="black", width=width)
+                        if side == 'sh2': draw.line([(px+pw, py), (px+pw, py+ph)], fill="black", width=width)
+
+                # --- ДИНАМИЧЕН ТЕКСТ (ЗАВЪРТАНЕ И РАЗМЕР) ---
+                name_str = p['name']
+                dim_str = f"{int(p['l'])} / {int(p['w'])}"
                 
-                if d1_w: draw.line([(px, py+ph), (px+pw, py+ph)], fill="black", width=d1_w)
-                if d2_w: draw.line([(px, py), (px+pw, py)], fill="black", width=d2_w)
-                if sh1_w: draw.line([(px, py), (px, py+ph)], fill="black", width=sh1_w)
-                if sh2_w: draw.line([(px+pw, py), (px+pw, py+ph)], fill="black", width=sh2_w)
+                # Определяме дали да въртим текста (ако детайлът е по-висок, отколкото широк на схемата)
+                should_rotate = ph > pw
                 
-                name_str = p['name'][:18]
-                dim_str = f"{int(p['l'])}/{int(p['w'])}"
-                draw.text((px+pw/2, py+ph/2), f"{name_str}\n{dim_str}", fill="black", font=f_small, anchor="mm", align="center")
+                # Изчисляваме максимален шрифт
+                # Цифрите (dim_str) трябва да са големи
+                avail_w = ph if should_rotate else pw
+                avail_h = pw if should_rotate else ph
+                
+                # Динамичен размер на шрифта - до 80% от ширината и 40% от височината на детайла
+                size_dim = int(min(avail_w * 0.8 / len(dim_str) * 1.5, avail_h * 0.45))
+                size_dim = max(25, min(size_dim, 100)) # Ограничаваме между 25 и 100 пункта
+                
+                size_name = int(size_dim * 0.7) # Името е малко по-малко от цифрите
+                
+                try:
+                    f_d = ImageFont.truetype(font_path, size_dim)
+                    f_n = ImageFont.truetype(font_path, size_name)
+                except: f_d = f_n = ImageFont.load_default()
+
+                # Създаваме временно изображение за текста, за да го завъртим
+                txt_layer = Image.new('RGBA', (int(avail_w), int(avail_h)), (255,255,255,0))
+                d_layer = ImageDraw.Draw(txt_layer)
+                
+                # Позициониране на текста в центъра на слоя
+                d_layer.text((avail_w/2, avail_h/2 + size_dim/4), dim_str, fill="black", font=f_d, anchor="mm")
+                d_layer.text((avail_w/2, avail_h/2 - size_dim/2), name_str[:20], fill="#333333", font=f_n, anchor="mm")
+                
+                if should_rotate:
+                    txt_layer = txt_layer.rotate(90, expand=True)
+                
+                img.paste(txt_layer, (int(px), int(py)), txt_layer)
                     
             pages.append(img)
             

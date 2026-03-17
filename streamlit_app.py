@@ -1306,10 +1306,9 @@ if st.session_state.order_list:
                 for col, dim in [('Д1', l), ('Д2', l), ('Ш1', w), ('Ш2', w)]:
                     val = str(row[col]).strip()
                     if val and val.lower() != "без кант":
-                        # Разпознава старите стандартни записи (1 или 2)
                         if val in ['1', '1.0']: edge_key = f"{mat} 0.8мм"
                         elif val in ['2', '2.0']: edge_key = f"{mat} 2мм"
-                        else: edge_key = val # Използва директно новото име (напр. "Бяло 2мм")
+                        else: edge_key = val 
                         
                         meters = (dim * count) / 1000.0
                         if meters > 0:
@@ -1365,13 +1364,8 @@ if st.session_state.order_list:
         total_extra_mats = total_hw_cost + plot_cost + grub_cost
 
         st.markdown("##### 5. Твърди разходи, Труд и Услуги")
-        col_fixed, col_labor = st.columns(2)
-        with col_fixed:
-            osigurovki = st.number_input("Осигуровки (на месец) €", value=450)
-            naem = st.number_input("Наем (на месец) €", value=400)
-            tok = st.number_input("Ток/Консумативи €", value=100)
-            bus = st.number_input("Бус €", value=100)
-            schetovodstvo = st.number_input("Счетоводство €", value=80)
+        col_labor, col_fixed = st.columns(2)
+        
         with col_labor:
             project_days = st.number_input("Дни за този проект:", value=15, min_value=1)
             nadnici = st.number_input("Надници (общо/ден) €", value=225)
@@ -1379,12 +1373,21 @@ if st.session_state.order_list:
             komandirovachni = st.number_input("Командировъчни €", value=0)
             hamal = st.number_input("Хамалски услуги €", value=0)
 
+        with col_fixed:
+            # Изчисляваме автоматичния наем (300€ на всеки 15 дни = 20€/ден)
+            rent_cons_cost = (project_days / 15.0) * 300.0
+            st.success(f"🏢 **Наем и консумативи:** Автоматично добавени **{rent_cons_cost:.2f} €**\n*(по стандарт: 300 € / 15 дни)*")
+            
+            osigurovki = st.number_input("Осигуровки (на месец) €", value=450)
+            bus = st.number_input("Бус (на месец) €", value=100)
+            schetovodstvo = st.number_input("Счетоводство (на месец) €", value=80)
+
         st.markdown("##### 6. Буфери и Печалба")
         col_buf1, col_buf2 = st.columns(2)
         with col_buf1: nepredvideni_pct = st.number_input("Непредвидени разходи (%)", value=15)
         with col_buf2: pechalba_pct = st.number_input("Печалба (%)", value=25)
 
-        rent_cons_cost = (project_days / 15.0) * 300.0
+        # Сметки за твърдите разходи (разпределени върху 21 работни дни в месеца)
         other_monthly = osigurovki + bus + schetovodstvo
         other_fixed_cost = (other_monthly / 21.0) * project_days
         total_fixed_project = rent_cons_cost + other_fixed_cost

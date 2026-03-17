@@ -982,6 +982,63 @@ def generate_labels_pdf(boards_per_mat):
     pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
     return pdf_bytes.getvalue()
 
+# --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (ЛИПСВАЩАТА ФУНКЦИЯ) ---
+def get_optimized_boards(list_for_cutting):
+    kerf, trim, board_l, board_w = 8, 8, 2800, 2070
+    use_l, use_w = board_l - 2*trim, board_w - 2*trim
+    materials_dict = {}
+    
+    for item in list_for_cutting:
+        mat = item.get('Плоскост', 'Неизвестен')
+        if mat not in materials_dict: materials_dict[mat] = []
+        try:
+            for _ in range(int(item['Бр'])):
+                materials_dict[mat].append({
+                    'name': f"{item['№']} {get_abbrev(item['Детайл'])}", 
+                    'l': float(item['Дължина']), 'w': float(item['Ширина']),
+                    'd1': str(item.get('Д1', '')).strip(), 'd2': str(item.get('Д2', '')).strip(),
+                    'sh1': str(item.get('Ш1', '')).strip(), 'sh2': str(item.get('Ш2', '')).strip(),
+                    'mod_num': str(item.get('№', '')), 'mod_tip': str(item.get('Тип', '')),
+                    'part_name': get_abbrev(item['Детайл']), 'mat': mat
+                })
+        except: pass
+    
+    boards_per_material = {}
+    for mat_name, parts in materials_dict.items():
+        parts.sort(key=lambda x: x['l'] * x['w'], reverse=True)
+        boards, current_board = [], []
+        curr_x, curr_y, shelf_h = 0, 0, 0
+        
+        for p in parts:
+            part_l, part_w = p['l'], p['w']
+            if curr_x + part_l <= use_l and curr_y + part_w <= use_w:
+                p_copy = p.copy()
+                p_copy.update({'x': curr_x, 'y': curr_y})
+                current_board.append(p_copy)
+                curr_x += part_l + kerf
+                if part_w > shelf_h: shelf_h = part_w
+            else:
+                curr_x = 0
+                curr_y += shelf_h + kerf
+                shelf_h = part_w
+                if curr_y + part_w > use_w:
+                    boards.append(current_board)
+                    curr_y = 0
+                    p_copy = p.copy()
+                    p_copy.update({'x': curr_x, 'y': curr_y})
+                    current_board = [p_copy]
+                    curr_x = part_l + kerf
+                else:
+                    p_copy = p.copy()
+                    p_copy.update({'x': curr_x, 'y': curr_y})
+                    current_board.append(p_copy)
+                    curr_x = part_l + kerf
+
+        if current_board: boards.append(current_board)
+        boards_per_material[mat_name] = boards
+    return boards_per_material, board_l, board_w, trim
+
+
 # --- ГЕНЕРИРАНЕ НА РАЗКРОЙ В А4 PDF ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
     # (Тази функция си остава същата, както си я имал в старата версия)
@@ -1159,7 +1216,7 @@ with col_pdf:
                 with st.spinner("Генериране..."):
                     pdf_data = generate_technical_pdf(st.session_state.modules_meta, st.session_state.order_list, kraka)
                     if pdf_data:
-                        st.download_button(label="📥 ИЗТЕГЛИ PDF", data=pdf_data, file_name="Vitya_M_Чертежи.pdf", mime="application/pdf")
+                        st.download_button(label="📥 ИЗТЕГЛИ PDF", data=pdf_data, file_name="OPTIVIK_Чертежи.pdf", mime="application/pdf")
                         
     with col_b2:
         if st.button("🏷️ Свали ЕТИКЕТИ (А4)"):
@@ -1168,9 +1225,10 @@ with col_pdf:
             else:
                 with st.spinner("Генериране на етикети..."):
                     boards_per_mat, _, _, _ = get_optimized_boards(st.session_state.order_list)
-                    labels_pdf = generate_labels_pdf(boards_per_mat)
+                    # ЗАБЕЛЕЖКА: Функция generate_labels_pdf трябва да е дефинирана по-нагоре в твоя код!
+                    labels_pdf = generate_labels_pdf(boards_per_mat) 
                     if labels_pdf:
-                        st.download_button(label="📥 ИЗТЕГЛИ ЕТИКЕТИ", data=labels_pdf, file_name="Vitya_M_Етикети.pdf", mime="application/pdf")
+                        st.download_button(label="📥 ИЗТЕГЛИ ЕТИКЕТИ", data=labels_pdf, file_name="OPTIVIK_Етикети.pdf", mime="application/pdf")
 
 with col_visuals:
     st.subheader("✂️ Схема на разкроя (Плочи)")
@@ -1183,10 +1241,11 @@ with col_visuals:
                 boards_per_mat, board_l, board_w, trim = get_optimized_boards(st.session_state.order_list)
                 cut_pdf = generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim)
                 if cut_pdf:
-                    st.download_button(label="📥 ИЗТЕГЛИ РАЗКРОЙ", data=cut_pdf, file_name="Vitya_M_Разкрой.pdf", mime="application/pdf")
+                    st.download_button(label="📥 ИЗТЕГЛИ РАЗКРОЙ", data=cut_pdf, file_name="OPTIVIK_Разкрой.pdf", mime="application/pdf")
                     
     if st.button("Генерирай 2D разкрой на екрана"):
-        if not st.session_state.order_list: st.warning("Добави детайли, за да генерираш разкрой!")
+        if not st.session_state.order_list: 
+            st.warning("Добави детайли, за да генерираш разкрой!")
         else:
             boards_per_mat, board_l, board_w, trim = get_optimized_boards(st.session_state.order_list)
             for mat_name, boards in boards_per_mat.items():

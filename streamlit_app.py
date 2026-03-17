@@ -983,10 +983,6 @@ def generate_labels_pdf(boards_per_mat):
     return pdf_bytes.getvalue()
 
 # --- ГЕНЕРИРАНЕ НА РАЗКРОЙ В А4 PDF ---
-def generate_technical_pdf(modules_meta, order_list, kraka_height):
-    # (Тази функция си остава същата...)
-    pass
-
 def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
     font_path = "Roboto-Regular.ttf"
     if not os.path.exists(font_path):
@@ -994,12 +990,13 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
         except: pass
     try: 
         f_title = ImageFont.truetype(font_path, 60)
+        f_logo = ImageFont.truetype(font_path, 80) # Шрифт за OPTIVIK
         f_part = ImageFont.truetype(font_path, 50) 
         f_dim = ImageFont.truetype(font_path, 50)  
         f_small = ImageFont.truetype(font_path, 30) 
         f_kant_info = ImageFont.truetype(font_path, 45)
     except: 
-        f_title = f_part = f_dim = f_small = f_kant_info = ImageFont.load_default()
+        f_title = f_logo = f_part = f_dim = f_small = f_kant_info = ImageFont.load_default()
 
     page_w, page_h = 3508, 2480 
     margin = 150
@@ -1017,11 +1014,8 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
             max_y = 0
 
             for p in b_parts:
-                # Намираме най-крайните точки на подреждането за остатъка
                 if (p['x'] + p['l']) > max_x: max_x = p['x'] + p['l']
                 if (p['y'] + p['w']) > max_y: max_y = p['y'] + p['w']
-
-                # Сумиране на кантове
                 for side in ['d1', 'd2', 'sh1', 'sh2']:
                     val = p.get(side, '')
                     if val:
@@ -1030,30 +1024,37 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
                         if thick == "0.8": kant_08_sum += length
                         elif thick == "2": kant_20_sum += length
             
-            # Добавяне на 10% фира към сумата
             k08_with_margin = (kant_08_sum / 1000.0) * 1.10
             k20_with_margin = (kant_20_sum / 1000.0) * 1.10
-            
-            # Изчисляване на чистия остатък (ако приемем вертикален срез)
             rem_l = board_l - max_x - (2 * trim)
             rem_w = board_w - (2 * trim)
-            # ---------------------------------------
+            
+            # --- 1. РИСУВАНЕ НА ЛОГОТО OPTIVIK ---
+            draw.text((margin, 60), "OPTI", fill="black", font=f_logo)
+            # Изчисляваме широчината на "OPTI", за да залепим "VIK" за него
+            bbox_opti = draw.textbbox((margin, 60), "OPTI", font=f_logo)
+            draw.text((bbox_opti[2], 60), "VIK", fill="red", font=f_logo)
+            
+            # Линия под логото
+            draw.line([(margin, 160), (page_w - margin, 160)], fill="#eeeeee", width=3)
+            # -------------------------------------
 
             kant_text = f"Кант (+10% фира): 0.8мм ≈ {k08_with_margin:.1f}м | 2.0мм ≈ {k20_with_margin:.1f}м"
             ost_text = f"Остатък: ≈ {int(rem_l)} x {int(rem_w)} мм"
 
-            draw.text((margin, margin), f"МАТЕРИАЛ: {mat_name}", fill="black", font=f_title)
-            draw.text((margin, margin + 80), f"ПЛОЧА {idx+1} от {len(boards)} | {kant_text}", fill="#008080", font=f_kant_info)
-            draw.text((margin, margin + 145), ost_text, fill="#555555", font=f_kant_info)
+            # Основна информация
+            draw.text((margin, 200), f"МАТЕРИАЛ: {mat_name}", fill="black", font=f_title)
+            draw.text((margin, 280), f"ПЛОЧА {idx+1} от {len(boards)} | {kant_text}", fill="#008080", font=f_kant_info)
+            draw.text((margin, 345), ost_text, fill="#555555", font=f_kant_info)
             
             draw_w = page_w - 2 * margin
-            draw_h = page_h - 2 * margin - 300 
+            draw_h = page_h - 2 * margin - 450 
             scale = min(draw_w / board_l, draw_h / board_w)
             
             act_w = board_l * scale
             act_h = board_w * scale
             sx = margin + (draw_w - act_w) / 2
-            sy = margin + 300 + (draw_h - act_h) / 2 
+            sy = margin + 450 + (draw_h - act_h) / 2 
             
             # Рисуване на плочата
             draw.rectangle([sx, sy, sx+act_w, sy+act_h], outline="black", width=4)
@@ -1067,7 +1068,7 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
                 ph = p['w'] * scale
                 draw.rectangle([px, py, px+pw, py+ph], outline="black", width=3)
                 
-                # Кантове - линии
+                # Кантове
                 d1_w = 8 if get_edge_label_text(p['d1']) == "2" else (3 if get_edge_label_text(p['d1']) == "0.8" else 0)
                 d2_w = 8 if get_edge_label_text(p['d2']) == "2" else (3 if get_edge_label_text(p['d2']) == "0.8" else 0)
                 sh1_w = 8 if get_edge_label_text(p['sh1']) == "2" else (3 if get_edge_label_text(p['sh1']) == "0.8" else 0)

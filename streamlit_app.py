@@ -13,24 +13,24 @@ st.markdown("""
 <style>
 html { zoom: 0.95; }
 
-/* Основен фон на работната площ - много светло сиво */
-.stApp { background-color: #f4f5f7 !important; } 
+/* Основен фон на работната площ - вече е по-тъмно сиво (като управлението на модули) */
+.stApp { background-color: #dce1e6 !important; } 
 
 .block-container { padding-top: 2.5rem !important; padding-bottom: 1.5rem !important; }
 h1, h2, h3, h4, h5 { padding-top: 0.3rem !important; padding-bottom: 0.3rem !important; margin-bottom: 0 !important; }
 
-/* Разделителни линии - по-тъмни за контраст */
-hr { margin-top: 0.8rem !important; margin-bottom: 0.8rem !important; border-color: #d1d5db !important; }
+/* Разделителни линии - още малко по-плътни, за да си личат върху сивия фон */
+hr { margin-top: 0.8rem !important; margin-bottom: 0.8rem !important; border-color: #a3b0bd !important; }
 
 /* Бутони */
 .stButton>button { background-color: #008080 !important; color: white !important; font-weight: bold !important; border-radius: 6px !important; border: none !important; padding: 0.5rem 1rem !important; width: 100%; }
 .stButton>button:hover { background-color: #005959 !important; }
 
-/* Странично меню - по-тъмно сиво с разделителна линия */
-[data-testid="stSidebar"] { background-color: #d1d6dc !important; border-right: 2px solid #b0b8c0 !important; } 
+/* Странично меню - леко тонирано, за да се връзва с основния фон */
+[data-testid="stSidebar"] { background-color: #cdd4db !important; border-right: 2px solid #a3b0bd !important; } 
 
-/* Блоковете на модулите (Падащото меню за изтриване) - по-тъмно сиво, за да изпъкват */
-[data-testid="stExpander"] { background-color: #dce1e6 !important; border: 1px solid #b0b8c0 !important; border-radius: 8px !important; }
+/* Блоковете на модулите */
+[data-testid="stExpander"] { background-color: #cdd4db !important; border: 1px solid #a3b0bd !important; border-radius: 8px !important; }
 
 .stTextInput, .stNumberInput, .stSelectbox, .stRadio { margin-bottom: -0.5rem !important; }
 </style>

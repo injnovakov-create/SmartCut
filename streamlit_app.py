@@ -983,10 +983,6 @@ def generate_labels_pdf(boards_per_mat):
     return pdf_bytes.getvalue()
 
 # --- ГЕНЕРИРАНЕ НА РАЗКРОЙ В А4 PDF ---
-def generate_technical_pdf(modules_meta, order_list, kraka_height):
-    # (Тази функция си остава същата...)
-    pass
-
 def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
     font_path = "Roboto-Regular.ttf"
     if not os.path.exists(font_path):
@@ -997,7 +993,7 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
         f_part = ImageFont.truetype(font_path, 50) 
         f_dim = ImageFont.truetype(font_path, 50)  
         f_small = ImageFont.truetype(font_path, 30) 
-        f_kant_info = ImageFont.truetype(font_path, 45) # НОВО: Шрифт за канта
+        f_kant_info = ImageFont.truetype(font_path, 45) # Шрифт за канта
     except: 
         f_title = f_part = f_dim = f_small = f_kant_info = ImageFont.load_default()
 
@@ -1006,15 +1002,32 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
     pages = []
     
     for mat_name, boards in boards_per_mat.items():
+        # --- 1. НОВО: ИЗЧИСЛЯВАНЕ НА ОБЩИЯ КАНТ ЗА ЦЕЛИЯ ДЕКОР ---
+        total_08 = 0
+        total_20 = 0
+        for b in boards:
+            for p in b:
+                for side in ['d1', 'd2', 'sh1', 'sh2']:
+                    val = p.get(side, '')
+                    if val:
+                        thick = get_edge_label_text(val)
+                        length = p['l'] if side.startswith('d') else p['w']
+                        if thick == "0.8": total_08 += length
+                        elif thick == "2": total_20 += length
+        
+        # Добавяме 10% фира за общото количество
+        total_08_m = (total_08 / 1000.0) * 1.10
+        total_20_m = (total_20 / 1000.0) * 1.10
+        # ---------------------------------------------------------
+
         for idx, b_parts in enumerate(boards):
             img = Image.new('RGB', (page_w, page_h), 'white')
             draw = ImageDraw.Draw(img)
             
-            # --- НОВО: ИЗЧИСЛЯВАНЕ НА КАНТА ЗА ТАЗИ КОНКРЕТНА ПЛОЧА ---
+            # --- ИЗЧИСЛЯВАНЕ НА КАНТА ЗА ТАЗИ КОНКРЕТНА ПЛОЧА ---
             kant_08_sum = 0
             kant_20_sum = 0
             for p in b_parts:
-                # Проверяваме всяка страна на детайла
                 for side in ['d1', 'd2', 'sh1', 'sh2']:
                     val = p.get(side, '')
                     if val:
@@ -1023,22 +1036,36 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
                         if thick == "0.8": kant_08_sum += length
                         elif thick == "2": kant_20_sum += length
             
-            kant_text = f"Кант за плочата: 0.8мм ≈ {kant_08_sum/1000.0:.1f}м | 2.0мм ≈ {kant_20_sum/1000.0:.1f}м"
+            # Добавяме 10% фира и към текущата плоча за точност
+            k08_board_m = (kant_08_sum / 1000.0) * 1.10
+            k20_board_m = (kant_20_sum / 1000.0) * 1.10
+            kant_text = f"Кант за плочата (+10%): 0.8мм ≈ {k08_board_m:.1f}м | 2.0мм ≈ {k20_board_m:.1f}м"
             # ---------------------------------------------------------
 
-            # Заглавие на страницата
-            draw.text((margin, margin), f"МАТЕРИАЛ: {mat_name} [2800x2070 мм]", fill="black", font=f_title)
-            # НОВО: Изписване на инфото за канта под заглавието
-            draw.text((margin, margin + 80), f"ПЛОЧА {idx+1} от {len(boards)} | {kant_text}", fill="#008080", font=f_kant_info)
+            # --- ПОДРЕЖДАНЕ НА ТЕКСТА НАД ЧЕРТЕЖА ---
+            y_offset = margin
+            draw.text((margin, y_offset), f"МАТЕРИАЛ: {mat_name} [2800x2070 мм]", fill="black", font=f_title)
+            y_offset += 80
             
+            # АКО ТОВА Е ПЪРВАТА ПЛОЧА -> ПОКАЗВАМЕ ОБЩОТО В ЧЕРВЕНО
+            if idx == 0:
+                total_text = f"ОБЩО ЗА ДЕКОРА (+10% фира): 0.8мм ≈ {total_08_m:.1f}м | 2.0мм ≈ {total_20_m:.1f}м"
+                draw.text((margin, y_offset), total_text, fill="#FF0000", font=f_kant_info)
+                y_offset += 70
+            
+            # Инфо за текущата плоча
+            draw.text((margin, y_offset), f"ПЛОЧА {idx+1} от {len(boards)} | {kant_text}", fill="#008080", font=f_kant_info)
+            y_offset += 100
+            
+            # Смятаме откъде да започне чертежът, за да не се застъпва с текста
             draw_w = page_w - 2 * margin
-            draw_h = page_h - 2 * margin - 250 # Увеличено разстояние за новия ред текст
+            draw_h = page_h - 2 * margin - (y_offset - margin) 
             scale = min(draw_w / board_l, draw_h / board_w)
             
             act_w = board_l * scale
             act_h = board_w * scale
             sx = margin + (draw_w - act_w) / 2
-            sy = margin + 250 + (draw_h - act_h) / 2 # Свалено надолу заради заглавието
+            sy = y_offset + (draw_h - act_h) / 2 
             
             # Чертане на плочата
             draw.rectangle([sx, sy, sx+act_w, sy+act_h], outline="black", width=4)

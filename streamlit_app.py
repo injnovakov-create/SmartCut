@@ -154,8 +154,43 @@ with st.sidebar:
     kraka = st.number_input("Височина крака (мм)", value=100)
     
     deduct_edge = st.checkbox("Приспадай дебелината на канта от разкроя", value=False, key="deduct_edge")
+    
     # НОВО: Отметка за профил Gola
     gola_profile = st.checkbox("Профил Gola (долни врати и чела -30мм)", value=False, key="gola_profile")
+    # Присвояваме стойността на gola_offset за по-лесно ползване в кода
+    gola_offset = 30 if gola_profile else 0
+    
+    # --- НОВО: ТУК СЛАГАМЕ БУТОНИТЕ ЗА ЗАПИС И ЗАРЕЖДАНЕ ---
+    st.markdown("---")
+    st.header("💾 Управление на проекта")
+    
+    # Бутон за изтегляне (Save)
+    if st.session_state.order_list:
+        export_data = {
+            "order": st.session_state.order_list,
+            "hw": st.session_state.hardware_list
+        }
+        json_data = json.dumps(export_data, ensure_ascii=False, indent=2)
+        st.download_button(
+            label="📥 Запази проекта (Файл)",
+            data=json_data,
+            file_name="proekt_kuhnya.json",
+            mime="application/json"
+        )
+    
+    # Поле за качване (Load)
+    uploaded_file = st.file_uploader("📂 Зареди стар проект", type="json")
+    if uploaded_file is not None:
+        if st.button("🔄 Възстанови от файла"):
+            try:
+                data = json.load(uploaded_file)
+                st.session_state.order_list = data.get("order", [])
+                st.session_state.hardware_list = data.get("hw", [])
+                st.session_state.history = [] 
+                st.success("Проектът е зареден успешно!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Грешка при четене на файла: {e}"
     
     st.markdown("---")
     st.header("🎨 Материали и Фладер")

@@ -39,9 +39,6 @@ hr { margin-top: 0.8rem !important; margin-bottom: 0.8rem !important; border-col
 /* Странично меню */
 [data-testid="stSidebar"] { background-color: #cdd4db !important; border-right: 2px solid #a3b0bd !important; } 
 
-/* Блоковете на модулите */
-[data-testid="stExpander"] { background-color: #cdd4db !important; border: 1px solid #a3b0bd !important; border-radius: 8px !important; }
-
 /* Оптичен филтър за таблиците */
 [data-testid="stDataFrame"] { filter: brightness(0.90) contrast(0.95); border-radius: 8px; overflow: hidden; }
 
@@ -49,12 +46,13 @@ hr { margin-top: 0.8rem !important; margin-bottom: 0.8rem !important; border-col
 </style>
 """, unsafe_allow_html=True)
 
+# ГЛАВНОТО ЗАГЛАВИЕ С НОВАТА МАРКА
 st.markdown("""
-<h1 style='font-size: 28px; margin-top: 10px;'>
-  🛠️ SMART <span style='color: #FF0000; font-weight: bold; font-style: italic; text-decoration: underline wavy; margin-left: -5px;'>CUT</span>
+<h1 style='font-size: 32px; margin-top: 10px;'>
+    <span class='opti-text'>OPTI</span><span class='vik-text'>VIK</span>
 </h1>
 <p style='font-size: 18px; color: gray; margin-top: -10px; margin-bottom: 20px;'><i>оптимизирай умно</i></p>
-""", unsafe_allow_html=True)
+""", unsafe_allow_html=True))
 
 # --- ИНИЦИАЛИЗАЦИЯ НА STATE ---
 if 'order_list' not in st.session_state: 

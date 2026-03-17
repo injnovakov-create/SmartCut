@@ -147,6 +147,8 @@ with st.sidebar:
     kraka = st.number_input("Височина крака (мм)", value=100)
     
     deduct_edge = st.checkbox("Приспадай дебелината на канта от разкроя", value=False, key="deduct_edge")
+    # НОВО: Отметка за профил Gola
+    gola_profile = st.checkbox("Профил Gola (долни врати и чела -30мм)", value=False, key="gola_profile")
     
     st.markdown("---")
     st.header("🎨 Материали и Фладер")

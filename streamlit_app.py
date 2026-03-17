@@ -258,23 +258,25 @@ with col1:
         h_box = st.number_input("Височина на корпуса без крака (мм)", value=760, key="h_box_ch")
         num_ch = st.slider("Брой чекмеджета:", 1, 6, 3, key="n_ch")
         
-        # НОВО: Умножаваме 30мм по броя на чекмеджетата, за да извадим профил за всяко едно!
-        gola_offset_ui = 30 if st.session_state.get("gola_profile", False) else 0
+        # Проверка дали Gola профилът е включен
+        is_gola = st.session_state.get("gola_profile", False)
+        gola_offset_ui = 30 if is_gola else 0
+        
+        # Изваждаме по 30 мм за ВСЯКО чекмедже
         total_front_h = h_box - (gola_offset_ui * num_ch)
         
         st.markdown(f"##### ↕️ Разпределение на височината (Общо: {total_front_h} мм):")
         
         cols_ch = st.columns(num_ch)
-        accumulated_h = 0
-        
-        cols_ch = st.columns(num_ch)
+        ch_heights = []
         accumulated_h = 0
         
         for i in range(num_ch - 1):
             with cols_ch[i]:
                 rem_drawers = num_ch - i
                 default_h = int((total_front_h - accumulated_h) / rem_drawers)
-                val_h = st.number_input(f"Чело {i+1} (мм)", value=default_h, min_value=50, max_value=total_front_h, key=f"ch_h_inp_{i}")
+                # ТРИКЪТ: Добавяме is_gola в ключа, за да се рестартира кутийката при цъкане на отметката!
+                val_h = st.number_input(f"Чело {i+1} (мм)", value=default_h, min_value=50, max_value=total_front_h, key=f"ch_h_{i}_gola_{is_gola}_{num_ch}")
                 ch_heights.append(val_h)
                 accumulated_h += val_h
                 
@@ -290,7 +292,6 @@ with col1:
                 
         runner_len = st.number_input("Водач (мм)", value=500, step=50, key="run_ch")
         d = st.number_input("Дълбочина (D) мм", value=520, key="d_ch")
-        # Крайната височина за алгоритъма е корпус + крака (напр. 760 + 100 = 860)
         h = h_box + kraka
     else:
         default_w = 150 if tip == "Шкаф Бутилки 15см" else (1000 if "Глух" in tip else 600)

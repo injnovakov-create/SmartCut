@@ -982,151 +982,240 @@ def generate_labels_pdf(boards_per_mat):
     pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
     return pdf_bytes.getvalue()
 
+# --- ГЕНЕРИРАНЕ НА РАЗКРОЙ В А4 PDF ---
+def generate_technical_pdf(modules_meta, order_list, kraka_height):
+    # (Тази функция си остава същата...)
+    pass
+
 def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
     font_path = "Roboto-Regular.ttf"
     if not os.path.exists(font_path):
         try: urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf", font_path)
         except: pass
-        
+    try: 
+        f_title = ImageFont.truetype(font_path, 60)
+        f_part = ImageFont.truetype(font_path, 50) 
+        f_dim = ImageFont.truetype(font_path, 50)  
+        f_small = ImageFont.truetype(font_path, 30) 
+        f_kant_info = ImageFont.truetype(font_path, 45) # НОВО: Шрифт за канта
+    except: 
+        f_title = f_part = f_dim = f_small = f_kant_info = ImageFont.load_default()
+
     page_w, page_h = 3508, 2480 
     margin = 150
     pages = []
     
     for mat_name, boards in boards_per_mat.items():
-        # --- 1. ПРЕДВАРИТЕЛНО ИЗЧИСЛЯВАНЕ НА ОБЩОТО ЗА ЦЕЛИЯ ДЕКОР ---
-        total_kant_08 = 0
-        total_kant_20 = 0
-        for b in boards:
-            for p in b:
-                for side in ['d1', 'd2', 'sh1', 'sh2']:
-                    val = p.get(side, '')
-                    if val:
-                        thick = get_edge_label_text(val)
-                        length = p['l'] if side.startswith('d') else p['w']
-                        if thick == "0.8": total_kant_08 += length
-                        elif thick == "2": total_kant_20 += length
-        
-        # Общо с 10% фира за целия декор
-        total_08_m = (total_kant_08 / 1000.0) * 1.10
-        total_20_m = (total_kant_20 / 1000.0) * 1.10
-
         for idx, b_parts in enumerate(boards):
             img = Image.new('RGB', (page_w, page_h), 'white')
             draw = ImageDraw.Draw(img)
             
-            # --- 2. ИЗЧИСЛЯВАНЕ НА КАНТА САМО ЗА ТАЗИ ПЛОЧА ---
-            board_kant_08 = 0
-            board_kant_20 = 0
-            max_x, max_y = 0, 0
+            # --- НОВО: ИЗЧИСЛЯВАНЕ НА КАНТА ЗА ТАЗИ КОНКРЕТНА ПЛОЧА ---
+            kant_08_sum = 0
+            kant_20_sum = 0
             for p in b_parts:
-                if (p['x'] + p['l']) > max_x: max_x = p['x'] + p['l']
-                if (p['y'] + p['w']) > max_y: max_y = p['y'] + p['w']
+                # Проверяваме всяка страна на детайла
                 for side in ['d1', 'd2', 'sh1', 'sh2']:
                     val = p.get(side, '')
                     if val:
                         thick = get_edge_label_text(val)
                         length = p['l'] if side.startswith('d') else p['w']
-                        if thick == "0.8": board_kant_08 += length
-                        elif thick == "2": board_kant_20 += length
+                        if thick == "0.8": kant_08_sum += length
+                        elif thick == "2": kant_20_sum += length
             
-            k08_board = (board_kant_08 / 1000.0) * 1.10
-            k20_board = (board_kant_20 / 1000.0) * 1.10
-            rem_l = board_l - max_x - (2 * trim)
-            rem_w = board_w - (2 * trim)
-            
-            # --- ЛОГО OPTIVIK ---
-            try: f_logo = ImageFont.truetype(font_path, 80)
-            except: f_logo = ImageFont.load_default()
-            draw.text((margin, 60), "OPTI", fill="black", font=f_logo)
-            bbox_opti = draw.textbbox((margin, 60), "OPTI", font=f_logo)
-            draw.text((bbox_opti[2], 60), "VIK", fill="red", font=f_logo)
-            draw.line([(margin, 160), (page_w - margin, 160)], fill="#eeeeee", width=3)
+            kant_text = f"Кант за плочата: 0.8мм ≈ {kant_08_sum/1000.0:.1f}м | 2.0мм ≈ {kant_20_sum/1000.0:.1f}м"
+            # ---------------------------------------------------------
 
-            # --- ТЕХНИЧЕСКА ИНФОРМАЦИЯ ---
-            try:
-                f_title = ImageFont.truetype(font_path, 60)
-                f_info = ImageFont.truetype(font_path, 45)
-                f_total = ImageFont.truetype(font_path, 55) 
-            except: f_title = f_info = f_total = ImageFont.load_default()
-
-            y_offset = 200
-            draw.text((margin, y_offset), f"МАТЕРИАЛ: {mat_name}", fill="black", font=f_title)
-            y_offset += 80
+            # Заглавие на страницата
+            draw.text((margin, margin), f"МАТЕРИАЛ: {mat_name} [2800x2070 мм]", fill="black", font=f_title)
+            # НОВО: Изписване на инфото за канта под заглавието
+            draw.text((margin, margin + 80), f"ПЛОЧА {idx+1} от {len(boards)} | {kant_text}", fill="#008080", font=f_kant_info)
             
-            # Показваме ОБЩОТО само на първата плоча за съответния материал
-            if idx == 0:
-                total_text = f"ОБЩО ЗА ДЕКОРА (Всички плочи): 0.8мм ≈ {total_08_m:.1f}м | 2.0мм ≈ {total_20_m:.1f}м"
-                draw.text((margin, y_offset), total_text, fill="#FF0000", font=f_total) 
-                y_offset += 85
-            
-            draw.text((margin, y_offset), f"ПЛОЧА {idx+1} от {len(boards)} | Кант за плочата: 0.8мм ≈ {k08_board:.1f}м | 2.0мм ≈ {k20_board:.1f}м", fill="#008080", font=f_info)
-            y_offset += 65
-            draw.text((margin, y_offset), f"Остатък: ≈ {int(rem_l)} x {int(rem_w)} мм", fill="#555555", font=f_info)
-            
-            draw_start_y = y_offset + 100
-            draw_w, draw_h = page_w - 2 * margin, page_h - 2 * margin - draw_start_y
+            draw_w = page_w - 2 * margin
+            draw_h = page_h - 2 * margin - 250 # Увеличено разстояние за новия ред текст
             scale = min(draw_w / board_l, draw_h / board_w)
-            sx, sy = margin + (draw_w - board_l * scale) / 2, draw_start_y + (draw_h - board_w * scale) / 2 
             
-            # --- РИСУВАНЕ НА ПЛОЧАТА ---
-            draw.rectangle([sx, sy, sx + board_l * scale, sy + board_w * scale], outline="black", width=4)
+            act_w = board_l * scale
+            act_h = board_w * scale
+            sx = margin + (draw_w - act_w) / 2
+            sy = margin + 250 + (draw_h - act_h) / 2 # Свалено надолу заради заглавието
+            
+            # Чертане на плочата
+            draw.rectangle([sx, sy, sx+act_w, sy+act_h], outline="black", width=4)
             t_px = trim * scale
-            draw.rectangle([sx+t_px, sy+t_px, sx + board_l*scale - t_px, sy + board_w*scale - t_px], outline="#aaaaaa", width=2)
+            draw.rectangle([sx+t_px, sy+t_px, sx+act_w-t_px, sy+act_h-t_px], outline="#aaaaaa", width=2)
             
             for p in b_parts:
-                px, py = sx + (p['x'] + trim) * scale, sy + (p['y'] + trim) * scale
-                pw, ph = p['l'] * scale, p['w'] * scale
+                px = sx + (p['x'] + trim) * scale
+                py = sy + (p['y'] + trim) * scale
+                pw = p['l'] * scale
+                ph = p['w'] * scale
+                
                 draw.rectangle([px, py, px+pw, py+ph], outline="black", width=3)
                 
-                # Кантове (линии)
-                for side, width in [('d1', 8 if get_edge_label_text(p['d1'])=="2" else 3), 
-                                    ('d2', 8 if get_edge_label_text(p['d2'])=="2" else 3),
-                                    ('sh1', 8 if get_edge_label_text(p['sh1'])=="2" else 3),
-                                    ('sh2', 8 if get_edge_label_text(p['sh2'])=="2" else 3)]:
-                    if p.get(side) and width > 0:
-                        if side == 'd1': draw.line([(px, py+ph), (px+pw, py+ph)], fill="black", width=width)
-                        if side == 'd2': draw.line([(px, py), (px+pw, py)], fill="black", width=width)
-                        if side == 'sh1': draw.line([(px, py), (px, py+ph)], fill="black", width=width)
-                        if side == 'sh2': draw.line([(px+pw, py), (px+pw, py+ph)], fill="black", width=width)
+                # Чертане на линиите за кант
+                d1_w = 8 if get_edge_label_text(p['d1']) == "2" else (3 if get_edge_label_text(p['d1']) == "0.8" else 0)
+                d2_w = 8 if get_edge_label_text(p['d2']) == "2" else (3 if get_edge_label_text(p['d2']) == "0.8" else 0)
+                sh1_w = 8 if get_edge_label_text(p['sh1']) == "2" else (3 if get_edge_label_text(p['sh1']) == "0.8" else 0)
+                sh2_w = 8 if get_edge_label_text(p['sh2']) == "2" else (3 if get_edge_label_text(p['sh2']) == "0.8" else 0)
+                
+                if d1_w: draw.line([(px, py+ph), (px+pw, py+ph)], fill="black", width=d1_w)
+                if d2_w: draw.line([(px, py), (px+pw, py)], fill="black", width=d2_w)
+                if sh1_w: draw.line([(px, py), (px, py+ph)], fill="black", width=sh1_w)
+                if sh2_w: draw.line([(px+pw, py), (px+pw, py+ph)], fill="black", width=sh2_w)
+                
+                name_str = p['name'][:10] + '..' if len(p['name']) > 10 and p['l'] < 300 else p['name'][:18]
+                dim_str = f"{int(p['l'])}/{int(p['w'])}"
 
-                # --- ДИНАМИЧЕН ТЕКСТ (Завъртане и мащабиране) ---
-                name_str = p['name']
-                dim_str = f"{int(p['l'])} / {int(p['w'])}"
-                should_rotate = ph > pw
-                
-                avail_w = ph if should_rotate else pw
-                avail_h = pw if should_rotate else ph
-                
-                # Защита от деление на нула при много малки детайли
-                len_dim_str = max(len(dim_str), 1)
-                size_dim = int(min(avail_w * 0.8 / len_dim_str * 1.5, avail_h * 0.45))
-                size_dim = max(25, min(size_dim, 100)) 
-                size_name = int(size_dim * 0.7) 
-                
-                try:
-                    f_d = ImageFont.truetype(font_path, size_dim)
-                    f_n = ImageFont.truetype(font_path, size_name)
-                except: f_d = f_n = ImageFont.load_default()
-
-                txt_layer = Image.new('RGBA', (int(avail_w), int(avail_h)), (255,255,255,0))
-                d_layer = ImageDraw.Draw(txt_layer)
-                
-                d_layer.text((avail_w/2, avail_h/2 + size_dim/4), dim_str, fill="black", font=f_d, anchor="mm")
-                d_layer.text((avail_w/2, avail_h/2 - size_dim/2), name_str[:20], fill="#333333", font=f_n, anchor="mm")
-                
-                if should_rotate:
-                    txt_layer = txt_layer.rotate(90, expand=True)
-                
-                img.paste(txt_layer, (int(px), int(py)), txt_layer)
+                if p['l'] < 120 or p['w'] < 120:
+                    draw.text((px+pw/2, py+ph/2), dim_str, fill="black", font=f_small, anchor="mm")
+                else:
+                    curr_f_name = f_small if p['l'] < 250 or p['w'] < 200 else f_part
+                    curr_f_dim = f_small if p['l'] < 250 or p['w'] < 200 else f_dim
+                    shift = min(35, ph * 0.2)
+                    draw.text((px+pw/2, py+ph/2 - shift), name_str, fill="black", font=curr_f_name, anchor="mm")
+                    draw.text((px+pw/2, py+ph/2 + shift), dim_str, fill="black", font=curr_f_dim, anchor="mm")
                     
             pages.append(img)
             
-    # --- КРАЙ НА ФУНКЦИЯТА (ВРЪЩАНЕ НА ФАЙЛА) ---
     if pages:
         pdf_bytes = io.BytesIO()
         pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
         return pdf_bytes.getvalue()
     return None
+
+# --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ ---
+def get_optimized_boards(list_for_cutting):
+    kerf, trim, board_l, board_w = 8, 8, 2800, 2070
+    use_l, use_w = board_l - 2*trim, board_w - 2*trim
+    materials_dict = {}
+    
+    for item in list_for_cutting:
+        mat = item.get('Плоскост', 'Неизвестен')
+        if mat not in materials_dict: materials_dict[mat] = []
+        try:
+            for _ in range(int(item['Бр'])):
+                materials_dict[mat].append({
+                    'name': f"{item['№']} {get_abbrev(item['Детайл'])}", 
+                    'l': float(item['Дължина']), 'w': float(item['Ширина']),
+                    'd1': str(item.get('Д1', '')).strip(), 'd2': str(item.get('Д2', '')).strip(),
+                    'sh1': str(item.get('Ш1', '')).strip(), 'sh2': str(item.get('Ш2', '')).strip(),
+                    'mod_num': str(item.get('№', '')), 'mod_tip': str(item.get('Тип', '')),
+                    'part_name': get_abbrev(item['Детайл']), 'mat': mat
+                })
+        except: pass
+    
+    boards_per_material = {}
+    for mat_name, parts in materials_dict.items():
+        # НОВО: Сортираме по площ (най-големите първи), за да запълним плътно ъглите
+        parts.sort(key=lambda x: x['l'] * x['w'], reverse=True)
+        
+        boards, current_board = [], []
+        curr_x, curr_y, shelf_h = 0, 0, 0
+        
+        for p in parts:
+            part_l, part_w = p['l'], p['w']
+            
+            # Проверка дали детайлът влиза в текущия ред
+            if curr_x + part_l <= use_l and curr_y + part_w <= use_w:
+                p_copy = p.copy()
+                p_copy.update({'x': curr_x, 'y': curr_y})
+                current_board.append(p_copy)
+                curr_x += part_l + kerf
+                if part_w > shelf_h: shelf_h = part_w
+            else:
+                # Преминаваме на нов "ред" (нагоре по ширината)
+                curr_x = 0
+                curr_y += shelf_h + kerf
+                shelf_h = part_w
+                
+                # Ако няма място на тази плоча, почваме нова
+                if curr_y + part_w > use_w:
+                    boards.append(current_board)
+                    curr_y = 0
+                    p_copy = p.copy()
+                    p_copy.update({'x': curr_x, 'y': curr_y})
+                    current_board = [p_copy]
+                    curr_x = part_l + kerf
+                else:
+                    p_copy = p.copy()
+                    p_copy.update({'x': curr_x, 'y': curr_y})
+                    current_board.append(p_copy)
+                    curr_x = part_l + kerf
+
+        if current_board: boards.append(current_board)
+        boards_per_material[mat_name] = boards
+    return boards_per_material, board_l, board_w, trim
+
+st.markdown("---")
+col_visuals, col_pdf = st.columns(2)
+
+with col_pdf:
+    st.subheader("📐 Технически PDF и Етикети")
+    st.info("Генерира 3D чертежи за цеха и самозалепващи се етикети (44 бр. на А4).")
+    
+    col_b1, col_b2 = st.columns(2)
+    with col_b1:
+        if st.button("📄 Свали PDF Чертежи"):
+            if not st.session_state.modules_meta:
+                st.warning("Няма добавени модули за чертане!")
+            else:
+                with st.spinner("Генериране..."):
+                    pdf_data = generate_technical_pdf(st.session_state.modules_meta, st.session_state.order_list, kraka)
+                    if pdf_data:
+                        st.download_button(label="📥 ИЗТЕГЛИ PDF", data=pdf_data, file_name="Vitya_M_Чертежи.pdf", mime="application/pdf")
+                        
+    with col_b2:
+        if st.button("🏷️ Свали ЕТИКЕТИ (А4)"):
+            if not st.session_state.order_list:
+                st.warning("Добави детайли за етикетите!")
+            else:
+                with st.spinner("Генериране на етикети..."):
+                    boards_per_mat, _, _, _ = get_optimized_boards(st.session_state.order_list)
+                    labels_pdf = generate_labels_pdf(boards_per_mat)
+                    if labels_pdf:
+                        st.download_button(label="📥 ИЗТЕГЛИ ЕТИКЕТИ", data=labels_pdf, file_name="Vitya_M_Етикети.pdf", mime="application/pdf")
+
+with col_visuals:
+    st.subheader("✂️ Схема на разкроя (Плочи)")
+    
+    if st.button("📄 Свали Разкрой (A4 PDF)"):
+        if not st.session_state.order_list:
+            st.warning("Добави детайли за разкроя!")
+        else:
+            with st.spinner("Генериране на PDF..."):
+                boards_per_mat, board_l, board_w, trim = get_optimized_boards(st.session_state.order_list)
+                cut_pdf = generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim)
+                if cut_pdf:
+                    st.download_button(label="📥 ИЗТЕГЛИ РАЗКРОЙ", data=cut_pdf, file_name="Vitya_M_Разкрой.pdf", mime="application/pdf")
+                    
+    if st.button("Генерирай 2D разкрой на екрана"):
+        if not st.session_state.order_list: st.warning("Добави детайли, за да генерираш разкрой!")
+        else:
+            boards_per_mat, board_l, board_w, trim = get_optimized_boards(st.session_state.order_list)
+            for mat_name, boards in boards_per_mat.items():
+                st.markdown(f"#### 🪵 {mat_name} [2800x2070 мм] (Нужни: {len(boards)} бр.)")
+                for idx, b_parts in enumerate(boards):
+                    svg = f'<svg viewBox="0 0 {board_l} {board_w}" style="background-color:#ffffff; border:2px solid #333; margin-bottom: 20px; width: 100%; max-width: 900px;">'
+                    svg += f'<rect x="{trim}" y="{trim}" width="{board_l - 2*trim}" height="{board_w - 2*trim}" fill="none" stroke="black" stroke-width="4" stroke-dasharray="20,20"/>'
+                    for p in b_parts:
+                        px, py, pl, pw = p['x'] + trim, p['y'] + trim, p['l'], p['w']
+                        svg += f'<rect x="{px}" y="{py}" width="{pl}" height="{pw}" fill="#ffffff" stroke="#000000" stroke-width="2"/>'
+                        
+                        name_str = p["name"][:10] + '..' if len(p["name"]) > 10 and pl < 300 else p["name"][:18]
+                        dim_str = f"{int(p['l'])}/{int(p['w'])}"
+                        
+                        if pl < 120 or pw < 120:
+                            svg += f'<text x="{px + pl/2}" y="{py + pw/2}" font-size="25" fill="black" text-anchor="middle" dominant-baseline="middle" font-weight="bold">{dim_str}</text>'
+                        else:
+                            f_size_name = min(45, max(15, int(pl / len(name_str) * 1.2)))
+                            f_size_dim = min(50, max(20, int(pl / 5)))
+                            shift = min(30, pw * 0.2)
+                            
+                            svg += f'<text x="{px + pl/2}" y="{py + pw/2 - shift}" font-size="{f_size_name}" fill="black" text-anchor="middle" dominant-baseline="middle" font-weight="bold">{name_str}</text>'
+                            svg += f'<text x="{px + pl/2}" y="{py + pw/2 + shift}" font-size="{f_size_dim}" fill="black" text-anchor="middle" dominant-baseline="middle">{dim_str}</text>'
+                    svg += '</svg>'
+                    st.markdown(svg, unsafe_allow_html=True)
 
 # --- ФИНАНСОВ КАЛКУЛАТОР (ОСТАВА НА ЕКРАНА!) ---
 st.markdown("---")

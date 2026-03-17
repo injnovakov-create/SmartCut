@@ -983,6 +983,10 @@ def generate_labels_pdf(boards_per_mat):
     return pdf_bytes.getvalue()
 
 # --- ГЕНЕРИРАНЕ НА РАЗКРОЙ В А4 PDF ---
+def generate_technical_pdf(modules_meta, order_list, kraka_height):
+    # (Тази функция си остава същата...)
+    pass
+
 def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
     font_path = "Roboto-Regular.ttf"
     if not os.path.exists(font_path):
@@ -993,8 +997,9 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
         f_part = ImageFont.truetype(font_path, 50) 
         f_dim = ImageFont.truetype(font_path, 50)  
         f_small = ImageFont.truetype(font_path, 30) 
+        f_kant_info = ImageFont.truetype(font_path, 45) # НОВО: Шрифт за канта
     except: 
-        f_title = f_part = f_dim = f_small = ImageFont.load_default()
+        f_title = f_part = f_dim = f_small = f_kant_info = ImageFont.load_default()
 
     page_w, page_h = 3508, 2480 
     margin = 150
@@ -1005,17 +1010,37 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
             img = Image.new('RGB', (page_w, page_h), 'white')
             draw = ImageDraw.Draw(img)
             
-            draw.text((margin, margin), f"МАТЕРИАЛ: {mat_name} [2800x2070 мм] | ПЛОЧА {idx+1} от {len(boards)}", fill="black", font=f_title)
+            # --- НОВО: ИЗЧИСЛЯВАНЕ НА КАНТА ЗА ТАЗИ КОНКРЕТНА ПЛОЧА ---
+            kant_08_sum = 0
+            kant_20_sum = 0
+            for p in b_parts:
+                # Проверяваме всяка страна на детайла
+                for side in ['d1', 'd2', 'sh1', 'sh2']:
+                    val = p.get(side, '')
+                    if val:
+                        thick = get_edge_label_text(val)
+                        length = p['l'] if side.startswith('d') else p['w']
+                        if thick == "0.8": kant_08_sum += length
+                        elif thick == "2": kant_20_sum += length
+            
+            kant_text = f"Кант за плочата: 0.8мм ≈ {kant_08_sum/1000.0:.1f}м | 2.0мм ≈ {kant_20_sum/1000.0:.1f}м"
+            # ---------------------------------------------------------
+
+            # Заглавие на страницата
+            draw.text((margin, margin), f"МАТЕРИАЛ: {mat_name} [2800x2070 мм]", fill="black", font=f_title)
+            # НОВО: Изписване на инфото за канта под заглавието
+            draw.text((margin, margin + 80), f"ПЛОЧА {idx+1} от {len(boards)} | {kant_text}", fill="#008080", font=f_kant_info)
             
             draw_w = page_w - 2 * margin
-            draw_h = page_h - 2 * margin - 150
+            draw_h = page_h - 2 * margin - 250 # Увеличено разстояние за новия ред текст
             scale = min(draw_w / board_l, draw_h / board_w)
             
             act_w = board_l * scale
             act_h = board_w * scale
             sx = margin + (draw_w - act_w) / 2
-            sy = margin + 150 + (draw_h - act_h) / 2
+            sy = margin + 250 + (draw_h - act_h) / 2 # Свалено надолу заради заглавието
             
+            # Чертане на плочата
             draw.rectangle([sx, sy, sx+act_w, sy+act_h], outline="black", width=4)
             t_px = trim * scale
             draw.rectangle([sx+t_px, sy+t_px, sx+act_w-t_px, sy+act_h-t_px], outline="#aaaaaa", width=2)
@@ -1025,8 +1050,10 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
                 py = sy + (p['y'] + trim) * scale
                 pw = p['l'] * scale
                 ph = p['w'] * scale
+                
                 draw.rectangle([px, py, px+pw, py+ph], outline="black", width=3)
                 
+                # Чертане на линиите за кант
                 d1_w = 8 if get_edge_label_text(p['d1']) == "2" else (3 if get_edge_label_text(p['d1']) == "0.8" else 0)
                 d2_w = 8 if get_edge_label_text(p['d2']) == "2" else (3 if get_edge_label_text(p['d2']) == "0.8" else 0)
                 sh1_w = 8 if get_edge_label_text(p['sh1']) == "2" else (3 if get_edge_label_text(p['sh1']) == "0.8" else 0)

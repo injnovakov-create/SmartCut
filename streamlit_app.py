@@ -33,26 +33,28 @@ if 'hardware_list' not in st.session_state: st.session_state.hardware_list = []
 if 'modules_meta' not in st.session_state: st.session_state.modules_meta = [] 
 
 # --- ЛОГИКА ЗА ЗАПИС ТОЧНО КАТО В EXCEL ---
-def add_item(modul, tip, detail, count, l, w, kant_str, material, flader, note="", custom_thick=None):
-    if custom_thick is not None:
-        thick = custom_thick
-    else:
-        thick = 2 if any(x in str(detail).lower() for x in ["врата", "чело", "дублираща"]) else 1
-        
+def add_item(modul, tip, detail, count, l, w, kant_str, material, flader, note="", custom_thick_d=None, custom_thick_sh=None):
+    # Ако не подадем специална дебелина, програмата отгатва (2мм за лица, 1мм за корпуси)
+    default_t = 2 if any(x in str(detail).lower() for x in ["врата", "чело", "дублираща"]) else 1
+    
+    t_d = custom_thick_d if custom_thick_d is not None else default_t
+    t_sh = custom_thick_sh if custom_thick_sh is not None else default_t
+    
     d1 = d2 = sh1 = sh2 = ""
     k = str(kant_str).lower()
-    if "1д" in k: d1 = thick
-    if "2д" in k or "4" in k: d1 = thick; d2 = thick
-    if "1к" in k or "1ш" in k: sh1 = thick
-    if "2к" in k or "2ш" in k or "4" in k: sh1 = thick; sh2 = thick
+    if "1д" in k: d1 = t_d
+    if "2д" in k or "4" in k: d1 = t_d; d2 = t_d
+    if "1к" in k or "1ш" in k: sh1 = t_sh
+    if "2к" in k or "2ш" in k or "4" in k: sh1 = t_sh; sh2 = t_sh
     
     final_l, final_w = float(l), float(w)
     
+    # ЛОГИКА ЗА ПРИСПАДАНЕ НА КАНТА
     if st.session_state.get("deduct_edge", False):
-        if d1: final_w -= thick
-        if d2: final_w -= thick
-        if sh1: final_l -= thick
-        if sh2: final_l -= thick
+        if d1 != "": final_w -= d1
+        if d2 != "": final_w -= d2
+        if sh1 != "": final_l -= sh1
+        if sh2 != "": final_l -= sh2
 
     return {
         "Плоскост": material, "№": modul, "Тип": tip, "Детайл": detail, 
@@ -187,9 +189,10 @@ with col1:
         custom_mat_type = colE.selectbox("Вид материал", ["Корпус", "Лице", "Чекмеджета", "Фазер", "Специфичен (въведи)"])
         custom_flader = colF.radio("Спазва фладер?", ["Да", "Не"], index=0, horizontal=True)
         
-        # НОВО: Вадим дебелината на канта на съвсем отделен ред, за да е супер видима!
         st.markdown("##### 📏 Дебелина на канта (за точно приспадане)")
-        custom_edge_thick = st.radio("Избери:", [1, 2], index=1, horizontal=True, format_func=lambda x: f"{x} мм")
+        colG, colH = st.columns(2)
+        custom_edge_d = colG.radio("Кант Дълги страни (Д1/Д2):", [1, 2], index=1, horizontal=True, format_func=lambda x: f"{x} мм")
+        custom_edge_sh = colH.radio("Кант Къси страни (Ш1/Ш2):", [1, 2], index=0, horizontal=True, format_func=lambda x: f"{x} мм")
         
         if custom_mat_type == "Специфичен (въведи)":
             custom_mat_name = st.text_input("Въведи име на материала:", value="ПДЧ 18мм (Друго)")
@@ -304,7 +307,7 @@ with col1:
             else: m_choice = mat_korpus
             
             f_choice = custom_flader 
-            new_items.append(add_item(name, tip, custom_detail, custom_count, custom_l, custom_w, custom_kant, m_choice, f_choice, custom_thick=custom_edge_thick))
+            new_items.append(add_item(name, tip, custom_detail, custom_count, custom_l, custom_w, custom_kant, m_choice, f_choice, custom_thick_d=custom_edge_d, custom_thick_sh=custom_edge_sh))
             
         elif tip == "Шкаф Колона":
             w_izbrana = int((w/2) - fuga_obshto) if vrati_broi == 2 else int(w - fuga_obshto)

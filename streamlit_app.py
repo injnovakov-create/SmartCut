@@ -295,10 +295,11 @@ with col1:
             vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_up")
             vrati_orientacia = st.radio("Ориентация:", ["Вертикални", "Хоризонтални"], horizontal=True) if tip == "Горен Шкаф" else "Вертикални"
         else:
-            # ТУК Е НОВОТО ПОЛЕ ЗА ВИСОЧИНА
-            h_box = st.number_input("Височина на корпуса без крака (мм)", value=742, key="h_box_low")
+            # ВЕЧЕ Е 760:
+            h_box = st.number_input("Височина на корпуса без крака (мм)", value=760, key="h_box_low")
             d = st.number_input("Дълбочина (D) мм", value=(550 if tip == "Шкаф Мивка" else 520), key="d_low")
-            h = h_box + kraka + deb 
+            # Крайната височина за алгоритъма е корпус + крака
+            h = h_box + kraka 
             vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_low")
     st.markdown("---")
     temp_meta = {"Тип": tip, "W": w, "H": h, "D": d, "vr_cnt": vrati_broi}

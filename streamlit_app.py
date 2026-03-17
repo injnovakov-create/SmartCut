@@ -545,22 +545,15 @@ with col2:
                     st.rerun()
         st.markdown("---")
         
-        # --- ТАБЛИЦА С ОЦВЕТЯВАНЕ ---
+        # --- ТАБЛИЦА (Сортирана и напълно редактируема) ---
         df = pd.DataFrame(st.session_state.order_list)
         cols_order = ["Плоскост", "№", "Тип", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
         df = df[[c for c in cols_order if c in df.columns]]
         
-        # Задаваме леки пастелни цветове за отделните модули
-        bg_colors = ['#e6f2ff', '#fff0e6', '#e6ffe6', '#ffe6f2', '#ffffe6', '#f2e6ff', '#e6ffff', '#ffe6e6']
-        mod_color_map = {mod: bg_colors[i % len(bg_colors)] for i, mod in enumerate(df['№'].unique())}
+        # Автоматично сортиране по номер на модул, за да са групирани перфектно
+        df = df.sort_values(by="№")
         
-        # Функция, която оцветява всеки ред според номера на модула
-        def color_rows(row):
-            return [f'background-color: {mod_color_map.get(row["№"], "")}; color: #222222;'] * len(row)
-            
-        styled_df = df.style.apply(color_rows, axis=1)
-        
-        edited_df = st.data_editor(styled_df, num_rows="dynamic", use_container_width=True, height=350, key="editor")
+        edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, height=350, key="editor")
         st.session_state.order_list = edited_df.to_dict('records')
         
         if st.session_state.hardware_list:

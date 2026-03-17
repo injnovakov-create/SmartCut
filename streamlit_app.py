@@ -229,6 +229,7 @@ with st.sidebar:
                 
         except Exception as e:
             st.error(f"❌ Грешка при четенето: {e}")
+
 # --- ОСНОВЕН ИНТЕРФЕЙС ---
 col1, col2 = st.columns([1, 2.5])
 

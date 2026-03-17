@@ -360,6 +360,19 @@ with col1:
         pass
 
     if st.button("➕ Добави към списъка"):
+        # --- СТЪПКА 1: "СНИМКА" ЗА ИСТОРИЯТА (UNDO) ---
+        current_snap = {
+            "order": json.loads(json.dumps(st.session_state.order_list)),
+            "hw": json.loads(json.dumps(st.session_state.hardware_list)),
+            "meta": json.loads(json.dumps(st.session_state.modules_meta))
+        }
+        st.session_state.history.append(current_snap)
+        
+        # Ограничаваме историята до 15 стъпки, за да не бави браузъра
+        if len(st.session_state.history) > 15:
+            st.session_state.history.pop(0)
+
+        # --- СТЪПКА 2: ТВОИТЕ ИЗЧИСЛЕНИЯ (ПРОДЪЛЖАВАТ НАДОЛУ) ---
         new_items = []
         new_hw = []
         otstyp_fazer = 4

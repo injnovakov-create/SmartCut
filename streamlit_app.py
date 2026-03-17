@@ -644,6 +644,20 @@ with col1:
 with col2:
     st.subheader("📋 Списък за разкрой (Редактируем)")
     
+    # --- НОВО: БУТОН ЗА ВРЪЩАНЕ НАЗАД (UNDO) ---
+    if st.session_state.get("history"):
+        if st.button("↩️ Върни една стъпка назад"):
+            # Взимаме последната "снимка" от историята
+            last_state = st.session_state.history.pop()
+            
+            # Възстановяваме списъците към това състояние
+            st.session_state.order_list = last_state["order"]
+            st.session_state.hardware_list = last_state["hw"]
+            st.session_state.modules_meta = last_state["meta"]
+            
+            # Презареждаме, за да се види промяната веднага
+            st.rerun(
+    
     # --- УПРАВЛЕНИЕ НА МОДУЛИ ---
     if st.session_state.order_list:
         unique_modules = list(dict.fromkeys([str(item["№"]) for item in st.session_state.order_list]))

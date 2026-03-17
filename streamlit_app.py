@@ -311,11 +311,23 @@ with col1:
     except:
         pass
 
-    st.markdown("<br>", unsafe_allow_html=True)
     if st.button("➕ Добави към списъка"):
         new_items = []
         new_hw = []
-        otstyp_fazer = 4; h_stranica = 742; h_shkaf_korpus = h_stranica + deb; h_vrata_standart = h_shkaf_korpus - fuga_obshto
+        otstyp_fazer = 4
+        
+        if "Долен" in tip or tip in ["Шкаф Мивка", "Шкаф Бутилки 15см", "Шкаф за Фурна", "Шкаф с чекмеджета"]:
+            h_stranica = int(h - kraka - deb)
+        else:
+            h_stranica = 742 
+            
+        h_shkaf_korpus = h_stranica + deb
+        
+        # НОВО: Проверява дали има Gola профил и вади 30мм само от долните врати
+        gola_offset = 30 if st.session_state.get("gola_profile", False) else 0
+        h_vrata_standart = h_shkaf_korpus - fuga_obshto - gola_offset
+        
+        meta_dict = {"№": name, "Тип": tip, "W": w, "H": h, "D": d}
         
         meta_dict = {"№": name, "Тип": tip, "W": w, "H": h, "D": d}
         if tip == "Шкаф Колона":

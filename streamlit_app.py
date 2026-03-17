@@ -255,12 +255,13 @@ with col1:
         h = h_korpus + kraka 
     elif tip == "Шкаф с чекмеджета":
         w = st.number_input("Ширина (W) мм", value=600, key="w_ch")
-        # ВЕЧЕ Е 760:
         h_box = st.number_input("Височина на корпуса без крака (мм)", value=760, key="h_box_ch")
         num_ch = st.slider("Брой чекмеджета:", 1, 6, 3, key="n_ch")
         
-        # Обща височина за челата е точно височината на корпуса (760)
-        total_front_h = h_box
+        # НОВО: Вадим 30мм от общата площ за челата, ако има Gola профил
+        gola_offset_ui = 30 if st.session_state.get("gola_profile", False) else 0
+        total_front_h = h_box - gola_offset_ui
+        
         st.markdown(f"##### ↕️ Разпределение на височината (Общо: {total_front_h} мм):")
         
         cols_ch = st.columns(num_ch)

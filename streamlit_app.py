@@ -32,29 +32,46 @@ if 'order_list' not in st.session_state: st.session_state.order_list = []
 if 'hardware_list' not in st.session_state: st.session_state.hardware_list = []
 if 'modules_meta' not in st.session_state: st.session_state.modules_meta = [] 
 
+# --- ПОМОЩНИ ФУНКЦИИ ---
+def get_edge_thick(val):
+    v = str(val).lower().strip()
+    if not v or v == "без кант": return 0
+    if "2мм" in v or v == "2" or v == "2.0": return 2
+    if "0.8" in v or "1мм" in v or v == "1" or v == "1.0": return 1
+    if "2" in v: return 2
+    return 1
+
+def get_edge_label_text(val):
+    thick = get_edge_thick(val)
+    if thick == 2: return "2"
+    if thick == 1: return "0.8"
+    return ""
+
 # --- ЛОГИКА ЗА ЗАПИС ТОЧНО КАТО В EXCEL ---
-def add_item(modul, tip, detail, count, l, w, kant_str, material, flader, note="", custom_thick_d=None, custom_thick_sh=None):
-    # Ако не подадем специална дебелина, програмата отгатва (2мм за лица, 1мм за корпуси)
-    default_t = 2 if any(x in str(detail).lower() for x in ["врата", "чело", "дублираща"]) else 1
-    
-    t_d = custom_thick_d if custom_thick_d is not None else default_t
-    t_sh = custom_thick_sh if custom_thick_sh is not None else default_t
-    
-    d1 = d2 = sh1 = sh2 = ""
-    k = str(kant_str).lower()
-    if "1д" in k: d1 = t_d
-    if "2д" in k or "4" in k: d1 = t_d; d2 = t_d
-    if "1к" in k or "1ш" in k: sh1 = t_sh
-    if "2к" in k or "2ш" in k or "4" in k: sh1 = t_sh; sh2 = t_sh
-    
+def add_item(modul, tip, detail, count, l, w, kant_str, material, flader, note="", custom_edges=None):
     final_l, final_w = float(l), float(w)
     
-    # ЛОГИКА ЗА ПРИСПАДАНЕ НА КАНТА
+    if custom_edges:
+        d1 = custom_edges.get("Д1", "")
+        d2 = custom_edges.get("Д2", "")
+        sh1 = custom_edges.get("Ш1", "")
+        sh2 = custom_edges.get("Ш2", "")
+        d1 = "" if d1 == "Без кант" else d1
+        d2 = "" if d2 == "Без кант" else d2
+        sh1 = "" if sh1 == "Без кант" else sh1
+        sh2 = "" if sh2 == "Без кант" else sh2
+    else:
+        thick = 2 if any(x in str(detail).lower() for x in ["врата", "чело", "дублираща"]) else 1
+        d1 = d2 = sh1 = sh2 = ""
+        k = str(kant_str).lower()
+        if "1д" in k: d1 = str(thick)
+        if "2д" in k or "4" in k: d1 = str(thick); d2 = str(thick)
+        if "1к" in k or "1ш" in k: sh1 = str(thick)
+        if "2к" in k or "2ш" in k or "4" in k: sh1 = str(thick); sh2 = str(thick)
+        
     if st.session_state.get("deduct_edge", False):
-        if d1 != "": final_w -= d1
-        if d2 != "": final_w -= d2
-        if sh1 != "": final_l -= sh1
-        if sh2 != "": final_l -= sh2
+        final_w -= (get_edge_thick(d1) + get_edge_thick(d2))
+        final_l -= (get_edge_thick(sh1) + get_edge_thick(sh2))
 
     return {
         "Плоскост": material, "№": modul, "Тип": tip, "Детайл": detail, 
@@ -124,6 +141,14 @@ with st.sidebar:
     mat_fazer = st.text_input("Декор Фазер:", value="Бял фазер 3мм")
     
     st.markdown("---")
+    st.header("🪚 Кантове (Библиотека)")
+    st.info("Въведи кантовете по един на ред. Те ще се появят в падащите менюта за нестандартни детайли.")
+    edges_input = st.text_area("Налични кантове:", value="Без кант\n0.8мм\n2мм\nБяло 0.8мм\nБяло 2мм\nДъб Вотан 0.8мм\nДъб Вотан 2мм", height=150)
+    available_edges = [e.strip() for e in edges_input.split('\n') if e.strip()]
+    if "Без кант" not in available_edges:
+        available_edges.insert(0, "Без кант")
+        
+    st.markdown("---")
     if st.button("🗑️ Изчисти списъка"):
         st.session_state.order_list = []
         st.session_state.hardware_list = []
@@ -159,6 +184,8 @@ with col1:
     vrati_broi = 1
     ch_heights = []
     runner_len = 500
+    custom_mat_name = "ПДЧ 18мм (Друго)"
+    custom_edges_dict = {}
     
     if tip == "Дублираща страница долен":
         h = st.number_input("Височина (H) мм", value=860)
@@ -169,13 +196,6 @@ with col1:
         h = st.number_input("Височина (H) в мм", value=350, key="h_tret")
         d = st.number_input("Дълбочина (D) в мм", value=500, key="d_tret")
         vrati_broi = st.radio("Брой врати:", [1, 2], index=0, horizontal=True, key="vr_tret")
-    elif tip == "Трети ред (Надстройка)":
-        w = st.number_input("Ширина (W) на корпуса (мм)", value=600, key="w_tret")
-        h = st.number_input("Височина (H) в мм", value=350, key="h_tret")
-        d = st.number_input("Дълбочина (D) в мм", value=500, key="d_tret")
-        vrati_broi = st.radio("Брой врати:", [1, 2], index=0, horizontal=True, key="vr_tret")
-        
-    # ====== ЕТО ТОЗИ ЦЕЛИЯ БЛОК ЗАМЕНЯШ ======
     elif tip == "Нестандартен":
         custom_detail = st.text_input("Име на детайла", value="Нестандартен детайл")
         colA, colB, colC = st.columns(3)
@@ -184,18 +204,21 @@ with col1:
         w = deb
         custom_count = colC.number_input("Брой", value=1, min_value=1)
         
-        colD, colE, colF = st.columns(3)
-        custom_kant = colD.selectbox("Кант", ["Без", "1д", "2д", "1к", "2к", "1д+1к", "1д+2к", "2д+1к", "4 страни", "2д+2к"], index=8)
+        colE, colF = st.columns(2)
         custom_mat_type = colE.selectbox("Вид материал", ["Корпус", "Лице", "Чекмеджета", "Фазер", "Специфичен (въведи)"])
         custom_flader = colF.radio("Спазва фладер?", ["Да", "Не"], index=0, horizontal=True)
-        
-        st.markdown("##### 📏 Дебелина на канта (за точно приспадане)")
-        colG, colH = st.columns(2)
-        custom_edge_d = colG.radio("Кант Дълги страни (Д1/Д2):", [1, 2], index=1, horizontal=True, format_func=lambda x: f"{x} мм")
-        custom_edge_sh = colH.radio("Кант Къси страни (Ш1/Ш2):", [1, 2], index=0, horizontal=True, format_func=lambda x: f"{x} мм")
-        
         if custom_mat_type == "Специфичен (въведи)":
             custom_mat_name = st.text_input("Въведи име на материала:", value="ПДЧ 18мм (Друго)")
+            
+        st.markdown("##### 📏 Кантове по страни")
+        st.caption("Избери конкретен кант за всяка страна. Програмата сама ще го приспадне!")
+        colD1, colD2, colSh1, colSh2 = st.columns(4)
+        c_d1 = colD1.selectbox("Дължина 1 (Д1)", available_edges, index=0)
+        c_d2 = colD2.selectbox("Дължина 2 (Д2)", available_edges, index=0)
+        c_sh1 = colSh1.selectbox("Ширина 1 (Ш1)", available_edges, index=0)
+        c_sh2 = colSh2.selectbox("Ширина 2 (Ш2)", available_edges, index=0)
+        custom_edges_dict = {"Д1": c_d1, "Д2": c_d2, "Ш1": c_sh1, "Ш2": c_sh2}
+        
     elif tip == "Шкаф Колона":
         w = st.number_input("Ширина (W) мм", value=600, key="w_col")
         h_korpus = st.number_input("Височина корпуса (H) мм", value=2040, key="h_col")
@@ -236,8 +259,14 @@ with col1:
             vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_low")
 
     st.markdown("---")
+    temp_meta = {"Тип": tip, "W": w, "H": h, "D": d, "vr_cnt": vrati_broi}
+    try:
+        preview_img = draw_mini_preview(temp_meta, kraka)
+        st.image(preview_img, caption="Скица на модула")
+    except:
+        pass
+
     st.markdown("<br>", unsafe_allow_html=True)
-    
     if st.button("➕ Добави към списъка"):
         new_items = []
         new_hw = []
@@ -307,7 +336,7 @@ with col1:
             else: m_choice = mat_korpus
             
             f_choice = custom_flader 
-            new_items.append(add_item(name, tip, custom_detail, custom_count, custom_l, custom_w, custom_kant, m_choice, f_choice, custom_thick_d=custom_edge_d, custom_thick_sh=custom_edge_sh))
+            new_items.append(add_item(name, tip, custom_detail, custom_count, custom_l, custom_w, "", m_choice, f_choice, custom_edges=custom_edges_dict))
             
         elif tip == "Шкаф Колона":
             w_izbrana = int((w/2) - fuga_obshto) if vrati_broi == 2 else int(w - fuga_obshto)
@@ -657,10 +686,10 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         
         for p in parts:
             kant_str = ""
-            if p.get('Д1'): kant_str += f"Д1({p['Д1']}) "
-            if p.get('Д2'): kant_str += f"Д2({p['Д2']}) "
-            if p.get('Ш1'): kant_str += f"Ш1({p['Ш1']}) "
-            if p.get('Ш2'): kant_str += f"Ш2({p['Ш2']}) "
+            if p.get('Д1'): kant_str += f"Д1({get_edge_label_text(p['Д1'])}) "
+            if p.get('Д2'): kant_str += f"Д2({get_edge_label_text(p['Д2'])}) "
+            if p.get('Ш1'): kant_str += f"Ш1({get_edge_label_text(p['Ш1'])}) "
+            if p.get('Ш2'): kant_str += f"Ш2({get_edge_label_text(p['Ш2'])}) "
             
             row_data = [
                 str(p['Детайл'])[:18], str(int(p['Дължина'])), str(int(p['Ширина'])),
@@ -764,10 +793,10 @@ def generate_labels_pdf(boards_per_mat):
         
         draw.rectangle([x, y, x+label_w, y+label_h], outline="#eeeeee", width=1)
         
-        d1_t = "0.8" if lbl['d1'] in ['1', '1.0'] else ("2" if lbl['d1'] in ['2', '2.0'] else "")
-        d2_t = "0.8" if lbl['d2'] in ['1', '1.0'] else ("2" if lbl['d2'] in ['2', '2.0'] else "")
-        sh1_t = "0.8" if lbl['sh1'] in ['1', '1.0'] else ("2" if lbl['sh1'] in ['2', '2.0'] else "")
-        sh2_t = "0.8" if lbl['sh2'] in ['1', '1.0'] else ("2" if lbl['sh2'] in ['2', '2.0'] else "")
+        d1_t = get_edge_label_text(lbl['d1'])
+        d2_t = get_edge_label_text(lbl['d2'])
+        sh1_t = get_edge_label_text(lbl['sh1'])
+        sh2_t = get_edge_label_text(lbl['sh2'])
         
         draw_edge_marking(draw, x, y, label_w, label_h, 'top', d1_t, font_edge)
         draw_edge_marking(draw, x, y, label_w, label_h, 'bottom', d2_t, font_edge)
@@ -834,10 +863,10 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
                 ph = p['w'] * scale
                 draw.rectangle([px, py, px+pw, py+ph], outline="black", width=3)
                 
-                d1_w = 8 if p['d1'] in ['2', '2.0'] else (3 if p['d1'] in ['1', '1.0'] else 0)
-                d2_w = 8 if p['d2'] in ['2', '2.0'] else (3 if p['d2'] in ['1', '1.0'] else 0)
-                sh1_w = 8 if p['sh1'] in ['2', '2.0'] else (3 if p['sh1'] in ['1', '1.0'] else 0)
-                sh2_w = 8 if p['sh2'] in ['2', '2.0'] else (3 if p['sh2'] in ['1', '1.0'] else 0)
+                d1_w = 8 if get_edge_label_text(p['d1']) == "2" else (3 if get_edge_label_text(p['d1']) == "0.8" else 0)
+                d2_w = 8 if get_edge_label_text(p['d2']) == "2" else (3 if get_edge_label_text(p['d2']) == "0.8" else 0)
+                sh1_w = 8 if get_edge_label_text(p['sh1']) == "2" else (3 if get_edge_label_text(p['sh1']) == "0.8" else 0)
+                sh2_w = 8 if get_edge_label_text(p['sh2']) == "2" else (3 if get_edge_label_text(p['sh2']) == "0.8" else 0)
                 
                 if d1_w: draw.line([(px, py+ph), (px+pw, py+ph)], fill="black", width=d1_w)
                 if d2_w: draw.line([(px, py), (px+pw, py)], fill="black", width=d2_w)
@@ -1023,24 +1052,31 @@ if st.session_state.order_list:
                 mat = row['Плоскост']
                 for col, dim in [('Д1', l), ('Д2', l), ('Ш1', w), ('Ш2', w)]:
                     val = str(row[col]).strip()
-                    if val in ['1', '2', '1.0', '2.0']:
-                        thickness = "2мм" if val.startswith('2') else "0.8мм"
+                    if val and val.lower() != "без кант":
+                        # Разпознава старите стандартни записи (1 или 2)
+                        if val in ['1', '1.0']: edge_key = f"{mat} 0.8мм"
+                        elif val in ['2', '2.0']: edge_key = f"{mat} 2мм"
+                        else: edge_key = val # Използва директно новото име (напр. "Бяло 2мм")
+                        
                         meters = (dim * count) / 1000.0
                         if meters > 0:
-                            key = (mat, thickness)
-                            edge_dict[key] = edge_dict.get(key, 0) + meters
+                            edge_dict[edge_key] = edge_dict.get(edge_key, 0) + meters
             except: pass
         
         total_edge_cost = 0.0
         if edge_dict:
             col_e1, col_e2 = st.columns([1, 1])
-            with col_e2: edge_price_per_m = st.number_input("€/л.м. Кант", value=1.0)
             with col_e1:
-                for (mat, thick), meters in edge_dict.items():
+                for edge_name, meters in edge_dict.items():
                     meters_with_margin = meters * 1.10
-                    cost = meters_with_margin * edge_price_per_m
+                    st.write(f"- **{edge_name}:** {meters_with_margin:.1f} л.м.")
+                    
+            with col_e2:
+                for edge_name, meters in edge_dict.items():
+                    meters_with_margin = meters * 1.10
+                    price = st.number_input(f"€/л.м. за {edge_name}", value=1.0, key=f"edge_pr_{edge_name}")
+                    cost = meters_with_margin * price
                     total_edge_cost += cost
-                    st.write(f"- **{mat} ({thick}):** {meters_with_margin:.1f} л.м.")
         else: st.write("Няма детайли за кантиране.")
 
         st.markdown("##### 3. Обков (Автоматично изчисление по проект)")

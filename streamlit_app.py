@@ -52,7 +52,7 @@ st.markdown("""
     <span class='opti-text'>OPTI</span><span class='vik-text'>VIK</span>
 </h1>
 <p style='font-size: 18px; color: gray; margin-top: -10px; margin-bottom: 20px;'><i>оптимизирай умно</i></p>
-""", unsafe_allow_html=True))
+""", unsafe_allow_html=True)
 
 # --- ИНИЦИАЛИЗАЦИЯ НА STATE ---
 if 'order_list' not in st.session_state: 

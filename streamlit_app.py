@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import io
+import json  # НОВО: За работа със запис/зареждане на файлове
 import urllib.request
 from PIL import Image, ImageDraw, ImageFont
 
@@ -32,7 +33,7 @@ hr { margin-top: 0.8rem !important; margin-bottom: 0.8rem !important; border-col
 /* Блоковете на модулите */
 [data-testid="stExpander"] { background-color: #cdd4db !important; border: 1px solid #a3b0bd !important; border-radius: 8px !important; }
 
-/* НОВО: Оптичен филтър, който прави бялата таблица светло сива, без да я чупи! */
+/* Оптичен филтър за таблиците */
 [data-testid="stDataFrame"] { filter: brightness(0.90) contrast(0.95); border-radius: 8px; overflow: hidden; }
 
 .stTextInput, .stNumberInput, .stSelectbox, .stRadio { margin-bottom: -0.5rem !important; }
@@ -46,9 +47,15 @@ st.markdown("""
 <p style='font-size: 18px; color: gray; margin-top: -10px; margin-bottom: 20px;'><i>оптимизирай умно</i></p>
 """, unsafe_allow_html=True)
 
-if 'order_list' not in st.session_state: st.session_state.order_list = []
-if 'hardware_list' not in st.session_state: st.session_state.hardware_list = []
-if 'modules_meta' not in st.session_state: st.session_state.modules_meta = [] 
+# --- ИНИЦИАЛИЗАЦИЯ НА STATE ---
+if 'order_list' not in st.session_state: 
+    st.session_state.order_list = []
+if 'hardware_list' not in st.session_state: 
+    st.session_state.hardware_list = []
+if 'modules_meta' not in st.session_state: 
+    st.session_state.modules_meta = [] 
+if 'history' not in st.session_state: 
+    st.session_state.history = []  # НОВО: За история на стъпките (Undo)
 
 # --- ПОМОЩНИ ФУНКЦИИ ---
 def get_edge_thick(val):

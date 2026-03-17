@@ -26,7 +26,6 @@ h1, h2, h3, h4, h5 { padding-top: 0.3rem !important; padding-bottom: 0.3rem !imp
     color: #FF0000; 
     font-weight: bold; 
     font-style: italic; 
-    text-decoration: underline wavy; 
 }
 
 /* Разделителни линии */

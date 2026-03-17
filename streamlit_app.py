@@ -1359,39 +1359,34 @@ if st.session_state.order_list:
 
         st.markdown("##### 4. Плот и Гръб")
         col_ext1, col_ext2 = st.columns(2)
-        with col_ext1: plot_cost = st.number_input("Плот (Общо) €", value=100.0)
-        with col_ext2: grub_cost = st.number_input("Гръб (Общо) €", value=80.0)
+        with col_ext1: plot_cost = st.number_input("Плот (Общо) €", value=0.0)
+        with col_ext2: grub_cost = st.number_input("Гръб (Общо) €", value=0.0)
         total_extra_mats = total_hw_cost + plot_cost + grub_cost
 
-        st.markdown("##### 5. Твърди разходи, Труд и Услуги")
-        col_labor, col_fixed = st.columns(2)
+        st.markdown("##### 5. Труд, Услуги и Режийни разходи")
+        col_labor, col_services = st.columns(2)
         
         with col_labor:
-            project_days = st.number_input("Дни за този проект:", value=15, min_value=1)
+            project_days = st.number_input("Дни за този проект:", value=1, min_value=1)
             nadnici = st.number_input("Надници (общо/ден) €", value=225)
+            
+        with col_services:
             transport = st.number_input("Транспорт €", value=0)
             komandirovachni = st.number_input("Командировъчни €", value=0)
             hamal = st.number_input("Хамалски услуги €", value=0)
 
-        with col_fixed:
-            # Изчисляваме автоматичния наем (300€ на всеки 15 дни = 20€/ден)
-            rent_cons_cost = (project_days / 15.0) * 300.0
-            st.success(f"🏢 **Наем и консумативи:** Автоматично добавени **{rent_cons_cost:.2f} €**\n*(по стандарт: 300 € / 15 дни)*")
-            
-            osigurovki = st.number_input("Осигуровки (на месец) €", value=450)
-            bus = st.number_input("Бус (на месец) €", value=100)
-            schetovodstvo = st.number_input("Счетоводство (на месец) €", value=80)
+        # АВТОМАТИЧНИ МЕСЕЧНИ РАЗХОДИ (50€ на ден)
+        fixed_daily_rate = 50.0
+        total_fixed_project = project_days * fixed_daily_rate
+        
+        st.info(f"🏢 **Режийни разходи:** Автоматично добавени **{total_fixed_project:.2f} €** *(по {fixed_daily_rate:.0f} € на ден за наем, ток, осигуровки, бус и счетоводство)*")
 
         st.markdown("##### 6. Буфери и Печалба")
         col_buf1, col_buf2 = st.columns(2)
         with col_buf1: nepredvideni_pct = st.number_input("Непредвидени разходи (%)", value=15)
         with col_buf2: pechalba_pct = st.number_input("Печалба (%)", value=25)
 
-        # Сметки за твърдите разходи (разпределени върху 21 работни дни в месеца)
-        other_monthly = osigurovki + bus + schetovodstvo
-        other_fixed_cost = (other_monthly / 21.0) * project_days
-        total_fixed_project = rent_cons_cost + other_fixed_cost
-        
+        # Финални калкулации
         total_labor_cost = nadnici * project_days
         total_services = transport + komandirovachni + hamal
         

@@ -1062,6 +1062,7 @@ def get_optimized_boards(list_for_cutting):
     kerf, trim, board_l, board_w = 8, 8, 2800, 2070
     use_l, use_w = board_l - 2*trim, board_w - 2*trim
     materials_dict = {}
+    
     for item in list_for_cutting:
         mat = item.get('Плоскост', 'Неизвестен')
         if mat not in materials_dict: materials_dict[mat] = []
@@ -1079,29 +1080,42 @@ def get_optimized_boards(list_for_cutting):
     
     boards_per_material = {}
     for mat_name, parts in materials_dict.items():
-        parts.sort(key=lambda x: (x['w'], x['l']), reverse=True)
+        # НОВО: Сортираме по площ (най-големите първи), за да запълним плътно ъглите
+        parts.sort(key=lambda x: x['l'] * x['w'], reverse=True)
+        
         boards, current_board = [], []
         curr_x, curr_y, shelf_h = 0, 0, 0
+        
         for p in parts:
             part_l, part_w = p['l'], p['w']
-            if curr_x + part_l <= use_l:
-                if shelf_h == 0: shelf_h = part_w
-                if curr_y + part_w <= use_w:
-                    p_copy = p.copy(); p_copy.update({'x': curr_x, 'y': curr_y})
-                    current_board.append(p_copy); curr_x += part_l + kerf
-                else:
-                    boards.append(current_board)
-                    p_copy = p.copy(); p_copy.update({'x': 0, 'y': 0})
-                    current_board = [p_copy]; curr_x = part_l + kerf; curr_y = 0; shelf_h = part_w
+            
+            # Проверка дали детайлът влиза в текущия ред
+            if curr_x + part_l <= use_l and curr_y + part_w <= use_w:
+                p_copy = p.copy()
+                p_copy.update({'x': curr_x, 'y': curr_y})
+                current_board.append(p_copy)
+                curr_x += part_l + kerf
+                if part_w > shelf_h: shelf_h = part_w
             else:
-                curr_x = 0; curr_y += shelf_h + kerf; shelf_h = part_w
-                if curr_y + part_w <= use_w:
-                    p_copy = p.copy(); p_copy.update({'x': curr_x, 'y': curr_y})
-                    current_board.append(p_copy); curr_x += part_l + kerf
-                else:
+                # Преминаваме на нов "ред" (нагоре по ширината)
+                curr_x = 0
+                curr_y += shelf_h + kerf
+                shelf_h = part_w
+                
+                # Ако няма място на тази плоча, почваме нова
+                if curr_y + part_w > use_w:
                     boards.append(current_board)
-                    p_copy = p.copy(); p_copy.update({'x': 0, 'y': 0})
-                    current_board = [p_copy]; curr_x = part_l + kerf; curr_y = 0; shelf_h = part_w
+                    curr_y = 0
+                    p_copy = p.copy()
+                    p_copy.update({'x': curr_x, 'y': curr_y})
+                    current_board = [p_copy]
+                    curr_x = part_l + kerf
+                else:
+                    p_copy = p.copy()
+                    p_copy.update({'x': curr_x, 'y': curr_y})
+                    current_board.append(p_copy)
+                    curr_x = part_l + kerf
+
         if current_board: boards.append(current_board)
         boards_per_material[mat_name] = boards
     return boards_per_material, board_l, board_w, trim

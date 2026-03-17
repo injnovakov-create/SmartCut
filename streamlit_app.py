@@ -530,6 +530,19 @@ with col1:
 
 with col2:
     st.subheader("📋 Списък за разкрой (Редактируем)")
+  # --- УПРАВЛЕНИЕ НА МОДУЛИ ---
+    if st.session_state.order_list:
+        unique_modules = list(dict.fromkeys([str(item["№"]) for item in st.session_state.order_list]))
+        with st.expander("⚙️ Управление на добавени модули (Изтриване)"):
+            for m_num in unique_modules:
+                col_m1, col_m2 = st.columns([4, 1])
+                col_m1.write(f"📦 Модул: **{m_num}**")
+                if col_m2.button("🗑️ Изтрий", key=f"del_{m_num}"):
+                    st.session_state.order_list = [item for item in st.session_state.order_list if str(item["№"]) != m_num]
+                    st.session_state.hardware_list = [item for item in st.session_state.hardware_list if str(item.get("№", "")) != m_num]
+                    st.session_state.modules_meta = [item for item in st.session_state.modules_meta if str(item.get("№", "")) != m_num]
+                    st.rerun()
+        st.markdown("---")
     if st.session_state.order_list:
         df = pd.DataFrame(st.session_state.order_list)
         cols_order = ["Плоскост", "№", "Тип", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]

@@ -656,7 +656,7 @@ with col2:
             st.session_state.modules_meta = last_state["meta"]
             
             # Презареждаме, за да се види промяната веднага
-            st.rerun(
+            st.rerun()
     
     # --- УПРАВЛЕНИЕ НА МОДУЛИ ---
     if st.session_state.order_list:

@@ -20,7 +20,7 @@ hr { margin-top: 0.8rem !important; margin-bottom: 0.8rem !important; }
 [data-testid="stSidebar"] { background-color: #f0fafa !important; }
 .stTextInput, .stNumberInput, .stSelectbox, .stRadio { margin-bottom: -0.5rem !important; }
 </style>
-""", unsafe_allow_html=True))
+""", unsafe_allow_html=True)
 
 st.markdown("""
 <h1 style='font-size: 28px; margin-top: 10px;'>

@@ -997,7 +997,7 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
         f_part = ImageFont.truetype(font_path, 50) 
         f_dim = ImageFont.truetype(font_path, 50)  
         f_small = ImageFont.truetype(font_path, 30) 
-        f_kant_info = ImageFont.truetype(font_path, 45) # НОВО: Шрифт за канта
+        f_kant_info = ImageFont.truetype(font_path, 45)
     except: 
         f_title = f_part = f_dim = f_small = f_kant_info = ImageFont.load_default()
 
@@ -1010,11 +1010,18 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
             img = Image.new('RGB', (page_w, page_h), 'white')
             draw = ImageDraw.Draw(img)
             
-            # --- НОВО: ИЗЧИСЛЯВАНЕ НА КАНТА ЗА ТАЗИ КОНКРЕТНА ПЛОЧА ---
+            # --- ИЗЧИСЛЯВАНЕ НА КАНТА И ОСТАТЪКА ---
             kant_08_sum = 0
             kant_20_sum = 0
+            max_x = 0
+            max_y = 0
+
             for p in b_parts:
-                # Проверяваме всяка страна на детайла
+                # Намираме най-крайните точки на подреждането за остатъка
+                if (p['x'] + p['l']) > max_x: max_x = p['x'] + p['l']
+                if (p['y'] + p['w']) > max_y: max_y = p['y'] + p['w']
+
+                # Сумиране на кантове
                 for side in ['d1', 'd2', 'sh1', 'sh2']:
                     val = p.get(side, '')
                     if val:
@@ -1023,24 +1030,32 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
                         if thick == "0.8": kant_08_sum += length
                         elif thick == "2": kant_20_sum += length
             
-            kant_text = f"Кант за плочата: 0.8мм ≈ {kant_08_sum/1000.0:.1f}м | 2.0мм ≈ {kant_20_sum/1000.0:.1f}м"
-            # ---------------------------------------------------------
+            # Добавяне на 10% фира към сумата
+            k08_with_margin = (kant_08_sum / 1000.0) * 1.10
+            k20_with_margin = (kant_20_sum / 1000.0) * 1.10
+            
+            # Изчисляване на чистия остатък (ако приемем вертикален срез)
+            rem_l = board_l - max_x - (2 * trim)
+            rem_w = board_w - (2 * trim)
+            # ---------------------------------------
 
-            # Заглавие на страницата
-            draw.text((margin, margin), f"МАТЕРИАЛ: {mat_name} [2800x2070 мм]", fill="black", font=f_title)
-            # НОВО: Изписване на инфото за канта под заглавието
+            kant_text = f"Кант (+10% фира): 0.8мм ≈ {k08_with_margin:.1f}м | 2.0мм ≈ {k20_with_margin:.1f}м"
+            ost_text = f"Остатък: ≈ {int(rem_l)} x {int(rem_w)} мм"
+
+            draw.text((margin, margin), f"МАТЕРИАЛ: {mat_name}", fill="black", font=f_title)
             draw.text((margin, margin + 80), f"ПЛОЧА {idx+1} от {len(boards)} | {kant_text}", fill="#008080", font=f_kant_info)
+            draw.text((margin, margin + 145), ost_text, fill="#555555", font=f_kant_info)
             
             draw_w = page_w - 2 * margin
-            draw_h = page_h - 2 * margin - 250 # Увеличено разстояние за новия ред текст
+            draw_h = page_h - 2 * margin - 300 
             scale = min(draw_w / board_l, draw_h / board_w)
             
             act_w = board_l * scale
             act_h = board_w * scale
             sx = margin + (draw_w - act_w) / 2
-            sy = margin + 250 + (draw_h - act_h) / 2 # Свалено надолу заради заглавието
+            sy = margin + 300 + (draw_h - act_h) / 2 
             
-            # Чертане на плочата
+            # Рисуване на плочата
             draw.rectangle([sx, sy, sx+act_w, sy+act_h], outline="black", width=4)
             t_px = trim * scale
             draw.rectangle([sx+t_px, sy+t_px, sx+act_w-t_px, sy+act_h-t_px], outline="#aaaaaa", width=2)
@@ -1050,10 +1065,9 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
                 py = sy + (p['y'] + trim) * scale
                 pw = p['l'] * scale
                 ph = p['w'] * scale
-                
                 draw.rectangle([px, py, px+pw, py+ph], outline="black", width=3)
                 
-                # Чертане на линиите за кант
+                # Кантове - линии
                 d1_w = 8 if get_edge_label_text(p['d1']) == "2" else (3 if get_edge_label_text(p['d1']) == "0.8" else 0)
                 d2_w = 8 if get_edge_label_text(p['d2']) == "2" else (3 if get_edge_label_text(p['d2']) == "0.8" else 0)
                 sh1_w = 8 if get_edge_label_text(p['sh1']) == "2" else (3 if get_edge_label_text(p['sh1']) == "0.8" else 0)
@@ -1064,17 +1078,9 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
                 if sh1_w: draw.line([(px, py), (px, py+ph)], fill="black", width=sh1_w)
                 if sh2_w: draw.line([(px+pw, py), (px+pw, py+ph)], fill="black", width=sh2_w)
                 
-                name_str = p['name'][:10] + '..' if len(p['name']) > 10 and p['l'] < 300 else p['name'][:18]
+                name_str = p['name'][:18]
                 dim_str = f"{int(p['l'])}/{int(p['w'])}"
-
-                if p['l'] < 120 or p['w'] < 120:
-                    draw.text((px+pw/2, py+ph/2), dim_str, fill="black", font=f_small, anchor="mm")
-                else:
-                    curr_f_name = f_small if p['l'] < 250 or p['w'] < 200 else f_part
-                    curr_f_dim = f_small if p['l'] < 250 or p['w'] < 200 else f_dim
-                    shift = min(35, ph * 0.2)
-                    draw.text((px+pw/2, py+ph/2 - shift), name_str, fill="black", font=curr_f_name, anchor="mm")
-                    draw.text((px+pw/2, py+ph/2 + shift), dim_str, fill="black", font=curr_f_dim, anchor="mm")
+                draw.text((px+pw/2, py+ph/2), f"{name_str}\n{dim_str}", fill="black", font=f_small, anchor="mm", align="center")
                     
             pages.append(img)
             

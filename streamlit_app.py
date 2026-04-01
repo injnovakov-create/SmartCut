@@ -5,7 +5,7 @@ import io
 import json  # За работа със запис/зареждане на файлове
 import urllib.request
 from PIL import Image, ImageDraw, ImageFont
-from rectpack import newPacker, PackingMode, PackingBin, SORT_AREA  # НОВО: За нестинг
+from rectpack import newPacker, PackingMode, PackingBin, SORT_AREA, GuillotineBssfMaxas
 
 # Настройки на страницата
 st.set_page_config(page_title="OPTIVIK: Витя-М", layout="wide")

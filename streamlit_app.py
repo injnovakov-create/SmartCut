@@ -1033,13 +1033,12 @@ def generate_labels_pdf(boards_per_mat):
     pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
     return pdf_bytes.getvalue()
 
-# --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (ИСТИНСКИ НЕСТИНГ С RECTPACK) ---
+# --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (ИСТИНСКИ НЕСТИНГ С RECTPACK - ФИНАЛНО) ---
 def get_optimized_boards(list_for_cutting):
     kerf, trim, board_l, board_w = 8, 8, 2800, 2070
     use_l, use_w = board_l - 2*trim, board_w - 2*trim
     materials_dict = {}
     
-    # 1. ГРУПИРАНЕ ПО МАТЕРИАЛ
     for item in list_for_cutting:
         mat = item.get('Плоскост', 'Неизвестен')
         if mat not in materials_dict: materials_dict[mat] = []
@@ -1049,7 +1048,7 @@ def get_optimized_boards(list_for_cutting):
                 can_rotate = (flader_val == "не" or flader_val == "няма")
                 materials_dict[mat].append({
                     'name': f"{item['№']} {get_abbrev(item['Детайл'])}", 
-                    'l': float(item['Дължина']), 'w': float(item['Ширина']),
+                    'l': float(item['Дължина']), 'w': float(item['Ширина']),  # Оправена печатна грешка
                     'd1': str(item.get('Д1', '')).strip(), 'd2': str(item.get('Д2', '')).strip(),
                     'sh1': str(item.get('Ш1', '')).strip(), 'sh2': str(item.get('Ш2', '')).strip(),
                     'can_rotate': can_rotate
@@ -1058,22 +1057,23 @@ def get_optimized_boards(list_for_cutting):
     
     boards_per_material = {}
     
-    # 2. ИЗЧИСЛЯВАНЕ НА НЕСТИНГА ЗА ВСЕКИ МАТЕРИАЛ
     for mat_name, parts in materials_dict.items():
-        # Offline режим за по-добра оптимизация, BFF (Best Fit) за плътност
-        packer = newPacker(mode=PackingMode.Offline, bin_algo=PackingBin.BFF)
+        # УМНАТА ЛОГИКА: Проверяваме дали целият материал позволява завъртане.
+        # Ако дори ЕДИН детайл изисква фладер, забраняваме въртенето за целия материал.
+        mat_can_rotate = all(p['can_rotate'] for p in parts)
+        
+        # Създаваме Packer-а и му задаваме глобалното правило
+        packer = newPacker(mode=PackingMode.Offline, bin_algo=PackingBin.BFF, rotation=mat_can_rotate)
         
         for i, p in enumerate(parts):
-            # Подаваме детайлите. Ако can_rotate е False, забраняваме въртенето за този правоъгълник.
-            if p['can_rotate']:
-                packer.add_rect(int(p['l'] + kerf), int(p['w'] + kerf), rid=i)
-            else:
-                # За детайли с фладер - фиксираме ориентацията
-                packer.add_rect(int(p['l'] + kerf), int(p['w'] + kerf), rid=i, rotation=False)
+            rect_l = int(p['l'] + kerf)
+            rect_w = int(p['w'] + kerf)
+            # Вече подаваме само чистите размери, без забранени команди!
+            packer.add_rect(rect_l, rect_w, rid=i)
             
-        # Добавяме достатъчно празни плочи
+        # Добавяме достатъчно виртуални плочи
         for _ in range(20): 
-            packer.add_bin(use_l, use_w)
+            packer.add_bin(int(use_l), int(use_w))
             
         packer.pack()
         
@@ -1084,23 +1084,19 @@ def get_optimized_boards(list_for_cutting):
                 idx = rect.rid
                 orig = parts[idx]
                 
-                # Вземаме новите координати и размери след нестинга
                 res_x, res_y, res_w, res_h = rect.x, rect.y, rect.width, rect.height
                 
                 p_copy = orig.copy()
                 p_copy['x'] = res_x
                 p_copy['y'] = res_y
                 
-                # Проверяваме дали алгоритъмът е завъртял детайла (сравняваме с оригинала)
-                # Използваме -kerf, защото добавихме рязането в началото
+                # Проверка дали е завъртян
                 final_l = res_w - kerf
                 final_w = res_h - kerf
                 
-                if abs(final_l - orig['w']) < 1 and abs(final_w - orig['l']) < 1:
-                    # Реално е завъртян на 90 градуса
+                if abs(final_l - orig['w']) < 2:
                     p_copy['l'] = final_l
                     p_copy['w'] = final_w
-                    # Завъртаме и кантовете визуално
                     p_copy['d1'], p_copy['d2'], p_copy['sh1'], p_copy['sh2'] = orig['sh1'], orig['sh2'], orig['d1'], orig['d2']
                 else:
                     p_copy['l'] = final_l

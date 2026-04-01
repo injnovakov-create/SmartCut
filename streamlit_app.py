@@ -1033,12 +1033,13 @@ def generate_labels_pdf(boards_per_mat):
     pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
     return pdf_bytes.getvalue()
 
-# --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (ЖЕЛЕЗЕН СТАНДАРТ) ---
+# --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (ИСТИНСКИ НЕСТИНГ С RECTPACK) ---
 def get_optimized_boards(list_for_cutting):
     kerf, trim, board_l, board_w = 8, 8, 2800, 2070
     use_l, use_w = board_l - 2*trim, board_w - 2*trim
     materials_dict = {}
     
+    # 1. ГРУПИРАНЕ ПО МАТЕРИАЛ
     for item in list_for_cutting:
         mat = item.get('Плоскост', 'Неизвестен')
         if mat not in materials_dict: materials_dict[mat] = []
@@ -1056,74 +1057,61 @@ def get_optimized_boards(list_for_cutting):
         except: pass
     
     boards_per_material = {}
+    
+    # 2. ИЗЧИСЛЯВАНЕ НА НЕСТИНГА ЗА ВСЕКИ МАТЕРИАЛ
     for mat_name, parts in materials_dict.items():
-        # 1. Завъртаме детайлите без фладер ОЩЕ ПРЕДИ реденето!
-        # Правим така, че 'w' (ширината на лентата) да е възможно най-малка.
-        for p in parts:
-            if p['can_rotate'] and p['w'] > p['l']:
-                p['l'], p['w'] = p['w'], p['l']
-                p['d1'], p['d2'], p['sh1'], p['sh2'] = p['sh1'], p['sh2'], p['d1'], p['d2']
-
-        # 2. Сортираме по ширина (за идеални прави ленти), после по дължина
-        parts.sort(key=lambda x: (x['w'], x['l']), reverse=True)
+        # Offline режим за по-добра оптимизация, BFF (Best Fit) за плътност
+        packer = newPacker(mode=PackingMode.Offline, bin_algo=PackingBin.BFF)
         
-        boards = []
-        current_board_parts = []
-        shelves = [] # Списък с лентите: {'y': старт_y, 'h': височина_на_лентата, 'x': до_къде_е_пълна}
-        current_board_y = 0
-        
-        for p in parts:
-            part_l, part_w = p['l'], p['w']
-            placed = False
+        for i, p in enumerate(parts):
+            # Подаваме детайлите. Ако can_rotate е False, забраняваме въртенето за този правоъгълник.
+            if p['can_rotate']:
+                packer.add_rect(int(p['l'] + kerf), int(p['w'] + kerf), rid=i)
+            else:
+                # За детайли с фладер - фиксираме ориентацията
+                packer.add_rect(int(p['l'] + kerf), int(p['w'] + kerf), rid=i, rotation=False)
             
-            # Опит 1: Търсим място във вече започнатите ленти
-            for shelf in shelves:
-                if shelf['x'] + part_l <= use_l and part_w <= shelf['h']:
-                    p_copy = p.copy()
-                    p_copy['x'] = shelf['x']
-                    p_copy['y'] = shelf['y']
-                    current_board_parts.append(p_copy)
-                    shelf['x'] += part_l + kerf
-                    placed = True
-                    break
-                    
-            # Опит 2: Създаваме нова лента на същата плоча
-            if not placed:
-                if current_board_y + part_w <= use_w and part_l <= use_l:
-                    shelf = {'y': current_board_y, 'h': part_w, 'x': part_l + kerf}
-                    shelves.append(shelf)
-                    
-                    p_copy = p.copy()
-                    p_copy['x'] = 0
-                    p_copy['y'] = current_board_y
-                    current_board_parts.append(p_copy)
-                    
-                    current_board_y += part_w + kerf
-                    placed = True
-                    
-            # Опит 3: Плочата е пълна -> местим на НОВА ПЛОЧА
-            if not placed:
-                if current_board_parts:
-                    boards.append(current_board_parts)
+        # Добавяме достатъчно празни плочи
+        for _ in range(20): 
+            packer.add_bin(use_l, use_w)
+            
+        packer.pack()
+        
+        all_boards = []
+        for abin in packer:
+            current_board_parts = []
+            for rect in abin:
+                idx = rect.rid
+                orig = parts[idx]
                 
-                # Започваме нова плоча на чисто
-                current_board_parts = []
-                current_board_y = 0
+                # Вземаме новите координати и размери след нестинга
+                res_x, res_y, res_w, res_h = rect.x, rect.y, rect.width, rect.height
                 
-                shelf = {'y': current_board_y, 'h': part_w, 'x': part_l + kerf}
-                shelves = [shelf]
+                p_copy = orig.copy()
+                p_copy['x'] = res_x
+                p_copy['y'] = res_y
                 
-                p_copy = p.copy()
-                p_copy['x'] = 0
-                p_copy['y'] = current_board_y
+                # Проверяваме дали алгоритъмът е завъртял детайла (сравняваме с оригинала)
+                # Използваме -kerf, защото добавихме рязането в началото
+                final_l = res_w - kerf
+                final_w = res_h - kerf
+                
+                if abs(final_l - orig['w']) < 1 and abs(final_w - orig['l']) < 1:
+                    # Реално е завъртян на 90 градуса
+                    p_copy['l'] = final_l
+                    p_copy['w'] = final_w
+                    # Завъртаме и кантовете визуално
+                    p_copy['d1'], p_copy['d2'], p_copy['sh1'], p_copy['sh2'] = orig['sh1'], orig['sh2'], orig['d1'], orig['d2']
+                else:
+                    p_copy['l'] = final_l
+                    p_copy['w'] = final_w
+                
                 current_board_parts.append(p_copy)
-                
-                current_board_y += part_w + kerf
-                
-        if current_board_parts:
-            boards.append(current_board_parts)
             
-        boards_per_material[mat_name] = boards
+            if current_board_parts:
+                all_boards.append(current_board_parts)
+                
+        boards_per_material[mat_name] = all_boards
         
     return boards_per_material, board_l, board_w, trim
 

@@ -1286,89 +1286,81 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
 # ТУК СА ЛИПСВАЩИТЕ БУТОНИ ЗА ИЗТЕГЛЯНЕ И РАЗКРОЙ НА ЕКРАНА
 # ==============================================================
 
-# --- ГЕНЕРИРАНЕ НА ЕТИКЕТИ (44 броя на А4) ---
+# --- ГЕНЕРИРАНЕ НА ЕТИКЕТИ С 44 БРОЯ НА А4 (ЧЕРНО-БЯЛО С КАНТ ЛИНИИ) ---
 def generate_labels_pdf(boards_per_mat):
     font_path = "Roboto-Regular.ttf"
-    try:
-        f_title = ImageFont.truetype(font_path, 40)
-        f_dim = ImageFont.truetype(font_path, 55)
-        f_edge = ImageFont.truetype(font_path, 35)
-    except:
-        f_title = f_dim = f_edge = ImageFont.load_default()
-        
+    if not os.path.exists(font_path):
+        try: urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf", font_path)
+        except: pass
+    try: 
+        font_small = ImageFont.truetype(font_path, 20)
+        font_text = ImageFont.truetype(font_path, 24)
+        font_huge = ImageFont.truetype(font_path, 45)
+        font_edge = ImageFont.truetype(font_path, 18)
+    except: 
+        font_small = font_text = font_huge = font_edge = ImageFont.load_default()
+
+    labels = []
+    for mat_name, boards in boards_per_mat.items():
+        for board in boards:
+            for p in board:
+                labels.append(p)
+                
+    if not labels: return None
+
+    px_per_mm = 11.811
     page_w, page_h = 2480, 3508
     cols, rows = 4, 11
-    label_w = page_w / cols
-    label_h = page_h / rows
+    
+    label_w = int(44 * px_per_mm)
+    label_h = int(20 * px_per_mm)
+    margin_x = int(4 * px_per_mm)
+    margin_y = int(9 * px_per_mm)
+    gap_x = int(6 * px_per_mm)
+    gap_y = int(6.5 * px_per_mm)
+    padding = int(3 * px_per_mm)
     
     pages = []
-    img = None
-    draw = None
+    current_page = Image.new('RGB', (page_w, page_h), 'white')
+    draw = ImageDraw.Draw(current_page)
     
-    flat_parts = []
-    for mat_name, boards in boards_per_mat.items():
-        for b in boards:
-            for p in b:
-                p_copy = p.copy()
-                p_copy['mat_name'] = mat_name
-                flat_parts.append(p_copy)
-                
-    if not flat_parts:
-        return None
-        
-    for i, p in enumerate(flat_parts):
-        idx_on_page = i % (cols * rows)
-        
-        if idx_on_page == 0:
-            img = Image.new('RGB', (int(page_w), int(page_h)), 'white')
-            draw = ImageDraw.Draw(img)
-            pages.append(img)
+    for i, lbl in enumerate(labels):
+        if i > 0 and i % (cols * rows) == 0:
+            pages.append(current_page)
+            current_page = Image.new('RGB', (page_w, page_h), 'white')
+            draw = ImageDraw.Draw(current_page)
             
-        col = idx_on_page % cols
-        row = idx_on_page // cols
+        col = (i % (cols * rows)) % cols
+        row = (i % (cols * rows)) // cols
+        x = margin_x + col * (label_w + gap_x)
+        y = margin_y + row * (label_h + gap_y)
         
-        x0 = col * label_w
-        y0 = row * label_h
+        draw.rectangle([x, y, x+label_w, y+label_h], outline="#eeeeee", width=1)
         
-        # Рамка на етикета
-        draw.rectangle([x0, y0, x0 + label_w, y0 + label_h], outline="#cccccc", width=2)
+        d1_t = get_edge_label_text(lbl['d1'])
+        d2_t = get_edge_label_text(lbl['d2'])
+        sh1_t = get_edge_label_text(lbl['sh1'])
+        sh2_t = get_edge_label_text(lbl['sh2'])
         
-        # Безопасно извличане на данните
-        mod_num = str(p.get('mod_num', p.get('№', '')))
-        part_name = str(p.get('part_name', p.get('Детайл', p.get('name', 'Детайл'))))
-        
-        # Изчистване на името, ако номерът се повтаря в него
-        if part_name.startswith(mod_num):
-            part_name = part_name.replace(mod_num, '', 1).strip()
+        draw_edge_marking(draw, x, y, label_w, label_h, 'top', d1_t, font_edge)
+        draw_edge_marking(draw, x, y, label_w, label_h, 'bottom', d2_t, font_edge)
+        draw_edge_marking(draw, x, y, label_w, label_h, 'left', sh1_t, font_edge)
+        draw_edge_marking(draw, x, y, label_w, label_h, 'right', sh2_t, font_edge)
             
-        dim_str = f"{int(p.get('l', 0))} x {int(p.get('w', 0))} мм"
+        mod_abbr = get_module_abbrev(lbl['mod_tip'])
+        top_text = f"[{lbl['mod_num']}] {mod_abbr} | {lbl['part_name']}"
+        dim_text = f"{int(lbl['l'])} x {int(lbl['w'])}"
+        bot_text = f"{lbl['mat'][:20]}"
         
-        margin_x, margin_y = 40, 40
+        draw.text((x + label_w/2, y + padding), top_text, fill="black", font=font_text, anchor="mt")
+        draw.text((x + label_w/2, y + label_h/2), dim_text, fill="black", font=font_huge, anchor="mm")
+        draw.text((x + label_w/2, y + label_h - padding), bot_text, fill="black", font=font_small, anchor="mb")
         
-        # 1. Заглавие (Номер и Име)
-        draw.text((x0 + margin_x, y0 + margin_y), f"[{mod_num}] {part_name[:15]}", fill="black", font=f_title)
-        
-        # 2. Размери
-        draw.text((x0 + margin_x, y0 + margin_y + 70), dim_str, fill="black", font=f_dim)
-        
-        # 3. Кантове
-        edges = []
-        if p.get('d1'): edges.append(f"Д1:{p['d1']}")
-        if p.get('d2'): edges.append(f"Д2:{p['d2']}")
-        if p.get('sh1'): edges.append(f"Ш1:{p['sh1']}")
-        if p.get('sh2'): edges.append(f"Ш2:{p['sh2']}")
-        
-        edge_str = "Кант: " + " ".join(edges) if edges else "Кант: Няма"
-        draw.text((x0 + margin_x, y0 + margin_y + 150), edge_str, fill="#333333", font=f_edge)
-        
-        # 4. Материал
-        mat_str = str(p.get('mat_name', ''))[:20]
-        draw.text((x0 + margin_x, y0 + margin_y + 210), f"Мат: {mat_str}", fill="#555555", font=f_edge)
-        
-    if pages:
-        pdf_bytes = io.BytesIO()
-        pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
-        return pdf_bytes.getvalue()
+    pages.append(current_page)
+    
+    pdf_bytes = io.BytesIO()
+    pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
+    return pdf_bytes.getvalue()
         
     return None
 st.markdown("---")

@@ -2,44 +2,30 @@ import streamlit as st
 import pandas as pd
 import os
 import io
-import json  # НОВО: За работа със запис/зареждане на файлове
+import json  # За работа със запис/зареждане на файлове
 import urllib.request
 from PIL import Image, ImageDraw, ImageFont
+from rectpack import newPacker, PackingMode, PackingBin, SORT_AREA  # НОВО: За нестинг
 
-# Настройки на страницата - Сменяме името и тук
+# Настройки на страницата
 st.set_page_config(page_title="OPTIVIK: Витя-М", layout="wide")
 
 # --- CSS ЗА СБИТ ДИЗАЙН ---
 st.markdown("""
 <style>
 html { zoom: 0.95; }
-
-/* Основен фон */
 .stApp { background-color: #dce1e6 !important; } 
-
-/* СТИЛ ЗА OPTIVIK */
 .opti-text { color: #000000; font-weight: bold; }
 .vik-text { color: #FF0000; font-weight: bold; font-style: italic; }
-
-/* ВЕЧЕ ЗЕЛЕНА РАМКА ЗА ПАДАЩИТЕ МЕНЮТА */
 div[data-baseweb="select"] {
     border: 2px solid #008080 !important;
     border-radius: 6px !important;
 }
-
-/* Разделителни линии */
 hr { margin-top: 0.8rem !important; margin-bottom: 0.8rem !important; border-color: #a3b0bd !important; }
-
-/* Бутони */
 .stButton>button { background-color: #008080 !important; color: white !important; font-weight: bold !important; border-radius: 6px !important; border: none !important; padding: 0.5rem 1rem !important; width: 100%; }
 .stButton>button:hover { background-color: #005959 !important; }
-
-/* Странично меню */
 [data-testid="stSidebar"] { background-color: #cdd4db !important; border-right: 2px solid #a3b0bd !important; } 
-
-/* Оптичен филтър за таблиците */
 [data-testid="stDataFrame"] { filter: brightness(0.90) contrast(0.95); border-radius: 8px; overflow: hidden; }
-
 .stTextInput, .stNumberInput, .stSelectbox, .stRadio { margin-bottom: -0.5rem !important; }
 </style>
 """, unsafe_allow_html=True)

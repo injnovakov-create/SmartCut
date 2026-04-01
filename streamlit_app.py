@@ -234,6 +234,70 @@ with col1:
             "Шкаф Колона": "🏢", "Дублираща страница долен": "🗂️", "Нестандартен": "🧩"
         }
 
+    # -------------------------------------------------------------
+# 🛠️ КОНСТРУКТОР: МОДЕЛИРАНЕ НА ШКАФ ДЕТАЙЛ ПО ДЕТАЙЛ
+# -------------------------------------------------------------
+# Създаваме временна памет за конструктора, ако не съществува
+if 'custom_cabinet' not in st.session_state:
+    st.session_state.custom_cabinet = []
+
+with st.expander("🛠️ КОНСТРУКТОР: Моделирай нестандартен шкаф (Детайл по детайл)", expanded=False):
+    st.info("Тук можеш да създадеш ръчно специфичен шкаф. Когато си готов, импортирай го в главната таблица за разкрой.")
+    
+    c_name = st.text_input("Име / Номер на шкафа:", value="Нестандартен Шкаф 1")
+    
+    with st.form("custom_part_form", clear_on_submit=True):
+        st.write("Въведи нов детайл:")
+        cols = st.columns([2, 1, 1, 1])
+        d_name = cols[0].text_input("Име на детайла (напр. Дъно, Рафт)")
+        d_l = cols[1].number_input("Дължина (L) мм", min_value=1, value=600)
+        d_w = cols[2].number_input("Ширина (W) мм", min_value=1, value=500)
+        d_qty = cols[3].number_input("Брой", min_value=1, value=1)
+        
+        cols2 = st.columns([2, 1, 1, 1, 1, 1])
+        d_mat = cols2[0].text_input("Плоскост", value="Бяло гладко 18мм")
+        d_flader = cols2[1].selectbox("Фладер", ["Да", "Не"])
+        d_d1 = cols2[2].selectbox("Кант Д1", ["", "0.8", "2"])
+        d_d2 = cols2[3].selectbox("Кант Д2", ["", "0.8", "2"])
+        d_sh1 = cols2[4].selectbox("Кант Ш1", ["", "0.8", "2"])
+        d_sh2 = cols2[5].selectbox("Кант Ш2", ["", "0.8", "2"])
+        
+        add_btn = st.form_submit_button("➕ Добави детайла към шкафа")
+        
+        if add_btn and d_name:
+            st.session_state.custom_cabinet.append({
+                "№": c_name, 
+                "Детайл": d_name, 
+                "Дължина": d_l, 
+                "Ширина": d_w, 
+                "Бр": d_qty,
+                "Д1": d_d1, 
+                "Д2": d_d2, 
+                "Ш1": d_sh1, 
+                "Ш2": d_sh2,
+                "Фладер": d_flader, 
+                "Плоскост": d_mat
+            })
+            st.success(f"Успешно добавен: {d_name} ({d_l} x {d_w} мм)")
+            
+    # Показване на текущите детайли в конструктора
+    if st.session_state.custom_cabinet:
+        st.markdown(f"#### 📋 Текущи детайли в: {c_name}")
+        st.dataframe(pd.DataFrame(st.session_state.custom_cabinet), use_container_width=True)
+        
+        c_btn1, c_btn2 = st.columns(2)
+        if c_btn1.button("📥 ИМПОРТИРАЙ ШКАФА В ГЛАВНИЯ ПРОЕКТ", type="primary"):
+            # Добавяме всички части от конструктора към главната таблица
+            st.session_state.order_list.extend(st.session_state.custom_cabinet)
+            # Изчистваме конструктора за следващия шкаф
+            st.session_state.custom_cabinet = []
+            st.rerun()
+            
+        if c_btn2.button("🗑️ Изчисти конструктора"):
+            st.session_state.custom_cabinet = []
+            st.rerun()
+# -------------------------------------------------------------
+
     tip = st.selectbox("Тип модул", options=list(icons.keys()), format_func=lambda x: f"{icons.get(x, '📌')} {x}")
     name = st.text_input("Име/№ на модула", value=tip)
     

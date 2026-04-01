@@ -419,6 +419,32 @@ with col1:
             hw_hinges = calculate_hinges(h_door_hw) * vrati_broi
             new_hw.append({"№": name, "Артикул": "Панти покрит кант", "Брой": hw_hinges})
             new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": vrati_broi})
+
+        elif tip == "Гардероб чекм+врати":
+            w_in = w - 2 * deb
+            # Корпус
+            st.session_state.order_list.append(add_item(name, tip, "Страница лява", 1, h_korpus, d, "1д 2к", mat_korpus, val_fl_korpus))
+            st.session_state.order_list.append(add_item(name, tip, "Страница дясна", 1, h_korpus, d, "1д 2к", mat_korpus, val_fl_korpus))
+            st.session_state.order_list.append(add_item(name, tip, "Дъно", 1, w_in, d, "1д", mat_korpus, val_fl_korpus))
+            st.session_state.order_list.append(add_item(name, tip, "Таван", 1, w_in, d, "1д", mat_korpus, val_fl_korpus))
+            st.session_state.order_list.append(add_item(name, tip, "Твърд рафт (между чекм. и врати)", 1, w_in, d, "1д", mat_korpus, val_fl_korpus))
+            st.session_state.order_list.append(add_item(name, tip, "Гръб (Фазер)", 1, h_korpus - 2, w - 2, "Без кант", mat_fazer, "Няма"))
+            
+            # Чекмеджета (2 бр. широки)
+            h_front = int((h_drawers - 3 * fuga_obshto) / 2) # Две чела по височина
+            w_front = w - 2 * fuga_obshto
+            st.session_state.order_list.append(add_item(name, tip, "Чело", 2, h_front, w_front, "4", mat_lice, val_fl_lice))
+            
+            h_box = h_front - 30
+            w_box_front = w_in - 26 # 13мм луфт за водачи на страна
+            st.session_state.order_list.append(add_item(name, tip, "Царги предни/задни", 4, w_box_front, h_box, "1д", mat_chekm, val_fl_chekm))
+            st.session_state.order_list.append(add_item(name, tip, "Страници чекмедже", 4, runner_len, h_box, "1д", mat_chekm, val_fl_chekm))
+            st.session_state.order_list.append(add_item(name, tip, "Дъно чекмедже", 2, runner_len - 2, w_box_front + 2*deb - 2, "Без кант", mat_fazer, "Няма"))
+
+            # Врати (2 бр. над чекмеджетата)
+            h_doors = h_korpus - h_drawers - int(1.5 * fuga_obshto)
+            w_door = int((w - 3 * fuga_obshto) / 2)
+            st.session_state.order_list.append(add_item(name, tip, "Врата горна", 2, h_doors, w_door, "4", mat_lice, val_fl_lice))
             
         elif tip == "Трети ред (Надстройка)":
             hw_hinges = calculate_hinges(h - fuga_obshto) * vrati_broi

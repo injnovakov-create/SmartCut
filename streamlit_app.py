@@ -1032,7 +1032,7 @@ def generate_labels_pdf(boards_per_mat):
     pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
     return pdf_bytes.getvalue()
 
-# --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (ИСТИНСКИ НЕСТИНГ ЗА ФОРМАТЕН ЦИРКУЛЯР) ---
+# --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (ИСТИНСКИ НЕСТИНГ ЗА ФОРМАТЕН ЦИРКУЛЯР - ПОПРАВЕНА) ---
 def get_optimized_boards(list_for_cutting):
     kerf, trim, board_l, board_w = 8, 8, 2800, 2070
     use_l, use_w = board_l - 2*trim, board_w - 2*trim
@@ -1059,8 +1059,13 @@ def get_optimized_boards(list_for_cutting):
     for mat_name, parts in materials_dict.items():
         mat_can_rotate = all(p['can_rotate'] for p in parts)
         
-        # ПРОМЯНАТА Е ТУК: Използваме GuillotineBssfMaxas, който реже само от край до край
-        packer = newPacker(mode=PackingMode.Offline, bin_algo=PackingBin.GuillotineBssfMaxas, rotation=mat_can_rotate)
+        # ПОПРАВКАТА Е ТУК: pack_algo=GuillotineBssfMaxas
+        packer = newPacker(
+            mode=PackingMode.Offline, 
+            bin_algo=PackingBin.BFF, 
+            pack_algo=GuillotineBssfMaxas, 
+            rotation=mat_can_rotate
+        )
         
         for i, p in enumerate(parts):
             rect_l = int(p['l'] + kerf)

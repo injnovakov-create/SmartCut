@@ -1249,13 +1249,13 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
         pdf_bytes = io.BytesIO()
         pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
         return pdf_bytes.getvalue()
-    return None
+        return None
 
 if pages:
         pdf_bytes = io.BytesIO()
         pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
         return pdf_bytes.getvalue()
-    return None
+        return None
 
 # ==============================================================
 # ТУК СА ЛИПСВАЩИТЕ БУТОНИ ЗА ИЗТЕГЛЯНЕ И РАЗКРОЙ НА ЕКРАНА

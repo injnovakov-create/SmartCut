@@ -983,7 +983,7 @@ def generate_labels_pdf(boards_per_mat):
     pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
     return pdf_bytes.getvalue()
 
-# --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (ЛИПСВАЩАТА ФУНКЦИЯ) ---
+# --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (СЪС ЗАВЪРТАНЕ) ---
 def get_optimized_boards(list_for_cutting):
     kerf, trim, board_l, board_w = 8, 8, 2800, 2070
     use_l, use_w = board_l - 2*trim, board_w - 2*trim
@@ -994,46 +994,101 @@ def get_optimized_boards(list_for_cutting):
         if mat not in materials_dict: materials_dict[mat] = []
         try:
             for _ in range(int(item['Бр'])):
+                # Проверяваме дали детайлът позволява завъртане (няма фладер)
+                flader_val = str(item.get('Фладер', 'Да')).strip().lower()
+                can_rotate = (flader_val == "не" or flader_val == "няма")
+                
                 materials_dict[mat].append({
                     'name': f"{item['№']} {get_abbrev(item['Детайл'])}", 
                     'l': float(item['Дължина']), 'w': float(item['Ширина']),
                     'd1': str(item.get('Д1', '')).strip(), 'd2': str(item.get('Д2', '')).strip(),
                     'sh1': str(item.get('Ш1', '')).strip(), 'sh2': str(item.get('Ш2', '')).strip(),
                     'mod_num': str(item.get('№', '')), 'mod_tip': str(item.get('Тип', '')),
-                    'part_name': get_abbrev(item['Детайл']), 'mat': mat
+                    'part_name': get_abbrev(item['Детайл']), 'mat': mat,
+                    'can_rotate': can_rotate
                 })
         except: pass
     
     boards_per_material = {}
     for mat_name, parts in materials_dict.items():
-        parts.sort(key=lambda x: x['l'] * x['w'], reverse=True)
+        # Сортираме по най-дългата страна за по-плътно редене
+        for p in parts:
+            if p['can_rotate'] and p['w'] > p['l']:
+                p['l'], p['w'] = p['w'], p['l']
+                p['d1'], p['d2'], p['sh1'], p['sh2'] = p['sh1'], p['sh2'], p['d1'], p['d2']
+
+        parts.sort(key=lambda x: max(x['l'], x['w']), reverse=True)
         boards, current_board = [], []
         curr_x, curr_y, shelf_h = 0, 0, 0
         
         for p in parts:
+            placed = False
             part_l, part_w = p['l'], p['w']
+            
+            # 1. Опит: Нормално поставяне
             if curr_x + part_l <= use_l and curr_y + part_w <= use_w:
                 p_copy = p.copy()
                 p_copy.update({'x': curr_x, 'y': curr_y})
                 current_board.append(p_copy)
                 curr_x += part_l + kerf
-                if part_w > shelf_h: shelf_h = part_w
-            else:
+                shelf_h = max(shelf_h, part_w)
+                placed = True
+            # 2. Опит: Със завъртане (ако е разрешено)
+            elif p['can_rotate'] and curr_x + part_w <= use_l and curr_y + part_l <= use_w:
+                p_copy = p.copy()
+                p_copy['l'], p_copy['w'] = part_w, part_l
+                p_copy['d1'], p_copy['d2'], p_copy['sh1'], p_copy['sh2'] = p_copy['sh1'], p_copy['sh2'], p_copy['d1'], p_copy['d2']
+                p_copy.update({'x': curr_x, 'y': curr_y})
+                current_board.append(p_copy)
+                curr_x += part_w + kerf
+                shelf_h = max(shelf_h, part_l)
+                placed = True
+                
+            # Ако не се събира на този ред, правим нов ред (Shelf)
+            if not placed:
                 curr_x = 0
                 curr_y += shelf_h + kerf
-                shelf_h = part_w
-                if curr_y + part_w > use_w:
-                    boards.append(current_board)
-                    curr_y = 0
-                    p_copy = p.copy()
-                    p_copy.update({'x': curr_x, 'y': curr_y})
-                    current_board = [p_copy]
-                    curr_x = part_l + kerf
-                else:
+                shelf_h = 0
+                
+                # 3. Опит: Нормално на новия ред
+                if curr_y + part_w <= use_w and part_l <= use_l:
                     p_copy = p.copy()
                     p_copy.update({'x': curr_x, 'y': curr_y})
                     current_board.append(p_copy)
-                    curr_x = part_l + kerf
+                    curr_x += part_l + kerf
+                    shelf_h = max(shelf_h, part_w)
+                    placed = True
+                # 4. Опит: Със завъртане на новия ред
+                elif p['can_rotate'] and curr_y + part_l <= use_w and part_w <= use_l:
+                    p_copy = p.copy()
+                    p_copy['l'], p_copy['w'] = part_w, part_l
+                    p_copy['d1'], p_copy['d2'], p_copy['sh1'], p_copy['sh2'] = p_copy['sh1'], p_copy['sh2'], p_copy['d1'], p_copy['d2']
+                    p_copy.update({'x': curr_x, 'y': curr_y})
+                    current_board.append(p_copy)
+                    curr_x += part_w + kerf
+                    shelf_h = max(shelf_h, part_l)
+                    placed = True
+                    
+            # Ако и на новия ред не става -> НОВА ПЛОЧА
+            if not placed:
+                boards.append(current_board)
+                current_board = []
+                curr_x, curr_y, shelf_h = 0, 0, 0
+                
+                if part_l <= use_l and part_w <= use_w:
+                    p_copy = p.copy()
+                    p_copy.update({'x': curr_x, 'y': curr_y})
+                    current_board.append(p_copy)
+                    curr_x += part_l + kerf
+                    shelf_h = part_w
+                elif p['can_rotate'] and part_w <= use_l and part_l <= use_w:
+                    p_copy = p.copy()
+                    p_copy['l'], p_copy['w'] = part_w, part_l
+                    p_copy['d1'], p_copy['d2'], p_copy['sh1'], p_copy['sh2'] = p_copy['sh1'], p_copy['sh2'], p_copy['d1'], p_copy['d2']
+                    p_copy.update({'x': curr_x, 'y': curr_y})
+                    current_board.append(p_copy)
+                    curr_x += part_w + kerf
+                    shelf_h = part_l
 
         if current_board: boards.append(current_board)
         boards_per_material[mat_name] = boards

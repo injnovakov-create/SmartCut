@@ -236,68 +236,7 @@ with col1:
 
     # -------------------------------------------------------------
 # -------------------------------------------------------------
-# 🛠️ КОНСТРУКТОР: ИНТЕРАКТИВНА ТАБЛИЦА ЗА РЪЧНИ ДЕТАЙЛИ
-# -------------------------------------------------------------
-# Създаваме първоначална празна структура за конструктора
-if 'custom_df' not in st.session_state:
-    st.session_state.custom_df = pd.DataFrame([{
-        '№': 'Шкаф 1', 'Детайл': '', 'Дължина': 600, 'Ширина': 500, 'Бр': 1,
-        'Д1': '', 'Д2': '', 'Ш1': '', 'Ш2': '', 'Фладер': 'Да', 'Плоскост': 'Бяло гладко 18мм'
-    }])
 
-with st.expander("🛠️ КОНСТРУКТОР: Моделирай ръчно (Таблица)", expanded=False):
-    st.markdown("✏️ **Въвеждай детайлите директно тук.** За да добавиш нов ред, кликни в празната клетка най-отдолу.")
-    
-    # Интерактивна таблица за бързо въвеждане
-    edited_df = st.data_editor(
-        st.session_state.custom_df,
-        num_rows="dynamic", # Позволява добавяне и триене на редове
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "№": st.column_config.TextColumn("Шкаф №", width="small"),
-            "Детайл": st.column_config.TextColumn("Име на детайл", required=True),
-            "Дължина": st.column_config.NumberColumn("L (мм)", min_value=1, step=1, format="%d"),
-            "Ширина": st.column_config.NumberColumn("W (мм)", min_value=1, step=1, format="%d"),
-            "Бр": st.column_config.NumberColumn("Бр.", min_value=1, step=1, format="%d"),
-            "Д1": st.column_config.SelectboxColumn("Д1", options=["", "0.8", "2"]),
-            "Д2": st.column_config.SelectboxColumn("Д2", options=["", "0.8", "2"]),
-            "Ш1": st.column_config.SelectboxColumn("Ш1", options=["", "0.8", "2"]),
-            "Ш2": st.column_config.SelectboxColumn("Ш2", options=["", "0.8", "2"]),
-            "Фладер": st.column_config.SelectboxColumn("Фладер", options=["Да", "Не"]),
-            "Плоскост": st.column_config.TextColumn("Материал")
-        }
-    )
-    
-    col_btn1, col_btn2 = st.columns([1, 1])
-    
-    with col_btn1:
-        if st.button("📥 ИМПОРТИРАЙ В ГЛАВНИЯ РАЗКРОЙ", type="primary", use_container_width=True):
-            # Филтрираме само редовете, в които реално е написано име на детайл
-            valid_rows = edited_df[edited_df['Детайл'].str.strip() != '']
-            
-            if not valid_rows.empty:
-                # Прехвърляме ги в главния списък
-                new_records = valid_rows.to_dict('records')
-                st.session_state.order_list.extend(new_records)
-                
-                # Нулираме таблицата на конструктора
-                st.session_state.custom_df = pd.DataFrame([{
-                    '№': 'Шкаф 1', 'Детайл': '', 'Дължина': 600, 'Ширина': 500, 'Бр': 1,
-                    'Д1': '', 'Д2': '', 'Ш1': '', 'Ш2': '', 'Фладер': 'Да', 'Плоскост': 'Бяло гладко 18мм'
-                }])
-                st.rerun()
-            else:
-                st.warning("⚠️ Няма въведени валидни детайли (липсва име).")
-
-    with col_btn2:
-        if st.button("🗑️ Изчисти таблицата", use_container_width=True):
-            st.session_state.custom_df = pd.DataFrame([{
-                '№': 'Шкаф 1', 'Детайл': '', 'Дължина': 600, 'Ширина': 500, 'Бр': 1,
-                'Д1': '', 'Д2': '', 'Ш1': '', 'Ш2': '', 'Фладер': 'Да', 'Плоскост': 'Бяло гладко 18мм'
-            }])
-            st.rerun()
-# -------------------------------------------------------------
 # -------------------------------------------------------------
 
     tip = st.selectbox("Тип модул", options=list(icons.keys()), format_func=lambda x: f"{icons.get(x, '📌')} {x}")

@@ -1251,6 +1251,89 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
         return pdf_bytes.getvalue()
     return None
 
+if pages:
+        pdf_bytes = io.BytesIO()
+        pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
+        return pdf_bytes.getvalue()
+    return None
+
+# ==============================================================
+# ТУК СА ЛИПСВАЩИТЕ БУТОНИ ЗА ИЗТЕГЛЯНЕ И РАЗКРОЙ НА ЕКРАНА
+# ==============================================================
+st.markdown("---")
+col_visuals, col_pdf = st.columns(2)
+
+with col_pdf:
+    st.subheader("📐 Технически PDF и Етикети")
+    st.info("Генерира 3D чертежи за цеха и самозалепващи се етикети (44 бр. на А4).")
+    
+    col_b1, col_b2 = st.columns(2)
+    with col_b1:
+        if st.button("📄 Свали PDF Чертежи"):
+            if not st.session_state.modules_meta:
+                st.warning("Няма добавени модули за чертане!")
+            else:
+                with st.spinner("Генериране..."):
+                    pdf_data = generate_technical_pdf(st.session_state.modules_meta, st.session_state.order_list, kraka)
+                    if pdf_data:
+                        st.download_button(label="📥 ИЗТЕГЛИ PDF", data=pdf_data, file_name="OPTIVIK_Чертежи.pdf", mime="application/pdf")
+                        
+    with col_b2:
+        if st.button("🏷️ Свали ЕТИКЕТИ (А4)"):
+            if not st.session_state.order_list:
+                st.warning("Добави детайли за етикетите!")
+            else:
+                with st.spinner("Генериране на етикети..."):
+                    boards_per_mat, _, _, _ = get_optimized_boards(st.session_state.order_list)
+                    try:
+                        labels_pdf = generate_labels_pdf(boards_per_mat) 
+                        if labels_pdf:
+                            st.download_button(label="📥 ИЗТЕГЛИ ЕТИКЕТИ", data=labels_pdf, file_name="OPTIVIK_Етикети.pdf", mime="application/pdf")
+                    except NameError:
+                        st.error("Функцията за етикети липсва или не е заредена правилно.")
+
+with col_visuals:
+    st.subheader("✂️ Схема на разкроя (Плочи)")
+    
+    if st.button("📄 Свали Разкрой (A4 PDF)"):
+        if not st.session_state.order_list:
+            st.warning("Добави детайли за разкроя!")
+        else:
+            with st.spinner("Генериране на PDF..."):
+                boards_per_mat, board_l, board_w, trim = get_optimized_boards(st.session_state.order_list)
+                cut_pdf = generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim)
+                if cut_pdf:
+                    st.download_button(label="📥 ИЗТЕГЛИ РАЗКРОЙ", data=cut_pdf, file_name="OPTIVIK_Разкрой.pdf", mime="application/pdf")
+                    
+    if st.button("Генерирай 2D разкрой на екрана"):
+        if not st.session_state.order_list: 
+            st.warning("Добави детайли, за да генерираш разкрой!")
+        else:
+            boards_per_mat, board_l, board_w, trim = get_optimized_boards(st.session_state.order_list)
+            for mat_name, boards in boards_per_mat.items():
+                st.markdown(f"#### 🪵 {mat_name} [2800x2070 мм] (Нужни: {len(boards)} бр.)")
+                for idx, b_parts in enumerate(boards):
+                    svg = f'<svg viewBox="0 0 {board_l} {board_w}" style="background-color:#ffffff; border:2px solid #333; margin-bottom: 20px; width: 100%; max-width: 900px;">'
+                    svg += f'<rect x="{trim}" y="{trim}" width="{board_l - 2*trim}" height="{board_w - 2*trim}" fill="none" stroke="black" stroke-width="4" stroke-dasharray="20,20"/>'
+                    for p in b_parts:
+                        px, py, pl, pw = p['x'] + trim, p['y'] + trim, p['l'], p['w']
+                        svg += f'<rect x="{px}" y="{py}" width="{pl}" height="{pw}" fill="#ffffff" stroke="#000000" stroke-width="2"/>'
+                        
+                        name_str = p["name"][:10] + '..' if len(p["name"]) > 10 and pl < 300 else p["name"][:18]
+                        dim_str = f"{int(p['l'])}/{int(p['w'])}"
+                        
+                        if pl < 120 or pw < 120:
+                            svg += f'<text x="{px + pl/2}" y="{py + pw/2}" font-size="25" fill="black" text-anchor="middle" dominant-baseline="middle" font-weight="bold">{dim_str}</text>'
+                        else:
+                            f_size_name = min(45, max(15, int(pl / len(name_str) * 1.2)))
+                            f_size_dim = min(50, max(20, int(pl / 5)))
+                            shift = min(30, pw * 0.2)
+                            
+                            svg += f'<text x="{px + pl/2}" y="{py + pw/2 - shift}" font-size="{f_size_name}" fill="black" text-anchor="middle" dominant-baseline="middle" font-weight="bold">{name_str}</text>'
+                            svg += f'<text x="{px + pl/2}" y="{py + pw/2 + shift}" font-size="{f_size_dim}" fill="black" text-anchor="middle" dominant-baseline="middle">{dim_str}</text>'
+                    svg += '</svg>'
+                    st.markdown(svg, unsafe_allow_html=True)
+
 # --- ФИНАНСОВ КАЛКУЛАТОР (ОСТАВА НА ЕКРАНА!) ---
 st.markdown("---")
 st.subheader("💰 Финанси и Оферта (Само за екрана)")

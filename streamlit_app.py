@@ -313,7 +313,7 @@ with col1:
         h_box = st.number_input("Височина на корпуса без крака (мм)", value=760, key="h_box_ch")
         num_ch = st.slider("Брой чекмеджета:", 1, 6, 3, key="n_ch")
 
-        elif tip == "Гардероб чекм+врати":
+    elif tip == "Гардероб чекм+врати":
         w = st.number_input("Ширина (W) мм", value=900, key="w_gard")
         h_korpus = st.number_input("Височина корпус (H) мм", value=2000, key="h_gard")
         d = st.number_input("Дълбочина (D) мм", value=550, key="d_gard")

@@ -312,6 +312,15 @@ with col1:
         w = st.number_input("Ширина (W) мм", value=600, key="w_ch")
         h_box = st.number_input("Височина на корпуса без крака (мм)", value=760, key="h_box_ch")
         num_ch = st.slider("Брой чекмеджета:", 1, 6, 3, key="n_ch")
+
+        elif tip == "Гардероб чекм+врати":
+        w = st.number_input("Ширина (W) мм", value=900, key="w_gard")
+        h_korpus = st.number_input("Височина корпус (H) мм", value=2000, key="h_gard")
+        d = st.number_input("Дълбочина (D) мм", value=550, key="d_gard")
+        h_drawers = st.number_input("Височина за чекмеджетата (мм)", value=450, help="Колко от общата височина се пада на долния блок чекмеджета")
+        runner_len = st.number_input("Дължина водач (мм)", value=500, step=50, key="run_gard")
+        vrati_broi = 2
+        h = h_korpus + kraka
         
         # Оставяме интерфейса да показва чистата математика на корпуса
         total_front_h = h_box

@@ -1285,6 +1285,92 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
 # ==============================================================
 # ТУК СА ЛИПСВАЩИТЕ БУТОНИ ЗА ИЗТЕГЛЯНЕ И РАЗКРОЙ НА ЕКРАНА
 # ==============================================================
+
+# --- ГЕНЕРИРАНЕ НА ЕТИКЕТИ (44 броя на А4) ---
+def generate_labels_pdf(boards_per_mat):
+    font_path = "Roboto-Regular.ttf"
+    try:
+        f_title = ImageFont.truetype(font_path, 40)
+        f_dim = ImageFont.truetype(font_path, 55)
+        f_edge = ImageFont.truetype(font_path, 35)
+    except:
+        f_title = f_dim = f_edge = ImageFont.load_default()
+        
+    page_w, page_h = 2480, 3508
+    cols, rows = 4, 11
+    label_w = page_w / cols
+    label_h = page_h / rows
+    
+    pages = []
+    img = None
+    draw = None
+    
+    flat_parts = []
+    for mat_name, boards in boards_per_mat.items():
+        for b in boards:
+            for p in b:
+                p_copy = p.copy()
+                p_copy['mat_name'] = mat_name
+                flat_parts.append(p_copy)
+                
+    if not flat_parts:
+        return None
+        
+    for i, p in enumerate(flat_parts):
+        idx_on_page = i % (cols * rows)
+        
+        if idx_on_page == 0:
+            img = Image.new('RGB', (int(page_w), int(page_h)), 'white')
+            draw = ImageDraw.Draw(img)
+            pages.append(img)
+            
+        col = idx_on_page % cols
+        row = idx_on_page // cols
+        
+        x0 = col * label_w
+        y0 = row * label_h
+        
+        # Рамка на етикета
+        draw.rectangle([x0, y0, x0 + label_w, y0 + label_h], outline="#cccccc", width=2)
+        
+        # Безопасно извличане на данните
+        mod_num = str(p.get('mod_num', p.get('№', '')))
+        part_name = str(p.get('part_name', p.get('Детайл', p.get('name', 'Детайл'))))
+        
+        # Изчистване на името, ако номерът се повтаря в него
+        if part_name.startswith(mod_num):
+            part_name = part_name.replace(mod_num, '', 1).strip()
+            
+        dim_str = f"{int(p.get('l', 0))} x {int(p.get('w', 0))} мм"
+        
+        margin_x, margin_y = 40, 40
+        
+        # 1. Заглавие (Номер и Име)
+        draw.text((x0 + margin_x, y0 + margin_y), f"[{mod_num}] {part_name[:15]}", fill="black", font=f_title)
+        
+        # 2. Размери
+        draw.text((x0 + margin_x, y0 + margin_y + 70), dim_str, fill="black", font=f_dim)
+        
+        # 3. Кантове
+        edges = []
+        if p.get('d1'): edges.append(f"Д1:{p['d1']}")
+        if p.get('d2'): edges.append(f"Д2:{p['d2']}")
+        if p.get('sh1'): edges.append(f"Ш1:{p['sh1']}")
+        if p.get('sh2'): edges.append(f"Ш2:{p['sh2']}")
+        
+        edge_str = "Кант: " + " ".join(edges) if edges else "Кант: Няма"
+        draw.text((x0 + margin_x, y0 + margin_y + 150), edge_str, fill="#333333", font=f_edge)
+        
+        # 4. Материал
+        mat_str = str(p.get('mat_name', ''))[:20]
+        draw.text((x0 + margin_x, y0 + margin_y + 210), f"Мат: {mat_str}", fill="#555555", font=f_edge)
+        
+    if pages:
+        pdf_bytes = io.BytesIO()
+        pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
+        return pdf_bytes.getvalue()
+        
+    return None
 st.markdown("---")
 col_visuals, col_pdf = st.columns(2)
 

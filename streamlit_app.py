@@ -1047,7 +1047,7 @@ def generate_labels_pdf(boards_per_mat):
     pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
     return pdf_bytes.getvalue()
 
-# --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (ГИЛОТИНЕН СРЕЗ НА ЛЕНТИ) ---
+# --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (ГИЛОТИНЕН СРЕЗ СЪС ЗАВЪРТАНЕ) ---
 def get_optimized_boards(list_for_cutting):
     kerf, trim, board_l, board_w = 8, 8, 2800, 2070
     use_l, use_w = board_l - 2*trim, board_w - 2*trim
@@ -1071,55 +1071,103 @@ def get_optimized_boards(list_for_cutting):
     
     boards_per_material = {}
     for mat_name, parts in materials_dict.items():
-        # Завъртаме детайлите без фладер, така че ширината (W) винаги да е по-малката страна.
-        # Това създава по-тесни и дълги ленти за рязане, което уплътнява плочата идеално.
-        for p in parts:
-            if p['can_rotate'] and p['w'] > p['l']:
-                p['l'], p['w'] = p['w'], p['l']
-                p['d1'], p['d2'], p['sh1'], p['sh2'] = p['sh1'], p['sh2'], p['d1'], p['d2']
-
-        # Сортираме първо по ширина (за групиране в ленти), после по дължина
-        parts.sort(key=lambda x: (x['w'], x['l']), reverse=True)
+        # Сортираме по площ, от най-големите към най-малките
+        parts.sort(key=lambda x: x['l'] * x['w'], reverse=True)
         
         boards, current_board = [], []
         shelves = [] # [y_start, shelf_height, current_x]
         
         for p in parts:
             placed = False
-            part_l, part_w = p['l'], p['w']
+            best_shelf_idx = -1
+            best_orientation = None
+            best_waste = float('inf')
             
-            # 1. Търсим място в съществуващите ленти
-            for shelf in shelves:
-                y, sh_h, curr_x = shelf
-                if curr_x + part_l <= use_l and part_w <= sh_h:
-                    p_copy = p.copy()
-                    p_copy.update({'x': curr_x, 'y': y})
-                    current_board.append(p_copy)
-                    shelf[2] += part_l + kerf
-                    placed = True
-                    break
-                    
-            # 2. Ако няма място, създаваме нова лента на същата плоча
+            # Вариантите за поставяне
+            options = [(p['l'], p['w'], False)]
+            if p['can_rotate'] and p['l'] != p['w']:
+                options.append((p['w'], p['l'], True))
+            
+            # 1. Търсим съществуваща лента, която ще даде най-малко фира по височина
+            for pl, pw, is_rotated in options:
+                for i, sh in enumerate(shelves):
+                    sh_y, sh_h, sh_x = sh
+                    if sh_x + pl <= use_l and pw <= sh_h:
+                        waste = sh_h - pw
+                        if waste < best_waste:
+                            best_waste = waste
+                            best_shelf_idx = i
+                            best_orientation = (pl, pw, is_rotated)
+            
+            # 2. Поставяме в най-добрата намерена лента
+            if best_shelf_idx != -1:
+                pl, pw, is_rotated = best_orientation
+                sh = shelves[best_shelf_idx]
+                
+                p_copy = p.copy()
+                if is_rotated:
+                    p_copy['l'], p_copy['w'] = pw, pl
+                    p_copy['d1'], p_copy['d2'], p_copy['sh1'], p_copy['sh2'] = p_copy['sh1'], p_copy['sh2'], p_copy['d1'], p_copy['d2']
+                p_copy.update({'x': sh[2], 'y': sh[0]})
+                
+                current_board.append(p_copy)
+                sh[2] += pl + kerf
+                placed = True
+                
+            # 3. Ако не се събира никъде, отваряме НОВА ЛЕНТА на същата плоча
             if not placed:
                 total_y = sum([sh[1] + kerf for sh in shelves]) if shelves else 0
-                if total_y + part_w <= use_w and part_l <= use_l:
+                best_new_strip = None
+                
+                # Търсим ориентацията, която създава най-ТЯСНА лента, за да пазим място
+                for pl, pw, is_rotated in options:
+                    if total_y + pw <= use_w and pl <= use_l:
+                        if best_new_strip is None or pw < best_new_strip[1]:
+                            best_new_strip = (pl, pw, is_rotated)
+                            
+                if best_new_strip:
+                    pl, pw, is_rotated = best_new_strip
                     new_y = total_y
-                    shelves.append([new_y, part_w, part_l + kerf])
+                    shelves.append([new_y, pw, pl + kerf])
+                    
                     p_copy = p.copy()
+                    if is_rotated:
+                        p_copy['l'], p_copy['w'] = pw, pl
+                        p_copy['d1'], p_copy['d2'], p_copy['sh1'], p_copy['sh2'] = p_copy['sh1'], p_copy['sh2'], p_copy['d1'], p_copy['d2']
                     p_copy.update({'x': 0, 'y': new_y})
+                    
                     current_board.append(p_copy)
                     placed = True
                     
-            # 3. Ако плочата е пълна -> НОВА ПЛОЧА
+            # 4. Ако не се побира и в нова лента -> НОВА ПЛОЧА
             if not placed:
-                if current_board: boards.append(current_board)
-                current_board = []
-                shelves = [[0, part_w, part_l + kerf]]
-                p_copy = p.copy()
-                p_copy.update({'x': 0, 'y': 0})
-                current_board.append(p_copy)
+                if current_board: 
+                    boards.append(current_board)
                 
-        if current_board: boards.append(current_board)
+                current_board = []
+                shelves = []
+                best_start = None
+                
+                for pl, pw, is_rotated in options:
+                    if pw <= use_w and pl <= use_l:
+                        if best_start is None or pw < best_start[1]:
+                            best_start = (pl, pw, is_rotated)
+                            
+                if best_start:
+                    pl, pw, is_rotated = best_start
+                    shelves.append([0, pw, pl + kerf])
+                    
+                    p_copy = p.copy()
+                    if is_rotated:
+                        p_copy['l'], p_copy['w'] = pw, pl
+                        p_copy['d1'], p_copy['d2'], p_copy['sh1'], p_copy['sh2'] = p_copy['sh1'], p_copy['sh2'], p_copy['d1'], p_copy['d2']
+                    p_copy.update({'x': 0, 'y': 0})
+                    
+                    current_board.append(p_copy)
+                    
+        if current_board: 
+            boards.append(current_board)
+            
         boards_per_material[mat_name] = boards
         
     return boards_per_material, board_l, board_w, trim

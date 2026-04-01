@@ -1037,7 +1037,7 @@ def generate_labels_pdf(boards_per_mat):
     pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
     return pdf_bytes.getvalue()
 
-# --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (ИСТИНСКИ НЕСТИНГ ЗА ФОРМАТЕН ЦИРКУЛЯР - ПОПРАВЕНА) ---
+# --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (ИСТИНСКИ НЕСТИНГ ЗА ФОРМАТЕН ЦИРКУЛЯР + ЕТИКЕТИ) ---
 def get_optimized_boards(list_for_cutting):
     kerf, trim, board_l, board_w = 8, 8, 2800, 2070
     use_l, use_w = board_l - 2*trim, board_w - 2*trim
@@ -1050,13 +1050,19 @@ def get_optimized_boards(list_for_cutting):
             for _ in range(int(item['Бр'])):
                 flader_val = str(item.get('Фладер', 'Да')).strip().lower()
                 can_rotate = (flader_val == "не" or flader_val == "няма")
-                materials_dict[mat].append({
-                    'name': f"{item['№']} {get_abbrev(item['Детайл'])}", 
+                
+                # ПАЗИМ ВСИЧКИ ДАННИ ЗА ЕТИКЕТИТЕ!
+                part_dict = item.copy() 
+                part_dict.update({
+                    'name': f"{item.get('№', '')} {get_abbrev(item.get('Детайл', ''))}", 
                     'l': float(item['Дължина']), 'w': float(item['Ширина']),
                     'd1': str(item.get('Д1', '')).strip(), 'd2': str(item.get('Д2', '')).strip(),
                     'sh1': str(item.get('Ш1', '')).strip(), 'sh2': str(item.get('Ш2', '')).strip(),
-                    'can_rotate': can_rotate
+                    'can_rotate': can_rotate,
+                    # Подсигуряване, ако ключът липсва:
+                    'mod_tip': item.get('mod_tip', item.get('Детайл', 'Детайл'))
                 })
+                materials_dict[mat].append(part_dict)
         except: pass
     
     boards_per_material = {}
@@ -1064,7 +1070,6 @@ def get_optimized_boards(list_for_cutting):
     for mat_name, parts in materials_dict.items():
         mat_can_rotate = all(p['can_rotate'] for p in parts)
         
-        # ПОПРАВКАТА Е ТУК: pack_algo=GuillotineBssfMaxas
         packer = newPacker(
             mode=PackingMode.Offline, 
             bin_algo=PackingBin.BFF, 

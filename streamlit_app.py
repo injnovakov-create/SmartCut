@@ -1247,15 +1247,10 @@ def draw_edge_marking(draw, x, y, w, h, side, text, font):
         draw.text((x_pos, mid_y), text, fill="black", font=font, anchor="mm")
 
 
-# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (СТАБИЛНА ВЕРСИЯ СЪС ЗАЩИТИ) ---
+# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (ТОЧНИ ЧЕКМЕДЖЕТА СПРЯМО ДЕТАЙЛИТЕ) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
     import math
     import re
-    import os
-    import urllib.request
-    import io
-    from PIL import Image, ImageDraw, ImageFont
-    
     font_path = "Roboto-Regular.ttf"
     font_path_it = "Roboto-Italic.ttf"
     
@@ -1327,13 +1322,13 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         draw = ImageDraw.Draw(img)
 
         m_num = get_val(mod, ['mod_num', '№', 'Номер'], '?')
-        m_tip = get_val(mod, ['mod_tip', 'Модул', 'Вид', 'Тип'], 'Неизвестен Модул')
+        m_tip = get_val(mod, ['mod_tip', 'Модул', 'Вид'], 'Неизвестен Модул')
         
-        try: w = max(float(get_val(mod, ['w', 'W', 'Ширина'], 600)), 60)
+        try: w = float(get_val(mod, ['w', 'W', 'Ширина'], 600))
         except: w = 600
-        try: h = max(float(get_val(mod, ['h_box', 'h', 'H', 'Височина'], 860)), 60)
+        try: h = float(get_val(mod, ['h_box', 'h', 'H', 'Височина'], 860))
         except: h = 860
-        try: d = max(float(get_val(mod, ['d', 'D', 'Дълбочина'], 550)), 60)
+        try: d = float(get_val(mod, ['d', 'D', 'Дълбочина'], 550))
         except: d = 550
         try: kr = int(kraka_height)
         except: kr = 0
@@ -1342,6 +1337,9 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         m_tip_str = str(m_tip).strip().lower()
         full_name_str = f"{m_num_str} {m_tip_str}"
         
+        # ==========================================
+        # 1. ОБЕДИНЕН МОЗЪК: НАМИРАНЕ НА ДЕТАЙЛИТЕ
+        # ==========================================
         parts_for_this_mod = []
         if order_list:
             seen = set()
@@ -1358,36 +1356,38 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                         seen.add(p_sig)
                         parts_for_this_mod.append(p)
         
+        # Извличане на реалните височини на челата от списъка с детайли
         real_front_heights = []
         for p in parts_for_this_mod:
             if 'чело' in str(p.get('Детайл', '')).lower():
                 qty = int(p.get('Бр', 1))
                 try:
+                    # Височината на челото обикновено е по-малкият размер
                     fh = min(float(p.get('Дължина', 0)), float(p.get('Ширина', 0)))
                     for _ in range(qty):
                         real_front_heights.append(fh)
-                except: pass
+                except:
+                    pass
                     
+        # Сортираме челата (по-малките най-отгоре)
         real_front_heights.sort()
         
         real_drawers = len(real_front_heights)
         real_shelves = sum(int(p.get('Бр', 1)) for p in parts_for_this_mod if 'рафт' in str(p.get('Детайл', '')).lower() and 'подвижен' not in str(p.get('Детайл', '')).lower())
         
-        # ЗАЩИТА: Четем точно дали този модул има чекмеджета
-        lower_type = str(mod.get('lower_type', '')).lower()
-        if 'чекмедж' in lower_type:
-            match = re.search(r'(\d+)', lower_type)
-            num_drawers = int(match.group(1)) if match else 2
-        elif 'врата' in lower_type:
-            num_drawers = 0 
+        extracted_drawers = 0
+        match_dr = re.search(r'(\d+)\s*чекмедж', full_name_str)
+        if match_dr:
+            extracted_drawers = int(match_dr.group(1))
+
+        if real_drawers > 0:
+            num_drawers = real_drawers
+        elif extracted_drawers > 0:
+            num_drawers = extracted_drawers
+        elif "чекмедже" in full_name_str:
+            num_drawers = 3
         else:
-            match_dr = re.search(r'(\d+)\s*чекмедж', full_name_str)
-            if match_dr:
-                num_drawers = int(match_dr.group(1))
-            elif "чекмедже" in full_name_str:
-                num_drawers = real_drawers if real_drawers > 0 else 3
-            else:
-                num_drawers = 0
+            num_drawers = 0
 
         is_upper = "горен" in full_name_str or "горни" in full_name_str
         is_col = "колона" in full_name_str
@@ -1404,6 +1404,9 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         else:
             box_h = h - kr if h > kr and h >= 800 else h
 
+        # ==========================================
+        # 2. ЧЕРТАЕНЕ НА 3D МОДЕЛА
+        # ==========================================
         title = f"Шкаф [{m_num}] | {m_tip}"
         draw.text((150, 100), title, fill="black", font=f_title)
         draw.line([(150, 170), (2330, 170)], fill="black", width=5)
@@ -1463,13 +1466,12 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         drawer_section_h = 0
         if num_drawers > 0:
             if is_col:
-                drawer_section_h = 760 
+                if real_front_heights:
+                    drawer_section_h = sum(real_front_heights) + (len(real_front_heights) * 3) # Заемат реално място + фуги
+                else:
+                    drawer_section_h = 760
             else:
                 drawer_section_h = box_h
-                
-        # ЗАЩИТА: Ако има дублиране на имена и списъкът с чела е огромен, се връщаме към математиката
-        if real_front_heights and sum(real_front_heights) > drawer_section_h + 50:
-            real_front_heights = []
         
         shelves_data = [] 
         
@@ -1522,6 +1524,7 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             draw.line([(x0+w_px, sy), (dim_x, sy)], fill="#bbbbbb", width=2)
             draw.line([(x0+w_px, y_baseline), (dim_x, y_baseline)], fill="#bbbbbb", width=2)
 
+        # --- ЧЕРТАЕНЕ НА ЧЕЛАТА (С ПРЕЦИЗНИ РАЗМЕРИ) ---
         if num_drawers > 0:
             curr_y = y0 if not is_col else y0 + h_px - (drawer_section_h * scale)
             
@@ -1529,17 +1532,19 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                 draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4) 
                 
             if real_front_heights:
+                # Използваме ТОЧНИТЕ размери от списъка с детайли
                 total_fh = sum(real_front_heights)
                 scale_f = drawer_section_h / total_fh if total_fh > 0 else 1
                 
                 for idx, fh in enumerate(real_front_heights):
-                    fh_visual_px = fh * scale_f * scale 
+                    fh_visual_px = fh * scale_f * scale # Визуално запълваме мястото
                     if idx > 0:
                         draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4)
                     dim_x_dr = x0 - 160
                     draw_dim(img, draw, dim_x_dr, curr_y, dim_x_dr, curr_y+fh_visual_px, f"{int(fh)}", f_dim, dim_color, rotate=True)
                     curr_y += fh_visual_px
             else:
+                # Ако още няма генериран разкрой, използваме шаблони
                 if num_drawers == 1:
                     fronts = [drawer_section_h]
                 elif num_drawers == 2:
@@ -1580,6 +1585,9 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             draw.line([(x0-150, y0+h_px+kr_px), (x0+w_px+150, y0+h_px+kr_px)], fill="#999999", width=2)
             draw_dim(img, draw, dim_x_left, y0+h_px, dim_x_left, y0+h_px+kr_px, f"{int(kr)}", f_dim, dim_color, rotate=True)
 
+        # ==========================================
+        # 3. ТАБЛИЦА С ДЕТАЙЛИ
+        # ==========================================
         tab_y = 2350
         draw.text((150, tab_y - 60), f"Списък с детайли:", fill="black", font=f_title)
         
@@ -1630,7 +1638,7 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         pdf_bytes = io.BytesIO()
         pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
         return pdf_bytes.getvalue()
-    return None
+    return None 
 # --- 3. ГЕНЕРИРАНЕ НА ЕТИКЕТИ С 44 БРОЯ НА А4 ---
 def generate_labels_pdf(boards_per_mat):
     font_path = "Roboto-Regular.ttf"

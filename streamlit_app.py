@@ -1208,21 +1208,43 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
 def draw_edge_marking(draw, x, y, w, h, side, text, font):
     if not text or text == "": return
     line_w = 4
-    inset_x = 20  # Намалено наполовина скъсяване
-    inset_y = 25  # Намалено наполовина навътре (около 2.1 мм)
+    inset_x = 20  
+    inset_y = 25  
+
+    # Изчисляваме колко място заема текстът, за да "скъсаме" линията точно там
+    bbox = draw.textbbox((0, 0), text, font=font)
+    t_w = bbox[2] - bbox[0]
+    t_h = bbox[3] - bbox[1]
+    
+    gap_w = (t_w / 2) + 8  # Половината от дупката по ширина
+    gap_h = (t_h / 2) + 8  # Половината от дупката по височина
+
+    mid_x = x + w / 2
+    mid_y = y + h / 2
 
     if side == 'top':
-        draw.line([x + inset_x, y + inset_y, x + w - inset_x, y + inset_y], fill="black", width=line_w)
-        draw.text((x + w/2, y + inset_y + 4), text, fill="black", font=font, anchor="mt")
+        y_pos = y + inset_y
+        draw.line([x + inset_x, y_pos, mid_x - gap_w, y_pos], fill="black", width=line_w)
+        draw.line([mid_x + gap_w, y_pos, x + w - inset_x, y_pos], fill="black", width=line_w)
+        draw.text((mid_x, y_pos), text, fill="black", font=font, anchor="mm")
+        
     elif side == 'bottom':
-        draw.line([x + inset_x, y + h - inset_y, x + w - inset_x, y + h - inset_y], fill="black", width=line_w)
-        draw.text((x + w/2, y + h - inset_y - 4), text, fill="black", font=font, anchor="mb")
+        y_pos = y + h - inset_y
+        draw.line([x + inset_x, y_pos, mid_x - gap_w, y_pos], fill="black", width=line_w)
+        draw.line([mid_x + gap_w, y_pos, x + w - inset_x, y_pos], fill="black", width=line_w)
+        draw.text((mid_x, y_pos), text, fill="black", font=font, anchor="mm")
+        
     elif side == 'left':
-        draw.line([x + inset_y, y + inset_x, x + inset_y, y + h - inset_x], fill="black", width=line_w)
-        draw.text((x + inset_y + 4, y + h/2), text, fill="black", font=font, anchor="lm")
+        x_pos = x + inset_y
+        draw.line([x_pos, y + inset_x, x_pos, mid_y - gap_h], fill="black", width=line_w)
+        draw.line([x_pos, mid_y + gap_h, x_pos, y + h - inset_x], fill="black", width=line_w)
+        draw.text((x_pos, mid_y), text, fill="black", font=font, anchor="mm")
+        
     elif side == 'right':
-        draw.line([x + w - inset_y, y + inset_x, x + w - inset_y, y + h - inset_x], fill="black", width=line_w)
-        draw.text((x + w - inset_y - 4, y + h/2), text, fill="black", font=font, anchor="rm")
+        x_pos = x + w - inset_y
+        draw.line([x_pos, y + inset_x, x_pos, mid_y - gap_h], fill="black", width=line_w)
+        draw.line([x_pos, mid_y + gap_h, x_pos, y + h - inset_x], fill="black", width=line_w)
+        draw.text((x_pos, mid_y), text, fill="black", font=font, anchor="mm")
 
 # --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
@@ -1263,7 +1285,8 @@ def generate_labels_pdf(boards_per_mat):
         font_small = ImageFont.truetype(font_path, 20)
         font_text = ImageFont.truetype(font_path, 24)
         font_huge = ImageFont.truetype(font_path, 45)
-        font_edge = ImageFont.truetype(font_path, 18)
+        # УВЕЛИЧЕН ШРИФТ ЗА КАНТОВЕТЕ
+        font_edge = ImageFont.truetype(font_path, 24) 
     except:
         font_small = font_text = font_huge = font_edge = ImageFont.load_default()
 
@@ -1316,32 +1339,29 @@ def generate_labels_pdf(boards_per_mat):
         draw_edge_marking(draw, x, y, label_w, label_h, 'left', sh1_t, font_edge)
         draw_edge_marking(draw, x, y, label_w, label_h, 'right', sh2_t, font_edge)
 
-        # ИЗЧИСТВАНЕ И СЪКРАЩАВАНЕ НА ТЕКСТА
         m_num = str(lbl.get('mod_num', lbl.get('№', '0')))
         m_tip = str(lbl.get('mod_tip', ''))
         p_name = str(lbl.get('part_name', lbl.get('Детайл', '')))
         mat_text = str(lbl.get('mat_label', lbl.get('Плоскост', '')))
         
-        # Ако името на детайла има черта (напр. "Страница | Страница"), вземаме само първата част
         if '|' in p_name:
             p_name = p_name.split('|')[0].strip()
 
         try: mod_abbr = get_module_abbrev(m_tip)
         except: mod_abbr = m_tip
         
-        # Ако модулът и детайлът са едно и също нещо, не го повтаряме
         if mod_abbr.strip().lower() == p_name.strip().lower() or not mod_abbr.strip():
             top_text = f"[{m_num}] {p_name}"
         else:
             top_text = f"[{m_num}] {mod_abbr} | {p_name}"
             
-        # Умни съкращения за пестене на място
         top_text = top_text.replace("Стандартен", "Ст.").replace("Долен", "Дол.").replace("Горен", "Гор.")
 
         dim_text = f"{int(lbl.get('l', 0))} x {int(lbl.get('w', 0))}"
         bot_text = f"{mat_text[:22]}"
 
-        draw.text((x + label_w/2, y + padding), top_text, fill="black", font=font_text, anchor="mt")
+        # СВАЛЯМЕ ГОРНИЯ ТЕКСТ ПО-НАДОЛУ (+20 пиксела), за да не пречи на канта
+        draw.text((x + label_w/2, y + padding + 20), top_text, fill="black", font=font_text, anchor="mt")
         draw.text((x + label_w/2, y + label_h/2), dim_text, fill="black", font=font_huge, anchor="mm")
         draw.text((x + label_w/2, y + label_h - padding), bot_text, fill="black", font=font_small, anchor="mb")
 
@@ -1350,7 +1370,6 @@ def generate_labels_pdf(boards_per_mat):
     pdf_bytes = io.BytesIO()
     pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
     return pdf_bytes.getvalue()
-
 # --- 4. ПОТРЕБИТЕЛСКИ ИНТЕРФЕЙС (БУТОНИ) ---
 st.markdown("---")
 col_visuals, col_pdf = st.columns(2)

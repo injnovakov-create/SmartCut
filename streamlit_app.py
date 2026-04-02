@@ -1198,25 +1198,32 @@ def draw_edge_marking(draw, x, y, w, h, side, text, font):
         draw.line([x + w - inset_y, y + inset_x, x + w - inset_y, y + h - inset_x], fill="black", width=line_w)
         draw.text((x + w - inset_y - 8, y + h/2), text, fill="black", font=font, anchor="rm")
 # --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (ИСТИНСКИ НЕСТИНГ С БЛОКОВЕ 1, 2, 3...) ---
-# --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (ФЛАДЕР ПРЕЗ РАЗЛИЧНИ ШКАФОВЕ И ГРУПИ) ---
+# --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (ИСТИНСКИ НЕСТИНГ - В БЛОК + БЛОК 1, 2...) ---
 def get_optimized_boards(list_for_cutting):
     kerf, trim, board_l, board_w = 8, 8, 2800, 2070
     use_l, use_w = board_l - 2*trim, board_w - 2*trim
     
-    blocks = {} # blocks[mat_name][group_name] = [детайли]
+    local_blocks = {} # local_blocks[mat][mod_num_door/drawer] = [детайли]
+    global_blocks = {} # global_blocks[mat][group_name][row_num] = [детайли]
     standard_parts_by_mat = {}
     
     import re
     for item in list_for_cutting:
         mat = item.get('Плоскост', 'Неизвестен')
-        if mat not in standard_parts_by_mat: standard_parts_by_mat[mat] = []
-        if mat not in blocks: blocks[mat] = {}
-        
+        mod_num = str(item.get('№', '0'))
         note = str(item.get('Забележка', '')).strip().upper()
+        is_door = "ВРАТА" in str(item.get('Детайл', '')).upper()
         
-        # Търси "БЛОК" (и всякакви букви след него, напр. "БЛОК ГОРНИ"), последвани от число (1, 2...)
-        match = re.search(r'(БЛОК[^\d]*)(\d*)', note)
+        if mat not in standard_parts_by_mat: standard_parts_by_mat[mat] = []
+        if mat not in local_blocks: local_blocks[mat] = {}
+        if mat not in global_blocks: global_blocks[mat] = {}
         
+        is_local_block = (note == "В БЛОК")
+        global_match = None
+        if not is_local_block:
+            # Търси "БЛОК" (и думи след него), последвано от число (1, 2, 3...)
+            global_match = re.search(r'(БЛОК[^\d]*)(\d+)', note)
+            
         try:
             for _ in range(int(item.get('Бр', 1))):
                 flader_val = str(item.get('Фладер', 'Да')).strip().lower()
@@ -1232,29 +1239,37 @@ def get_optimized_boards(list_for_cutting):
                     'mod_tip': item.get('mod_tip', item.get('Детайл', 'Детайл'))
                 })
                 
-                if match:
-                    group_name = match.group(1).strip() # Напр. "БЛОК" или "БЛОК ОСТРОВ"
-                    b_num_str = match.group(2)
-                    block_num = int(b_num_str) if b_num_str else 1
-                    part_dict['block_num'] = block_num
+                if is_local_block:
+                    b_key = f"{mod_num}_door" if is_door else f"{mod_num}_drawer"
+                    if b_key not in local_blocks[mat]: local_blocks[mat][b_key] = []
+                    local_blocks[mat][b_key].append(part_dict)
                     
-                    if group_name not in blocks[mat]: blocks[mat][group_name] = []
-                    blocks[mat][group_name].append(part_dict)
+                elif global_match:
+                    g_name = global_match.group(1).strip() # Напр. "БЛОК" или "БЛОК ОСТРОВ"
+                    row_num = int(global_match.group(2))
+                    
+                    if g_name not in global_blocks[mat]: global_blocks[mat][g_name] = {}
+                    if row_num not in global_blocks[mat][g_name]: global_blocks[mat][g_name][row_num] = []
+                    global_blocks[mat][g_name][row_num].append(part_dict)
+                    
                 else:
                     standard_parts_by_mat[mat].append(part_dict)
         except: pass
 
     boards_per_material = {}
+    all_materials = set(list(standard_parts_by_mat.keys()) + list(local_blocks.keys()) + list(global_blocks.keys()))
     
-    for mat_name in standard_parts_by_mat.keys():
-        std_parts = standard_parts_by_mat[mat_name]
+    for mat_name in all_materials:
+        std_parts = standard_parts_by_mat.get(mat_name, [])
+        l_blocks = local_blocks.get(mat_name, {})
+        g_blocks = global_blocks.get(mat_name, {})
         
-        # Взимаме всички блокови детайли за този материал
-        blk_parts_for_mat = []
-        for g_name, g_parts in blocks[mat_name].items():
-            blk_parts_for_mat.extend(g_parts)
-            
-        all_mat_parts = std_parts + blk_parts_for_mat
+        all_mat_parts = list(std_parts)
+        for b_parts in l_blocks.values(): all_mat_parts.extend(b_parts)
+        for grp in g_blocks.values():
+            for row_parts in grp.values():
+                all_mat_parts.extend(row_parts)
+                
         if not all_mat_parts: continue
         
         mat_can_rotate = all(p['can_rotate'] for p in all_mat_parts)
@@ -1269,35 +1284,59 @@ def get_optimized_boards(list_for_cutting):
         items_to_pack = []
         pack_idx = 0
         
-        # 1. Слагаме обикновените детайли
+        # 1. Стандартни детайли
         for p in std_parts:
             items_to_pack.append({'type': 'single', 'part': p})
             packer.add_rect(int(p['l'] + kerf), int(p['w'] + kerf), rid=pack_idx)
             pack_idx += 1
             
-        # 2. Сглобяваме супер-блоковете (матрицата от фладери)
-        for g_name, g_parts in blocks[mat_name].items():
-            if not g_parts: continue
+        # 2. Локални Блокове ("В БЛОК" - за конкретен шкаф)
+        for b_key, b_parts in l_blocks.items():
+            if not b_parts: continue
+            b_parts.sort(key=lambda x: x['name']) # Сортиране по име (напр. Чело 1, Чело 2)
             
-            sub_blocks = {}
-            for p in g_parts:
-                b_num = p['block_num']
-                if b_num not in sub_blocks: sub_blocks[b_num] = []
-                sub_blocks[b_num].append(p)
-                
-            sorted_nums = sorted(list(sub_blocks.keys()))
+            is_door_block = "door" in b_key
+            curr_offset = 0
+            
+            if is_door_block: # Вратите се редят една до друга (по ширина)
+                block_w = sum(p['w'] for p in b_parts) + (len(b_parts) - 1) * kerf
+                block_l = max(p['l'] for p in b_parts)
+                for p in b_parts:
+                    p['rel_x'] = 0
+                    p['rel_y'] = curr_offset
+                    curr_offset += p['w'] + kerf
+            else: # Чекмеджетата се редят едно над друго (по дължина)
+                block_w = max(p['w'] for p in b_parts)
+                block_l = sum(p['l'] for p in b_parts) + (len(b_parts) - 1) * kerf
+                for p in b_parts:
+                    p['rel_x'] = curr_offset
+                    p['rel_y'] = 0
+                    curr_offset += p['l'] + kerf
+                    
+            items_to_pack.append({
+                'type': 'super_block',
+                'parts': b_parts,
+                'l': block_l,
+                'w': block_w
+            })
+            packer.add_rect(int(block_l + kerf), int(block_w + kerf), rid=pack_idx)
+            pack_idx += 1
+            
+        # 3. Глобални Блокове ("БЛОК 1", "БЛОК 2" - през различни шкафове)
+        for g_name, g_groups in g_blocks.items():
+            if not g_groups: continue
+            
+            sorted_nums = sorted(list(g_groups.keys()))
             packed_parts_info = []
             
             current_l_offset = 0
             max_super_w = 0
             
-            # Редим по дължина (Блок 1, после под него Блок 2...)
             for num in sorted_nums:
-                sub_parts = sub_blocks[num]
+                sub_parts = g_groups[num]
                 current_w_offset = 0
                 max_sub_l = 0
                 
-                # Редим по ширина (Всички детайли, които са с един и същ номер, напр. съседни врати)
                 for p in sub_parts:
                     p['rel_x'] = current_l_offset
                     p['rel_y'] = current_w_offset
@@ -1328,7 +1367,7 @@ def get_optimized_boards(list_for_cutting):
         for _ in range(20): packer.add_bin(int(use_l), int(use_w))
         packer.pack()
         
-        # 3. Разпакетиране и пресмятане на реалните координати
+        # 4. Разпакетиране
         all_boards = []
         for abin in packer:
             current_board_parts = []

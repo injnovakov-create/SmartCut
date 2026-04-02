@@ -1247,9 +1247,10 @@ def draw_edge_marking(draw, x, y, w, h, side, text, font):
         draw.text((x_pos, mid_y), text, fill="black", font=font, anchor="mm")
 
 
-# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (РАЗДЕЛЯНЕ НА ЧЕРТЕЖА ОТ СПИСЪКА) ---
+# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (ТОЧНИ ЧЕКМЕДЖЕТА СПРЯМО ДЕТАЙЛИТЕ) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
     import math
+    import re
     font_path = "Roboto-Regular.ttf"
     font_path_it = "Roboto-Italic.ttf"
     
@@ -1329,38 +1330,73 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         except: h = 860
         try: d = float(get_val(mod, ['d', 'D', 'Дълбочина'], 550))
         except: d = 550
-
         try: kr = int(kraka_height)
         except: kr = 0
         
         m_num_str = str(m_num).strip().lower()
         m_tip_str = str(m_tip).strip().lower()
+        full_name_str = f"{m_num_str} {m_tip_str}"
         
-        # --- 1. ЧЕТЕНЕ НА ДАННИТЕ ДИРЕКТНО ОТ МЕНЮТО (А НЕ ОТ РАЗКРОЯ) ---
-        num_drawers = 0
-        num_shelves = None
-        for k, v in mod.items():
-            k_lower = str(k).lower()
-            if "чекмедж" in k_lower:
-                try: num_drawers = int(v)
-                except: pass
-            if "рафт" in k_lower:
-                try: num_shelves = int(v)
-                except: pass
+        # ==========================================
+        # 1. ОБЕДИНЕН МОЗЪК: НАМИРАНЕ НА ДЕТАЙЛИТЕ
+        # ==========================================
+        parts_for_this_mod = []
+        if order_list:
+            seen = set()
+            for p in order_list:
+                p_num = str(p.get('mod_num', p.get('№', ''))).strip().lower()
+                p_tip = str(p.get('mod_tip', p.get('Детайл', ''))).strip().lower()
                 
-        is_upper = "горен" in m_tip_str or "горни" in m_tip_str or "горен" in m_num_str or "горни" in m_num_str
-        is_col = "колона" in m_tip_str or "колона" in m_num_str
-        is_drawer = "чекмедже" in m_tip_str or "чекмедже" in m_num_str
+                matches_num = (p_num == m_num_str and m_num_str not in ['', '?'])
+                matches_name = (m_num_str in ['', '?'] and p_tip == m_tip_str)
+                
+                if matches_num or matches_name:
+                    p_sig = f"{p.get('Детайл')}_{p.get('Дължина')}_{p.get('Ширина')}_{p.get('Бр')}_{p.get('Плоскост')}"
+                    if p_sig not in seen:
+                        seen.add(p_sig)
+                        parts_for_this_mod.append(p)
+        
+        # Извличане на реалните височини на челата от списъка с детайли
+        real_front_heights = []
+        for p in parts_for_this_mod:
+            if 'чело' in str(p.get('Детайл', '')).lower():
+                qty = int(p.get('Бр', 1))
+                try:
+                    # Височината на челото обикновено е по-малкият размер
+                    fh = min(float(p.get('Дължина', 0)), float(p.get('Ширина', 0)))
+                    for _ in range(qty):
+                        real_front_heights.append(fh)
+                except:
+                    pass
+                    
+        # Сортираме челата (по-малките най-отгоре)
+        real_front_heights.sort()
+        
+        real_drawers = len(real_front_heights)
+        real_shelves = sum(int(p.get('Бр', 1)) for p in parts_for_this_mod if 'рафт' in str(p.get('Детайл', '')).lower() and 'подвижен' not in str(p.get('Детайл', '')).lower())
+        
+        extracted_drawers = 0
+        match_dr = re.search(r'(\d+)\s*чекмедж', full_name_str)
+        if match_dr:
+            extracted_drawers = int(match_dr.group(1))
 
-        if is_drawer and num_drawers == 0:
+        if real_drawers > 0:
+            num_drawers = real_drawers
+        elif extracted_drawers > 0:
+            num_drawers = extracted_drawers
+        elif "чекмедже" in full_name_str:
             num_drawers = 3
-
-        if not is_upper and not is_col and not is_drawer:
-            is_lower = True 
         else:
-            is_lower = "долен" in m_tip_str or "долни" in m_tip_str
+            num_drawers = 0
 
-        bottom_under_sides = is_lower or is_col or is_drawer
+        is_upper = "горен" in full_name_str or "горни" in full_name_str
+        is_col = "колона" in full_name_str
+        is_lower = "долен" in full_name_str or "долни" in full_name_str
+
+        if not is_upper and not is_lower and not is_col and num_drawers == 0:
+            is_lower = True 
+
+        bottom_under_sides = is_lower or is_col or num_drawers > 0
 
         if is_upper:
             kr = 0
@@ -1368,6 +1404,9 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         else:
             box_h = h - kr if h > kr and h >= 800 else h
 
+        # ==========================================
+        # 2. ЧЕРТАЕНЕ НА 3D МОДЕЛА
+        # ==========================================
         title = f"Шкаф [{m_num}] | {m_tip}"
         draw.text((150, 100), title, fill="black", font=f_title)
         draw.line([(150, 170), (2330, 170)], fill="black", width=5)
@@ -1427,25 +1466,28 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         drawer_section_h = 0
         if num_drawers > 0:
             if is_col:
-                drawer_section_h = num_drawers * (760 / 3) 
+                if real_front_heights:
+                    drawer_section_h = sum(real_front_heights) + (len(real_front_heights) * 3) # Заемат реално място + фуги
+                else:
+                    drawer_section_h = 760
             else:
                 drawer_section_h = box_h
         
         shelves_data = [] 
-        space_for_shelves = box_h - drawer_section_h
         
-        if space_for_shelves > 200:
-            if is_col and num_drawers == 0:
-                door_h = 760 
-                c1 = door_h - t_mm - (t_mm / 2) 
-                c2 = c1 + 609                   
-                y_start = y0 + h_px - t
-                shelves_data.append((y_start - (c1 * scale), c1))
-                shelves_data.append((y_start - (c2 * scale), c2))
-                if box_h > 1800:
-                    c3 = c2 + 390               
-                    shelves_data.append((y_start - (c3 * scale), c3))
-            else:
+        if is_col:
+            c1 = 760 - t_mm - (t_mm / 2) 
+            c2 = c1 + 609                
+            y_start = y0 + h_px - t
+            shelves_data.append((y_start - (c1 * scale), c1))
+            shelves_data.append((y_start - (c2 * scale), c2))
+            if box_h > 1800:
+                c3 = c2 + 390            
+                shelves_data.append((y_start - (c3 * scale), c3))
+        else:
+            space_for_shelves = box_h - drawer_section_h
+            if space_for_shelves > 200:
+                num_shelves = real_shelves if real_shelves > 0 else None
                 if num_shelves is None:
                     if space_for_shelves <= 500: num_shelves = 0
                     elif space_for_shelves <= 1000: num_shelves = 1
@@ -1482,14 +1524,32 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             draw.line([(x0+w_px, sy), (dim_x, sy)], fill="#bbbbbb", width=2)
             draw.line([(x0+w_px, y_baseline), (dim_x, y_baseline)], fill="#bbbbbb", width=2)
 
+        # --- ЧЕРТАЕНЕ НА ЧЕЛАТА (С ПРЕЦИЗНИ РАЗМЕРИ) ---
         if num_drawers > 0:
+            curr_y = y0 if not is_col else y0 + h_px - (drawer_section_h * scale)
+            
             if is_col:
-                curr_y = y0 + h_px - (drawer_section_h * scale)
                 draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4) 
-                fronts = [drawer_section_h / num_drawers] * num_drawers
+                
+            if real_front_heights:
+                # Използваме ТОЧНИТЕ размери от списъка с детайли
+                total_fh = sum(real_front_heights)
+                scale_f = drawer_section_h / total_fh if total_fh > 0 else 1
+                
+                for idx, fh in enumerate(real_front_heights):
+                    fh_visual_px = fh * scale_f * scale # Визуално запълваме мястото
+                    if idx > 0:
+                        draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4)
+                    dim_x_dr = x0 - 160
+                    draw_dim(img, draw, dim_x_dr, curr_y, dim_x_dr, curr_y+fh_visual_px, f"{int(fh)}", f_dim, dim_color, rotate=True)
+                    curr_y += fh_visual_px
             else:
-                curr_y = y0 
-                if num_drawers == 3:
+                # Ако още няма генериран разкрой, използваме шаблони
+                if num_drawers == 1:
+                    fronts = [drawer_section_h]
+                elif num_drawers == 2:
+                    fronts = [drawer_section_h / 2] * 2
+                elif num_drawers == 3:
                     h1 = 160 if drawer_section_h > 500 else drawer_section_h * 0.25
                     h2 = (drawer_section_h - h1) / 2
                     fronts = [h1, h2, h2]
@@ -1500,13 +1560,13 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                 else:
                     fronts = [drawer_section_h / num_drawers] * num_drawers
                     
-            for idx, fh in enumerate(fronts):
-                fh_px = fh * scale
-                if idx > 0:
-                    draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4)
-                dim_x_dr = x0 - 160
-                draw_dim(img, draw, dim_x_dr, curr_y, dim_x_dr, curr_y+fh_px, f"{int(fh)}", f_dim, dim_color, rotate=True)
-                curr_y += fh_px
+                for idx, fh in enumerate(fronts):
+                    fh_px = fh * scale
+                    if idx > 0:
+                        draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4)
+                    dim_x_dr = x0 - 160
+                    draw_dim(img, draw, dim_x_dr, curr_y, dim_x_dr, curr_y+fh_px, f"{int(fh)}", f_dim, dim_color, rotate=True)
+                    curr_y += fh_px
 
         dim_y = y0 + h_px + (kr * scale) + 80
         draw_dim(img, draw, x0, dim_y, x0+w_px, dim_y, f"{int(w)}", f_dim, dim_color)
@@ -1525,9 +1585,12 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             draw.line([(x0-150, y0+h_px+kr_px), (x0+w_px+150, y0+h_px+kr_px)], fill="#999999", width=2)
             draw_dim(img, draw, dim_x_left, y0+h_px, dim_x_left, y0+h_px+kr_px, f"{int(kr)}", f_dim, dim_color, rotate=True)
 
-        # --- 2. ВНИМАТЕЛНО ФИЛТРИРАНЕ НА ТАБЛИЦАТА ---
+        # ==========================================
+        # 3. ТАБЛИЦА С ДЕТАЙЛИ
+        # ==========================================
         tab_y = 2350
         draw.text((150, tab_y - 60), f"Списък с детайли:", fill="black", font=f_title)
+        
         draw.line([(150, tab_y), (2330, tab_y)], fill="black", width=4)
         draw.text((160, tab_y + 10), "Детайл", font=f_tab_h, fill="black")
         draw.text((900, tab_y + 10), "Размер (L x W)", font=f_tab_h, fill="black")
@@ -1536,22 +1599,6 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         draw.text((1900, tab_y + 10), "Материал", font=f_tab_h, fill="black")
         tab_y += 60
         draw.line([(150, tab_y), (2330, tab_y)], fill="black", width=4)
-        
-        parts_for_this_mod = []
-        if order_list:
-            seen = set()
-            for p in order_list:
-                p_num = str(p.get('mod_num', p.get('№', ''))).strip().lower()
-                p_tip = str(p.get('mod_tip', p.get('Детайл', ''))).lower()
-                
-                matches_num = (p_num == m_num_str and m_num_str not in ['', '?'])
-                matches_name = (m_num_str in ['', '?'] and p_tip == m_tip_str)
-                
-                if matches_num or matches_name:
-                    p_sig = f"{p.get('Детайл')}_{p.get('Дължина')}_{p.get('Ширина')}_{p.get('Бр')}_{p.get('Плоскост')}"
-                    if p_sig not in seen:
-                        seen.add(p_sig)
-                        parts_for_this_mod.append(p)
         
         if not parts_for_this_mod:
             draw.text((160, tab_y + 20), "Няма генерирани детайли в разкроя за този модул.", font=f_tab_r, fill="#777777")

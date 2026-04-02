@@ -1247,7 +1247,7 @@ def draw_edge_marking(draw, x, y, w, h, side, text, font):
         draw.text((x_pos, mid_y), text, fill="black", font=font, anchor="mm")
 
 
-# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (С МЕЖДИННА СТРАНИЦА И ЛЯВ/ДЕСЕН РАФТ) ---
+# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (СТАБИЛНА И СИНХРОНИЗИРАНА ВЕРСИЯ) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
     import math
     import re
@@ -1329,6 +1329,7 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         m_num = get_val(mod, ['mod_num', '№', 'Номер'], '?')
         m_tip = get_val(mod, ['mod_tip', 'Модул', 'Вид'], 'Неизвестен Модул')
         
+        # ЗАЩИТА: Гарантираме, че габаритите са поне 60мм, за да не гърми PIL
         try: w = max(float(get_val(mod, ['w', 'W', 'Ширина'], 600)), 60)
         except: w = 600
         try: h = max(float(get_val(mod, ['h_box', 'h', 'H', 'Височина'], 860)), 60)
@@ -1358,62 +1359,43 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                         seen.add(p_sig)
                         parts_for_this_mod.append(p)
         
-        # Четене на специфични рафтове отляво и отдясно от таблицата
-        num_shelves_left = None
-        num_shelves_right = None
-        num_shelves = None
-        for k, v in mod.items():
-            kl = str(k).lower()
-            if "рафт" in kl:
-                if "ляв" in kl or "ляво" in kl:
-                    try: num_shelves_left = int(v)
-                    except: pass
-                elif "дес" in kl or "дясно" in kl:
-                    try: num_shelves_right = int(v)
-                    except: pass
-                else:
-                    try: num_shelves = int(v)
-                    except: pass
-
         real_front_heights = []
         for p in parts_for_this_mod:
             if 'чело' in str(p.get('Детайл', '')).lower():
                 qty = int(p.get('Бр', 1))
                 try:
-                    fh_val = min(float(p.get('Дължина', 0)), float(p.get('Ширина', 0)))
+                    fh = min(float(p.get('Дължина', 0)), float(p.get('Ширина', 0)))
                     for _ in range(qty):
-                        real_front_heights.append(fh_val)
+                        real_front_heights.append(fh)
                 except: pass
                     
         real_front_heights.sort()
         
         real_drawers = len(real_front_heights)
         real_shelves = sum(int(p.get('Бр', 1)) for p in parts_for_this_mod if 'рафт' in str(p.get('Детайл', '')).lower() and 'подвижен' not in str(p.get('Детайл', '')).lower())
-        real_dividers = sum(int(p.get('Бр', 1)) for p in parts_for_this_mod if 'междин' in str(p.get('Детайл', '')).lower() or 'делител' in str(p.get('Детайл', '')).lower())
-
+        
         extracted_drawers = 0
         match_dr = re.search(r'(\d+)\s*чекмедж', full_name_str)
         if match_dr:
             extracted_drawers = int(match_dr.group(1))
 
-        if real_drawers > 0: num_drawers = real_drawers
-        elif extracted_drawers > 0: num_drawers = extracted_drawers
-        elif "чекмедже" in full_name_str: num_drawers = 3
-        else: num_drawers = 0
+        if real_drawers > 0:
+            num_drawers = real_drawers
+        elif extracted_drawers > 0:
+            num_drawers = extracted_drawers
+        elif "чекмедже" in full_name_str:
+            num_drawers = 3
+        else:
+            num_drawers = 0
 
         is_upper = "горен" in full_name_str or "горни" in full_name_str
         is_col = "колона" in full_name_str
         is_lower = "долен" in full_name_str or "долни" in full_name_str
-        
-        # Логика за Гардероб / Шкаф с делител
-        is_divided = False
-        if real_dividers > 0 or "гардероб" in full_name_str or "междинна" in full_name_str or "делител" in full_name_str:
-            is_divided = True
 
-        if not is_upper and not is_lower and not is_col and not is_divided and num_drawers == 0:
+        if not is_upper and not is_lower and not is_col and num_drawers == 0:
             is_lower = True 
 
-        bottom_under_sides = is_lower or is_col or num_drawers > 0 or "гардероб" in full_name_str
+        bottom_under_sides = is_lower or is_col or num_drawers > 0
 
         if is_upper:
             kr = 0
@@ -1448,7 +1430,6 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         t_mm = 18
         t = t_mm * scale 
         
-        # 1. ЧЕРТАЕНЕ НА КОРПУСА
         boards = []
         if bottom_under_sides:
             boards.append( (x0, y0, t, h_px - t) ) 
@@ -1472,6 +1453,12 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         draw.line([(x0+w_px, y0), (x0+w_px+dx, y0-dy)], fill=c_front, width=3)
         draw.line([(x0+w_px, y0+h_px), (x0+w_px+dx, y0+h_px-dy)], fill=c_front, width=3)
 
+        for bx, by, bw, bh in boards:
+            draw.rectangle([bx, by, bx+bw, by+bh], outline=c_front, width=3)
+            
+        dim_color = "#D32F2F"
+        shelf_color_dim = "#2196F3"
+        
         drawer_section_h = 0
         if num_drawers > 0:
             if is_col:
@@ -1482,130 +1469,97 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             else:
                 drawer_section_h = box_h
         
-        space_for_shelves = box_h - drawer_section_h
+        shelves_data = [] 
         
-        # 2. РАЗПРЕДЕЛЕНИЕ НА РАФТОВЕ (СТАНДАРТНИ ИЛИ РАЗДЕЛЕНИ)
-        columns_data = []
-        
-        if is_divided:
-            # Логика за Гардероб/Междинна страница
-            gap_w_px = (w_px - 3*t) / 2
-            div_x = x0 + t + gap_w_px
-            
-            # Подсигуряване на броя рафтове отляво и отдясно
-            if num_shelves_left is None:
-                num_shelves_left = (num_shelves // 2) if num_shelves else 4
-            if num_shelves_right is None:
-                num_shelves_right = (num_shelves - num_shelves_left) if num_shelves else 1
-                
-            columns_data.append({'s_left': x0 + t, 's_width': gap_w_px, 'ns': num_shelves_left, 'dim_side': 'left'})
-            columns_data.append({'s_left': div_x + t, 's_width': gap_w_px, 'ns': num_shelves_right, 'dim_side': 'right'})
-            
-            # Чертаене на 3D Междинна страница
-            draw.rectangle([div_x+dx, y0+t-dy, div_x+t+dx, y0+h_px-t-dy], outline=c_back, width=2)
-            draw.line([(div_x, y0+t), (div_x+dx, y0+t-dy)], fill=c_back, width=2)
-            draw.line([(div_x+t, y0+t), (div_x+t+dx, y0+t-dy)], fill=c_back, width=2)
-            draw.rectangle([div_x, y0+t, div_x+t, y0+h_px-t], outline=c_front, width=3)
-            
+        if is_col:
+            c1 = 760 - t_mm - (t_mm / 2) 
+            c2 = c1 + 609                
+            y_start = y0 + h_px - t
+            shelves_data.append((y_start - (c1 * scale), c1))
+            shelves_data.append((y_start - (c2 * scale), c2))
+            if box_h > 1800:
+                c3 = c2 + 390            
+                shelves_data.append((y_start - (c3 * scale), c3))
         else:
-            # Стандартен шкаф без делител
-            if is_col and num_drawers == 0:
-                pass # За фурната има специфична логика
-            else:
-                ns = num_shelves if num_shelves is not None else (real_shelves if real_shelves > 0 else 0)
-                if ns == 0 and space_for_shelves > 200:
-                    if space_for_shelves <= 500: ns = 0
-                    elif space_for_shelves <= 1000: ns = 1
-                    elif space_for_shelves <= 1600: ns = 2
-                    else: ns = 3
-                columns_data.append({'s_left': x0 + t, 's_width': w_px - 2*t, 'ns': ns, 'dim_side': 'right'})
+            space_for_shelves = box_h - drawer_section_h
+            if space_for_shelves > 200:
+                num_shelves = real_shelves if real_shelves > 0 else None
+                if num_shelves is None:
+                    if space_for_shelves <= 500: num_shelves = 0
+                    elif space_for_shelves <= 1000: num_shelves = 1
+                    elif space_for_shelves <= 1600: num_shelves = 2
+                    else: num_shelves = 3
+                
+                if num_shelves > 0:
+                    gap = (space_for_shelves - num_shelves * t_mm) / (num_shelves + 1)
+                    for i in range(1, num_shelves + 1):
+                        h_from_bottom = drawer_section_h + i * gap + (i - 1) * t_mm + (t_mm / 2)
+                        if bottom_under_sides:
+                            dim_val = h_from_bottom 
+                            y_start = y0 + h_px - t
+                        else:
+                            dim_val = h_from_bottom + t_mm 
+                            y_start = y0 + h_px
+                            
+                        sy = y_start - (dim_val * scale)
+                        shelves_data.append((sy, dim_val))
 
-        dim_color = "#D32F2F"
-        shelf_color_dim = "#2196F3"
-
-        # Чертаене на изчислените рафтове по колони
-        for col_idx, col in enumerate(columns_data):
-            col_shelves = []
-            ns = col['ns']
+        for idx, (sy, dim_val) in enumerate(shelves_data):
+            s_left = x0 + t
+            s_width = w_px - 2*t
+            draw.rectangle([s_left+dx, sy-t/2-dy, s_left+s_width+dx, sy+t/2-dy], outline=c_shelf, width=2)
+            draw.line([(s_left, sy-t/2), (s_left+dx, sy-t/2-dy)], fill=c_shelf, width=2)
+            draw.line([(s_left+s_width, sy-t/2), (s_left+s_width+dx, sy-t/2-dy)], fill=c_shelf, width=2)
+            draw.line([(s_left, sy+t/2), (s_left+dx, sy+t/2-dy)], fill=c_shelf, width=2)
+            draw.line([(s_left+s_width, sy+t/2), (s_left+s_width+dx, sy+t/2-dy)], fill=c_shelf, width=2)
+            draw.rectangle([s_left, sy-t/2, s_left+s_width, sy+t/2], outline=c_shelf, width=2)
             
-            if is_col and not is_divided and num_drawers == 0:
-                c1 = 760 - t_mm - (t_mm / 2) 
-                c2 = c1 + 609                
-                y_start = y0 + h_px - t
-                col_shelves.append((y_start - (c1 * scale), c1))
-                col_shelves.append((y_start - (c2 * scale), c2))
-                if box_h > 1800:
-                    c3 = c2 + 390            
-                    col_shelves.append((y_start - (c3 * scale), c3))
-            elif ns > 0:
-                gap = (space_for_shelves - ns * t_mm) / (ns + 1)
-                for i in range(1, ns + 1):
-                    h_from_bottom = drawer_section_h + i * gap + (i - 1) * t_mm + (t_mm / 2)
-                    dim_val = h_from_bottom if bottom_under_sides else h_from_bottom + t_mm 
-                    y_start = y0 + h_px - t if bottom_under_sides else y0 + h_px
-                    sy = y_start - (dim_val * scale)
-                    col_shelves.append((sy, dim_val))
+            dim_x = x0 + w_px + 80 + ((idx+1) * 75) 
+            y_baseline = (y0 + h_px - t) if bottom_under_sides else (y0 + h_px)
+            draw_dim(img, draw, dim_x, y_baseline, dim_x, sy, f"{int(dim_val)}", f_dim, shelf_color_dim, rotate=True)
+            draw.line([(x0+w_px, sy), (dim_x, sy)], fill="#bbbbbb", width=2)
+            draw.line([(x0+w_px, y_baseline), (dim_x, y_baseline)], fill="#bbbbbb", width=2)
 
-            for idx, (sy, dim_val) in enumerate(col_shelves):
-                s_left = col['s_left']
-                s_width = col['s_width']
-                
-                # 3D Рафт
-                draw.rectangle([s_left+dx, sy-t/2-dy, s_left+s_width+dx, sy+t/2-dy], outline=c_shelf, width=2)
-                draw.line([(s_left, sy-t/2), (s_left+dx, sy-t/2-dy)], fill=c_shelf, width=2)
-                draw.line([(s_left+s_width, sy-t/2), (s_left+s_width+dx, sy-t/2-dy)], fill=c_shelf, width=2)
-                draw.line([(s_left, sy+t/2), (s_left+dx, sy+t/2-dy)], fill=c_shelf, width=2)
-                draw.line([(s_left+s_width, sy+t/2), (s_left+s_width+dx, sy+t/2-dy)], fill=c_shelf, width=2)
-                draw.rectangle([s_left, sy-t/2, s_left+s_width, sy+t/2], outline=c_shelf, width=2)
-                
-                # Оразмеряване
-                y_baseline = (y0 + h_px - t) if bottom_under_sides else (y0 + h_px)
-                
-                if col['dim_side'] == 'right':
-                    dim_x = x0 + w_px + 80 + ((idx+1) * 75) 
-                    draw_dim(img, draw, dim_x, y_baseline, dim_x, sy, f"{int(dim_val)}", f_dim, shelf_color_dim, rotate=True)
-                    draw.line([(x0+w_px, sy), (dim_x, sy)], fill="#bbbbbb", width=2)
-                    draw.line([(x0+w_px, y_baseline), (dim_x, y_baseline)], fill="#bbbbbb", width=2)
-                else:
-                    dim_x = x0 - 200 - ((idx+1) * 75)
-                    draw_dim(img, draw, dim_x, y_baseline, dim_x, sy, f"{int(dim_val)}", f_dim, shelf_color_dim, rotate=True)
-                    draw.line([(x0, sy), (dim_x, sy)], fill="#bbbbbb", width=2)
-                    draw.line([(x0, y_baseline), (dim_x, y_baseline)], fill="#bbbbbb", width=2)
-
-        # 3. ЧЕРТАЕНЕ НА ВЪНШНИТЕ ЛИЦА
-        for bx, by, bw, bh in boards:
-            draw.rectangle([bx, by, bx+bw, by+bh], outline=c_front, width=3)
-
-        # 4. ЧЕРТАЕНЕ НА ЧЕКМЕДЖЕТА (БЕЗОПАСЕН КОД)
         if num_drawers > 0:
             curr_y = y0 if not is_col else y0 + h_px - (drawer_section_h * scale)
-            if is_col: draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4) 
+            
+            if is_col:
+                draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4) 
                 
             if real_front_heights:
                 total_fh = sum(real_front_heights)
                 scale_f = drawer_section_h / total_fh if total_fh > 0 else 1
-                for idx, fh_val in enumerate(real_front_heights):
-                    fh_visual_px = fh_val * scale_f * scale 
-                    if idx > 0: draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4)
-                    dim_x_dr = x0 - 140
-                    draw_dim(img, draw, dim_x_dr, curr_y, dim_x_dr, curr_y+fh_visual_px, f"{int(fh_val)}", f_dim, dim_color, rotate=True)
+                
+                for idx, fh in enumerate(real_front_heights):
+                    fh_visual_px = fh * scale_f * scale 
+                    if idx > 0:
+                        draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4)
+                    dim_x_dr = x0 - 160
+                    draw_dim(img, draw, dim_x_dr, curr_y, dim_x_dr, curr_y+fh_visual_px, f"{int(fh)}", f_dim, dim_color, rotate=True)
                     curr_y += fh_visual_px
             else:
-                if num_drawers == 1: fronts = [drawer_section_h]
-                elif num_drawers == 2: fronts = [drawer_section_h / 2] * 2
+                if num_drawers == 1:
+                    fronts = [drawer_section_h]
+                elif num_drawers == 2:
+                    fronts = [drawer_section_h / 2] * 2
                 elif num_drawers == 3:
                     h1 = 160 if drawer_section_h > 500 else drawer_section_h * 0.25
                     h2 = (drawer_section_h - h1) / 2
                     fronts = [h1, h2, h2]
+                elif num_drawers == 4:
+                    h1 = 160 if drawer_section_h > 600 else drawer_section_h * 0.2
+                    h2 = (drawer_section_h - h1) / 3
+                    fronts = [h1, h2, h2, h2]
                 else:
                     fronts = [drawer_section_h / num_drawers] * num_drawers
                     
-                for idx, fh_val in enumerate(fronts):
-                    fh_visual_px = fh_val * scale
-                    if idx > 0: draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4)
-                    dim_x_dr = x0 - 140
-                    draw_dim(img, draw, dim_x_dr, curr_y, dim_x_dr, curr_y+fh_visual_px, f"{int(fh_val)}", f_dim, dim_color, rotate=True)
-                    curr_y += fh_visual_px
+                for idx, fh in enumerate(fronts):
+                    fh_px = fh * scale
+                    if idx > 0:
+                        draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4)
+                    dim_x_dr = x0 - 160
+                    draw_dim(img, draw, dim_x_dr, curr_y, dim_x_dr, curr_y+fh_px, f"{int(fh)}", f_dim, dim_color, rotate=True)
+                    curr_y += fh_px
 
         dim_y = y0 + h_px + (kr * scale) + 80
         draw_dim(img, draw, x0, dim_y, x0+w_px, dim_y, f"{int(w)}", f_dim, dim_color)

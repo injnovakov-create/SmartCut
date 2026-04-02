@@ -839,7 +839,7 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                         seen.add(p_sig)
                         parts_for_this_mod.append(p)
         
-        # --- СКАНИРАНЕ ЗА ДЕЛИТЕЛИ ---
+        # --- СКАНИРАНЕ ЗА ДЕЛИТЕЛИ И СЕКЦИИ ---
         has_divider = False
         num_dividers = int(get_val(mod, ['num_dividers'], 0))
         section_shelves = []
@@ -881,6 +881,7 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             
         num_sections = num_dividers + 1
 
+        # Защита: Ако сме пропуснали данните в метаданните
         if has_divider and not section_shelves:
             ns_l = int(get_val(mod, ['рафтове ляво'], 2))
             ns_r = int(get_val(mod, ['рафтове дясно'], 2))

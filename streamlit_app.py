@@ -298,7 +298,8 @@ with col1:
             if split_doors: lower_door_h = st.number_input("Височина долна врата (мм)", value=718)
         vrati_broi = st.radio("Брой врати на ред:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_col")
         h = h_korpus + kraka 
-        elif tip == "Шкаф с меж. стр.":
+        
+    elif tip == "Шкаф с меж. стр.":
         st.info("Модул с вертикален делител")
         mod_podtip = st.radio("Избери вид шкаф:", ["Долен с делител", "Горен с делител"], horizontal=True)
         

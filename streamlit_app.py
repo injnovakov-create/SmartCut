@@ -1247,7 +1247,7 @@ def draw_edge_marking(draw, x, y, w, h, side, text, font):
         draw.text((x_pos, mid_y), text, fill="black", font=font, anchor="mm")
 
 
-# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (НАПЪЛНО СИНХРОНИЗИРАНА ЛОГИКА) ---
+# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (ТОЧНИ ЧЕКМЕДЖЕТА СПРЯМО ДЕТАЙЛИТЕ) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
     import math
     import re
@@ -1347,7 +1347,6 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                 p_num = str(p.get('mod_num', p.get('№', ''))).strip().lower()
                 p_tip = str(p.get('mod_tip', p.get('Детайл', ''))).strip().lower()
                 
-                # По-добро съвпадение (ако има номер, търси по него; иначе по име)
                 matches_num = (p_num == m_num_str and m_num_str not in ['', '?'])
                 matches_name = (m_num_str in ['', '?'] and p_tip == m_tip_str)
                 
@@ -1357,17 +1356,30 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                         seen.add(p_sig)
                         parts_for_this_mod.append(p)
         
-        # Броене от реалните детайли
-        real_drawers = sum(int(p.get('Бр', 1)) for p in parts_for_this_mod if 'чело' in str(p.get('Детайл', '')).lower())
+        # Извличане на реалните височини на челата от списъка с детайли
+        real_front_heights = []
+        for p in parts_for_this_mod:
+            if 'чело' in str(p.get('Детайл', '')).lower():
+                qty = int(p.get('Бр', 1))
+                try:
+                    # Височината на челото обикновено е по-малкият размер
+                    fh = min(float(p.get('Дължина', 0)), float(p.get('Ширина', 0)))
+                    for _ in range(qty):
+                        real_front_heights.append(fh)
+                except:
+                    pass
+                    
+        # Сортираме челата (по-малките най-отгоре)
+        real_front_heights.sort()
+        
+        real_drawers = len(real_front_heights)
         real_shelves = sum(int(p.get('Бр', 1)) for p in parts_for_this_mod if 'рафт' in str(p.get('Детайл', '')).lower() and 'подвижен' not in str(p.get('Детайл', '')).lower())
         
-        # Четене на цифрата от заглавието (напр. "с 4 чекмеджета")
         extracted_drawers = 0
         match_dr = re.search(r'(\d+)\s*чекмедж', full_name_str)
         if match_dr:
             extracted_drawers = int(match_dr.group(1))
 
-        # Определяне на точния брой чекмеджета
         if real_drawers > 0:
             num_drawers = real_drawers
         elif extracted_drawers > 0:
@@ -1454,21 +1466,23 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         drawer_section_h = 0
         if num_drawers > 0:
             if is_col:
-                drawer_section_h = 760 # В колона чекмеджетата винаги заемат долните 760мм
+                if real_front_heights:
+                    drawer_section_h = sum(real_front_heights) + (len(real_front_heights) * 3) # Заемат реално място + фуги
+                else:
+                    drawer_section_h = 760
             else:
                 drawer_section_h = box_h
         
         shelves_data = [] 
         
         if is_col:
-            # Твърди рафтове за колона (Винаги се чертаят!)
-            c1 = 760 - t_mm - (t_mm / 2) # Рафт под фурна
-            c2 = c1 + 609                # Рафт над фурна
+            c1 = 760 - t_mm - (t_mm / 2) 
+            c2 = c1 + 609                
             y_start = y0 + h_px - t
             shelves_data.append((y_start - (c1 * scale), c1))
             shelves_data.append((y_start - (c2 * scale), c2))
             if box_h > 1800:
-                c3 = c2 + 390            # Рафт над микровълнова
+                c3 = c2 + 390            
                 shelves_data.append((y_start - (c3 * scale), c3))
         else:
             space_for_shelves = box_h - drawer_section_h
@@ -1510,13 +1524,27 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             draw.line([(x0+w_px, sy), (dim_x, sy)], fill="#bbbbbb", width=2)
             draw.line([(x0+w_px, y_baseline), (dim_x, y_baseline)], fill="#bbbbbb", width=2)
 
+        # --- ЧЕРТАЕНЕ НА ЧЕЛАТА (С ПРЕЦИЗНИ РАЗМЕРИ) ---
         if num_drawers > 0:
+            curr_y = y0 if not is_col else y0 + h_px - (drawer_section_h * scale)
+            
             if is_col:
-                curr_y = y0 + h_px - (drawer_section_h * scale)
                 draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4) 
-                fronts = [drawer_section_h / num_drawers] * num_drawers
+                
+            if real_front_heights:
+                # Използваме ТОЧНИТЕ размери от списъка с детайли
+                total_fh = sum(real_front_heights)
+                scale_f = drawer_section_h / total_fh if total_fh > 0 else 1
+                
+                for idx, fh in enumerate(real_front_heights):
+                    fh_visual_px = fh * scale_f * scale # Визуално запълваме мястото
+                    if idx > 0:
+                        draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4)
+                    dim_x_dr = x0 - 160
+                    draw_dim(img, draw, dim_x_dr, curr_y, dim_x_dr, curr_y+fh_visual_px, f"{int(fh)}", f_dim, dim_color, rotate=True)
+                    curr_y += fh_visual_px
             else:
-                curr_y = y0 
+                # Ако още няма генериран разкрой, използваме шаблони
                 if num_drawers == 1:
                     fronts = [drawer_section_h]
                 elif num_drawers == 2:
@@ -1532,13 +1560,13 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                 else:
                     fronts = [drawer_section_h / num_drawers] * num_drawers
                     
-            for idx, fh in enumerate(fronts):
-                fh_px = fh * scale
-                if idx > 0:
-                    draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4)
-                dim_x_dr = x0 - 160
-                draw_dim(img, draw, dim_x_dr, curr_y, dim_x_dr, curr_y+fh_px, f"{int(fh)}", f_dim, dim_color, rotate=True)
-                curr_y += fh_px
+                for idx, fh in enumerate(fronts):
+                    fh_px = fh * scale
+                    if idx > 0:
+                        draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4)
+                    dim_x_dr = x0 - 160
+                    draw_dim(img, draw, dim_x_dr, curr_y, dim_x_dr, curr_y+fh_px, f"{int(fh)}", f_dim, dim_color, rotate=True)
+                    curr_y += fh_px
 
         dim_y = y0 + h_px + (kr * scale) + 80
         draw_dim(img, draw, x0, dim_y, x0+w_px, dim_y, f"{int(w)}", f_dim, dim_color)

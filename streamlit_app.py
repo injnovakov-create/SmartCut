@@ -1204,25 +1204,25 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
 # ТУК СА ЛИПСВАЩИТЕ БУТОНИ ЗА ИЗТЕГЛЯНЕ И РАЗКРОЙ НА ЕКРАНА
 # ==============================================================
 
-# --- 1. ПОМОЩНА ФУНКЦИЯ ЗА ЧЕРТАНЕ НА ЛИНИИТЕ (С НОВИТЕ ОТСТЪПИ!) ---
+# --- 1. ПОМОЩНА ФУНКЦИЯ ЗА ЧЕРТАНЕ НА ЛИНИИТЕ (НАПОЛОВИНА ОТСТЪП) ---
 def draw_edge_marking(draw, x, y, w, h, side, text, font):
     if not text or text == "": return
     line_w = 4
-    inset_x = 40  # Скъсява линията в краищата
-    inset_y = 50  # Мести линията НАВЪТРЕ към центъра (около 4.2 мм)
+    inset_x = 20  # Намалено наполовина скъсяване
+    inset_y = 25  # Намалено наполовина навътре (около 2.1 мм)
 
     if side == 'top':
         draw.line([x + inset_x, y + inset_y, x + w - inset_x, y + inset_y], fill="black", width=line_w)
-        draw.text((x + w/2, y + inset_y + 8), text, fill="black", font=font, anchor="mt")
+        draw.text((x + w/2, y + inset_y + 4), text, fill="black", font=font, anchor="mt")
     elif side == 'bottom':
         draw.line([x + inset_x, y + h - inset_y, x + w - inset_x, y + h - inset_y], fill="black", width=line_w)
-        draw.text((x + w/2, y + h - inset_y - 8), text, fill="black", font=font, anchor="mb")
+        draw.text((x + w/2, y + h - inset_y - 4), text, fill="black", font=font, anchor="mb")
     elif side == 'left':
         draw.line([x + inset_y, y + inset_x, x + inset_y, y + h - inset_x], fill="black", width=line_w)
-        draw.text((x + inset_y + 8, y + h/2), text, fill="black", font=font, anchor="lm")
+        draw.text((x + inset_y + 4, y + h/2), text, fill="black", font=font, anchor="lm")
     elif side == 'right':
         draw.line([x + w - inset_y, y + inset_x, x + w - inset_y, y + h - inset_x], fill="black", width=line_w)
-        draw.text((x + w - inset_y - 8, y + h/2), text, fill="black", font=font, anchor="rm")
+        draw.text((x + w - inset_y - 4, y + h/2), text, fill="black", font=font, anchor="rm")
 
 # --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
@@ -1316,13 +1316,28 @@ def generate_labels_pdf(boards_per_mat):
         draw_edge_marking(draw, x, y, label_w, label_h, 'left', sh1_t, font_edge)
         draw_edge_marking(draw, x, y, label_w, label_h, 'right', sh2_t, font_edge)
 
-        m_num = lbl.get('mod_num', lbl.get('№', '0'))
-        m_tip = lbl.get('mod_tip', 'Детайл')
-        p_name = lbl.get('part_name', lbl.get('Детайл', ''))
-        mat_text = lbl.get('mat_label', lbl.get('Плоскост', ''))
+        # ИЗЧИСТВАНЕ И СЪКРАЩАВАНЕ НА ТЕКСТА
+        m_num = str(lbl.get('mod_num', lbl.get('№', '0')))
+        m_tip = str(lbl.get('mod_tip', ''))
+        p_name = str(lbl.get('part_name', lbl.get('Детайл', '')))
+        mat_text = str(lbl.get('mat_label', lbl.get('Плоскост', '')))
+        
+        # Ако името на детайла има черта (напр. "Страница | Страница"), вземаме само първата част
+        if '|' in p_name:
+            p_name = p_name.split('|')[0].strip()
 
-        mod_abbr = get_module_abbrev(m_tip)
-        top_text = f"[{m_num}] {mod_abbr} | {p_name}"
+        try: mod_abbr = get_module_abbrev(m_tip)
+        except: mod_abbr = m_tip
+        
+        # Ако модулът и детайлът са едно и също нещо, не го повтаряме
+        if mod_abbr.strip().lower() == p_name.strip().lower() or not mod_abbr.strip():
+            top_text = f"[{m_num}] {p_name}"
+        else:
+            top_text = f"[{m_num}] {mod_abbr} | {p_name}"
+            
+        # Умни съкращения за пестене на място
+        top_text = top_text.replace("Стандартен", "Ст.").replace("Долен", "Дол.").replace("Горен", "Гор.")
+
         dim_text = f"{int(lbl.get('l', 0))} x {int(lbl.get('w', 0))}"
         bot_text = f"{mat_text[:22]}"
 

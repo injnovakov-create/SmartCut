@@ -418,7 +418,8 @@ with col1:
             if tip == "Шкаф Колона":
                 meta_dict.update({"app_type": appliances_type, "ld_h": lower_door_h, "lower_type": lower_type})
             elif tip == "Шкаф с меж. стр.":
-                meta_dict.update({"mod_tip": mod_podtip, "рафтове ляво": shelves_l, "рафтове дясно": shelves_r})
+                # ВЕЧЕ ЗАПИСВАМЕ ДИНАМИЧНИТЕ СЕКЦИИ, А НЕ САМО ЛЯВО И ДЯСНО
+                meta_dict.update({"mod_tip": mod_podtip, "section_shelves": section_shelves, "num_dividers": num_dividers})
             
             st.session_state.modules_meta.append(meta_dict)
 
@@ -432,9 +433,10 @@ with col1:
                 new_hw.append({"№": name, "Артикул": "Панти покрит кант", "Брой": hw_hinges})
                 new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": vrati_broi})
 
-            # --- ЛОГИКА ЗА ШКАФ С МЕЖДИННА СТРАНИЦА ---
+           # ЛОГИКА ЗА РАЗКРОЙ НА НОВИЯ МОДУЛ
             if tip == "Шкаф с меж. стр.":
-                inner_w = (w - 3 * deb) / 2  
+                # Вътрешната ширина се дели на броя секции (вадим дебелината на 2-те крайни страници + делителите)
+                inner_w = (w - (2 + num_dividers) * deb) / num_sections
                 h_k = h_box
                 
                 if "Долен" in mod_podtip:
@@ -442,9 +444,8 @@ with col1:
                         add_item(name, tip, "Дъно", 1, w, d, "1д", mat_korpus, val_fl_korpus),
                         add_item(name, tip, "Страница лява", 1, h_k - deb, d, "1д", mat_korpus, val_fl_korpus),
                         add_item(name, tip, "Страница дясна", 1, h_k - deb, d, "1д", mat_korpus, val_fl_korpus),
-                        add_item(name, tip, "Бленда (Таван) предна", 1, w - 2*deb, 112, "1д", mat_korpus, val_fl_korpus),
-                        add_item(name, tip, "Бленда (Таван) задна", 1, w - 2*deb, 112, "1д", mat_korpus, val_fl_korpus),
-                        add_item(name, tip, "Междинна страница (Делител)", 1, h_k - deb, d - 10, "1д", mat_korpus, val_fl_korpus)
+                        add_item(name, tip, "Таван", 1, w - 2*deb, d, "1д", mat_korpus, val_fl_korpus),
+                        add_item(name, tip, "Междинна страница", num_dividers, h_k - 2*deb, d, "1д", mat_korpus, val_fl_korpus)
                     ])
                     h_vrata = h_k - fuga_obshto - gola_offset
                 else: 
@@ -453,14 +454,14 @@ with col1:
                         add_item(name, tip, "Страница дясна", 1, h_k, d, "1д", mat_korpus, val_fl_korpus),
                         add_item(name, tip, "Таван", 1, w - 2*deb, d, "1д", mat_korpus, val_fl_korpus),
                         add_item(name, tip, "Дъно", 1, w - 2*deb, d, "1д", mat_korpus, val_fl_korpus),
-                        add_item(name, tip, "Междинна страница (Делител)", 1, h_k - 2*deb, d - 10, "1д", mat_korpus, val_fl_korpus)
+                        add_item(name, tip, "Междинна страница", num_dividers, h_k - 2*deb, d, "1д", mat_korpus, val_fl_korpus)
                     ])
                     h_vrata = h_k - fuga_obshto
                     
-                if shelves_l > 0:
-                    new_items.append(add_item(name, tip, "Рафт подвижен ЛЯВ", shelves_l, inner_w, d - 10, "1д", mat_korpus, val_fl_korpus))
-                if shelves_r > 0:
-                    new_items.append(add_item(name, tip, "Рафт подвижен ДЕСЕН", shelves_r, inner_w, d - 10, "1д", mat_korpus, val_fl_korpus))
+                # Генериране на рафтове за всяка секция поотделно
+                for i, sh_count in enumerate(section_shelves):
+                    if sh_count > 0:
+                        new_items.append(add_item(name, tip, f"Рафт подв. Секция {i+1}", sh_count, inner_w - 1, d - 10, "1д", mat_korpus, val_fl_korpus))
                     
                 w_vrata = (w - (vrati_broi + 1) * fuga_obshto) / vrati_broi
                 new_items.extend([

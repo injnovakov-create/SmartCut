@@ -1247,7 +1247,7 @@ def draw_edge_marking(draw, x, y, w, h, side, text, font):
         draw.text((x_pos, mid_y), text, fill="black", font=font, anchor="mm")
 
 
-# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (ИНТЕЛИГЕНТНО ЧЕТЕНЕ + ТАБЛИЦА + БЕЗ ДУБЛИКАТИ) ---
+# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (РАЗДЕЛЯНЕ НА ЧЕРТЕЖА ОТ СПИСЪКА) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
     import math
     font_path = "Roboto-Regular.ttf"
@@ -1334,33 +1334,31 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         except: kr = 0
         
         m_num_str = str(m_num).strip().lower()
-        m_tip_str = str(m_tip).lower()
+        m_tip_str = str(m_tip).strip().lower()
         
-        # --- СКЕНЕР + ФИЛТЪР ЗА ДУБЛИКАТИ ---
-        parts_for_this_mod = []
-        if order_list:
-            raw_parts = [p for p in order_list if str(p.get('mod_num', p.get('№', ''))).strip().lower() == m_num_str]
-            seen = set()
-            for p in raw_parts:
-                # Създаваме уникален низ (подпис) за всеки детайл
-                p_sig = f"{p.get('Детайл')}_{p.get('Дължина')}_{p.get('Ширина')}_{p.get('Бр')}_{p.get('Д1')}_{p.get('Д2')}_{p.get('Ш1')}_{p.get('Ш2')}_{p.get('Плоскост')}"
-                if p_sig not in seen:
-                    seen.add(p_sig)
-                    parts_for_this_mod.append(p)
-            
-        real_drawers = sum(int(p.get('Бр', 1)) for p in parts_for_this_mod if 'чело' in str(p.get('Детайл', '')).lower())
-        real_shelves = sum(int(p.get('Бр', 1)) for p in parts_for_this_mod if 'рафт' in str(p.get('Детайл', '')).lower() and 'подвижен' not in str(p.get('Детайл', '')).lower())
-        
+        # --- 1. ЧЕТЕНЕ НА ДАННИТЕ ДИРЕКТНО ОТ МЕНЮТО (А НЕ ОТ РАЗКРОЯ) ---
+        num_drawers = 0
+        num_shelves = None
+        for k, v in mod.items():
+            k_lower = str(k).lower()
+            if "чекмедж" in k_lower:
+                try: num_drawers = int(v)
+                except: pass
+            if "рафт" in k_lower:
+                try: num_shelves = int(v)
+                except: pass
+                
         is_upper = "горен" in m_tip_str or "горни" in m_tip_str or "горен" in m_num_str or "горни" in m_num_str
         is_col = "колона" in m_tip_str or "колона" in m_num_str
-        is_drawer = "чекмедже" in m_tip_str or "чекмедже" in m_num_str or real_drawers > 0
-        is_lower = "долен" in m_tip_str or "долни" in m_tip_str or "долен" in m_num_str or "долни" in m_num_str
+        is_drawer = "чекмедже" in m_tip_str or "чекмедже" in m_num_str
 
-        num_drawers = real_drawers if real_drawers > 0 else (3 if is_drawer else 0)
-        num_shelves = real_shelves if real_shelves > 0 else None
+        if is_drawer and num_drawers == 0:
+            num_drawers = 3
 
-        if not is_upper and not is_lower and not is_col and not is_drawer:
+        if not is_upper and not is_col and not is_drawer:
             is_lower = True 
+        else:
+            is_lower = "долен" in m_tip_str or "долни" in m_tip_str
 
         bottom_under_sides = is_lower or is_col or is_drawer
 
@@ -1527,10 +1525,9 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             draw.line([(x0-150, y0+h_px+kr_px), (x0+w_px+150, y0+h_px+kr_px)], fill="#999999", width=2)
             draw_dim(img, draw, dim_x_left, y0+h_px, dim_x_left, y0+h_px+kr_px, f"{int(kr)}", f_dim, dim_color, rotate=True)
 
-        # ТАБЛИЦА С ДЕТАЙЛИ
+        # --- 2. ВНИМАТЕЛНО ФИЛТРИРАНЕ НА ТАБЛИЦАТА ---
         tab_y = 2350
         draw.text((150, tab_y - 60), f"Списък с детайли:", fill="black", font=f_title)
-        
         draw.line([(150, tab_y), (2330, tab_y)], fill="black", width=4)
         draw.text((160, tab_y + 10), "Детайл", font=f_tab_h, fill="black")
         draw.text((900, tab_y + 10), "Размер (L x W)", font=f_tab_h, fill="black")
@@ -1540,16 +1537,30 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         tab_y += 60
         draw.line([(150, tab_y), (2330, tab_y)], fill="black", width=4)
         
+        parts_for_this_mod = []
+        if order_list:
+            seen = set()
+            for p in order_list:
+                p_num = str(p.get('mod_num', p.get('№', ''))).strip().lower()
+                p_tip = str(p.get('mod_tip', p.get('Детайл', ''))).lower()
+                
+                matches_num = (p_num == m_num_str and m_num_str not in ['', '?'])
+                matches_name = (m_num_str in ['', '?'] and p_tip == m_tip_str)
+                
+                if matches_num or matches_name:
+                    p_sig = f"{p.get('Детайл')}_{p.get('Дължина')}_{p.get('Ширина')}_{p.get('Бр')}_{p.get('Плоскост')}"
+                    if p_sig not in seen:
+                        seen.add(p_sig)
+                        parts_for_this_mod.append(p)
+        
         if not parts_for_this_mod:
             draw.text((160, tab_y + 20), "Няма генерирани детайли в разкроя за този модул.", font=f_tab_r, fill="#777777")
         else:
             for p in parts_for_this_mod:
                 d_name = str(p.get('Детайл', ''))[:35]
-                try:
-                    d_dim = f"{int(float(p.get('Дължина', 0)))} x {int(float(p.get('Ширина', 0)))}"
-                except:
-                    d_dim = "-"
-                    
+                try: d_dim = f"{int(float(p.get('Дължина', 0)))} x {int(float(p.get('Ширина', 0)))}"
+                except: d_dim = "-"
+                
                 d_qty = str(p.get('Бр', 1))
                 
                 edges = []
@@ -1558,7 +1569,6 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                     if val and val.lower() not in ['няма', '0', 'none', 'false', '']:
                         edges.append(f"{lbl}:{val}")
                 d_edge = " ".join(edges) if edges else "Няма"
-                
                 d_mat = str(p.get('Плоскост', ''))[:20]
                 
                 draw.text((160, tab_y + 15), d_name, font=f_tab_r, fill="#333333")

@@ -1246,7 +1246,8 @@ def draw_edge_marking(draw, x, y, w, h, side, text, font):
         draw.line([x_pos, mid_y + gap_h, x_pos, y + h - inset_x], fill="black", width=line_w)
         draw.text((x_pos, mid_y), text, fill="black", font=font, anchor="mm")
 
-# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (3D С РАФТОВЕ И ПРЕКЪСНАТИ ЛИНИИ) ---
+
+# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (3D С ДЕБЕЛИНА 18ММ, РАФТОВЕ И ПРЕКЪСНАТИ ЛИНИИ) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
     font_path = "Roboto-Regular.ttf"
     if not os.path.exists(font_path):
@@ -1254,7 +1255,7 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         except: pass
     try: 
         f_title = ImageFont.truetype(font_path, 50)
-        f_dim = ImageFont.truetype(font_path, 40)
+        f_dim = ImageFont.truetype(font_path, 42) # Увеличен с 5%
     except: 
         f_title = f_dim = ImageFont.load_default()
 
@@ -1264,49 +1265,52 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                 return item[k]
         return default
 
-    # Вградена функция за оразмерителни линии с прекъсване (като при етикетите)
-    def draw_dim(img, draw, x1, y1, x2, y2, text, font, color, rotate=False, offset_x=0, offset_y=0):
+    # Подобрена функция за оразмерителни линии (текстът "къса" линията)
+    def draw_dim(img, draw, x1, y1, x2, y2, text, font, color, rotate=False):
         import math
         mid_x, mid_y = (x1 + x2) / 2, (y1 + y2) / 2
         dist = math.hypot(x2-x1, y2-y1)
         if dist < 1: return
         ux, uy = (x2-x1)/dist, (y2-y1)/dist
         
-        if rotate:
-            gap = 50 
-        else:
-            bbox = draw.textbbox((0,0), text, font=font)
-            tw = bbox[2] - bbox[0]
-            gap = (tw / 2) + 15
-            
-        # Рисуване на прекъснатата линия
+        # Взимаме реалния размер на текста
+        txt_img_temp = Image.new('RGBA', (10, 10), (255,255,255,0))
+        temp_draw = ImageDraw.Draw(txt_img_temp)
+        bbox = temp_draw.textbbox((0,0), text, font=font)
+        tw = bbox[2] - bbox[0]
+        
+        gap = (tw / 2) + 12 # Място за текста + малък отстъп
+        
+        # Прекъсване на линията
         if dist > gap * 2:
             draw.line([(x1, y1), (mid_x - ux*gap, mid_y - uy*gap)], fill=color, width=3)
             draw.line([(mid_x + ux*gap, mid_y + uy*gap), (x2, y2)], fill=color, width=3)
         else:
             draw.line([(x1, y1), (x2, y2)], fill=color, width=3)
             
-        # Засечки (ограничители) в краищата
+        # Засечки в краищата
         tick_len = 15
-        if abs(x2-x1) > abs(y2-y1): # Хоризонтална
+        if abs(x2-x1) > abs(y2-y1):
             draw.line([(x1, y1-tick_len), (x1, y1+tick_len)], fill=color, width=4)
             draw.line([(x2, y2-tick_len), (x2, y2+tick_len)], fill=color, width=4)
-        elif abs(y2-y1) > abs(x2-x1): # Вертикална
+        elif abs(y2-y1) > abs(x2-x1):
             draw.line([(x1-tick_len, y1), (x1+tick_len, y1)], fill=color, width=4)
             draw.line([(x2-tick_len, y2), (x2+tick_len, y2)], fill=color, width=4)
-        else: # Диагонална
+        else:
             draw.line([(x1-tick_len, y1+tick_len), (x1+tick_len, y1-tick_len)], fill=color, width=4)
             draw.line([(x2-tick_len, y2+tick_len), (x2+tick_len, y2-tick_len)], fill=color, width=4)
             
-        # Поставяне на текста
+        # Поставяне на центриран текст в дупката
+        txt_img = Image.new('RGBA', (400, 100), (255,255,255,0))
+        txt_draw = ImageDraw.Draw(txt_img)
+        txt_draw.text((200, 50), text, fill=color, font=font, anchor="mm")
+        
         if rotate:
-            txt_img = Image.new('RGBA', (600, 100), (255,255,255,0))
-            txt_draw = ImageDraw.Draw(txt_img)
-            txt_draw.text((300, 50), text, fill=color, font=font, anchor="mm")
             txt_img = txt_img.rotate(90, expand=True)
-            img.paste(txt_img, (int(mid_x - 300 + offset_x), int(mid_y - 300 + offset_y)), txt_img)
+            rot_w, rot_h = txt_img.size
+            img.paste(txt_img, (int(mid_x - rot_w/2), int(mid_y - rot_h/2)), txt_img)
         else:
-            draw.text((mid_x + offset_x, mid_y + offset_y), text, fill=color, font=font, anchor="mm")
+            img.paste(txt_img, (int(mid_x - 200), int(mid_y - 50)), txt_img)
 
     pages = []
     for mod in modules_meta:
@@ -1323,7 +1327,6 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         try: d = float(get_val(mod, ['d', 'D', 'Дълбочина', 'depth'], 550))
         except: d = 550
 
-        # Умна логика за краката: вади краката от общата височина за долните шкафове
         try: kr = int(kraka_height)
         except: kr = 0
         
@@ -1357,15 +1360,36 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         
         c_front = "black"
         c_back = "#aaaaaa"
-        c_shelf = "#3c8dbc" # Синкав цвят за рафтовете
+        c_shelf = "#3c8dbc" 
+        t_mm = 18
+        t = t_mm * scale # 18mm дебелина в пиксели
         
-        # ЗАДНА СТЕНА 
-        draw.line([(x0+dx, y0-dy), (x0+dx+w_px, y0-dy)], fill=c_back, width=3)
-        draw.line([(x0+dx+w_px, y0-dy), (x0+dx+w_px, y0-dy+h_px)], fill=c_back, width=3)
-        draw.line([(x0+dx+w_px, y0-dy+h_px), (x0+dx, y0-dy+h_px)], fill=c_back, width=3)
-        draw.line([(x0+dx, y0-dy+h_px), (x0+dx, y0-dy)], fill=c_back, width=3)
+        # ЗАДНИ ЛИНИИ (Вътрешна и външна рамка за дебелина)
+        draw.rectangle([x0+dx, y0-dy, x0+w_px+dx, y0+h_px-dy], outline=c_back, width=2)
+        draw.rectangle([x0+t+dx, y0+t-dy, x0+w_px-t+dx, y0+h_px-t-dy], outline=c_back, width=2)
         
-        # РАФТОВЕ (Рисуват се вътре в шкафа)
+        # СВЪРЗВАЩИ ДЪЛБОЧИННИ ЛИНИИ
+        draw.line([(x0, y0), (x0+dx, y0-dy)], fill=c_back, width=2)
+        draw.line([(x0+w_px, y0), (x0+w_px+dx, y0-dy)], fill=c_front, width=3) # Видима
+        draw.line([(x0, y0+h_px), (x0+dx, y0-dy+h_px)], fill=c_back, width=2)
+        draw.line([(x0+w_px, y0+h_px), (x0+w_px+dx, y0-dy+h_px)], fill=c_front, width=3) # Видима
+        
+        draw.line([(x0+t, y0+t), (x0+t+dx, y0+t-dy)], fill=c_back, width=2)
+        draw.line([(x0+w_px-t, y0+t), (x0+w_px-t+dx, y0+t-dy)], fill=c_back, width=2)
+        draw.line([(x0+t, y0+h_px-t), (x0+t+dx, y0+h_px-t-dy)], fill=c_back, width=2)
+        draw.line([(x0+w_px-t, y0+h_px-t), (x0+w_px-t+dx, y0+h_px-t-dy)], fill=c_back, width=2)
+        
+        # ПРЕДНИ ЛИЦА (С ЯСНО ЗАСТЪПВАНЕ НА 18ММ)
+        # Лява страница (до долу)
+        draw.rectangle([x0, y0, x0+t, y0+h_px], outline=c_front, width=3)
+        # Дясна страница (до долу)
+        draw.rectangle([x0+w_px-t, y0, x0+w_px, y0+h_px], outline=c_front, width=3)
+        # Таван (между страниците)
+        draw.rectangle([x0+t, y0, x0+w_px-t, y0+t], outline=c_front, width=3)
+        # Дъно (между страниците)
+        draw.rectangle([x0+t, y0+h_px-t, x0+w_px-t, y0+h_px], outline=c_front, width=3)
+        
+        # РАФТОВЕ (3D с дебелина 18мм)
         num_shelves = get_val(mod, ['рафтове', 'Рафтове', 'raftove', 'Брой рафтове', 'бр. рафтове'], None)
         if num_shelves is None:
             if box_h <= 500: num_shelves = 0
@@ -1378,55 +1402,47 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
 
         dim_color = "#D32F2F"
         shelf_color_dim = "#2196F3"
+        
+        inner_h = box_h - 2*t_mm
+        gap = (inner_h - num_shelves * t_mm) / (num_shelves + 1) if num_shelves > 0 else inner_h
 
         for i in range(1, num_shelves + 1):
-            shelf_h_mm = (box_h / (num_shelves + 1)) * i
-            shelf_px = shelf_h_mm * scale
-            sy = y0 + h_px - shelf_px
+            # Точна математика: от долния ръб на страницата -> дъно 18мм -> светъл отвор -> център на рафт (9мм)
+            center_h_mm = t_mm + i * gap + (i - 1) * t_mm + (t_mm / 2)
+            sy = y0 + h_px - (center_h_mm * scale)
             
-            # 3D Линии на рафта
-            draw.line([(x0, sy), (x0+w_px, sy)], fill=c_shelf, width=3) 
-            draw.line([(x0+w_px, sy), (x0+w_px+dx, sy-dy)], fill=c_shelf, width=3) 
-            draw.line([(x0, sy), (x0+dx, sy-dy)], fill=c_shelf, width=3) 
+            # Предна част на рафта
+            draw.rectangle([x0+t, sy-t/2, x0+w_px-t, sy+t/2], outline=c_shelf, width=2)
+            # Горна повърхност в дълбочина
+            draw.line([(x0+t, sy-t/2), (x0+t+dx, sy-t/2-dy)], fill=c_shelf, width=2)
+            draw.line([(x0+w_px-t, sy-t/2), (x0+w_px-t+dx, sy-t/2-dy)], fill=c_shelf, width=2)
+            draw.line([(x0+t+dx, sy-t/2-dy), (x0+w_px-t+dx, sy-t/2-dy)], fill=c_shelf, width=2)
             
-            # Оразмеряване на рафта (Отдясно)
-            dim_x = x0 + w_px + 80 + (i * 70) 
-            draw_dim(img, draw, dim_x, y0 + h_px, dim_x, sy, f"{int(shelf_h_mm)}", f_dim, shelf_color_dim, rotate=True, offset_x=45)
-            # Пунктирани водещи линии до рафта
+            # Оразмеряване до центъра на рафта (Отдясно)
+            dim_x = x0 + w_px + 80 + (i * 75) 
+            draw_dim(img, draw, dim_x, y0 + h_px, dim_x, sy, f"{int(center_h_mm)}", f_dim, shelf_color_dim, rotate=True)
             draw.line([(x0+w_px, sy), (dim_x, sy)], fill="#bbbbbb", width=2)
             draw.line([(x0+w_px, y0+h_px), (dim_x, y0+h_px)], fill="#bbbbbb", width=2)
 
-        # СВЪРЗВАЩИ ЛИНИИ (Дълбочина)
-        draw.line([(x0, y0), (x0+dx, y0-dy)], fill=c_back, width=3)
-        draw.line([(x0+w_px, y0), (x0+w_px+dx, y0-dy)], fill=c_front, width=6)
-        draw.line([(x0, y0+h_px), (x0+dx, y0-dy+h_px)], fill=c_back, width=3)
-        draw.line([(x0+w_px, y0+h_px), (x0+w_px+dx, y0-dy+h_px)], fill=c_front, width=6)
-        
-        # ПРЕДНА СТЕНА
-        draw.rectangle([x0, y0, x0+w_px, y0+h_px], outline=c_front, width=6)
-        
         # ОРАЗМЕРИТЕЛНИ ЛИНИИ (ОСНОВНИ)
         dim_y = y0 + h_px + (kr * scale) + 80
-        draw_dim(img, draw, x0, dim_y, x0+w_px, dim_y, f"{int(w)}", f_dim, dim_color, offset_y=40)
+        draw_dim(img, draw, x0, dim_y, x0+w_px, dim_y, f"{int(w)}", f_dim, dim_color)
         
         d_sx, d_sy = x0 + w_px + 40, y0 + h_px
         d_ex, d_ey = x0 + w_px + dx + 40, y0 + h_px - dy
-        draw_dim(img, draw, d_sx, d_sy, d_ex, d_ey, f"{int(d)}", f_dim, dim_color, offset_x=60, offset_y=20)
+        draw_dim(img, draw, d_sx, d_sy, d_ex, d_ey, f"{int(d)}", f_dim, dim_color)
 
-        # ВИСОЧИНА НА КУТИЯТА (Отляво - прекъсната линия)
+        # ВИСОЧИНА НА КУТИЯТА (Отляво)
         dim_x_left = x0 - 80
-        draw_dim(img, draw, dim_x_left, y0, dim_x_left, y0+h_px, f"{int(box_h)}", f_dim, dim_color, rotate=True, offset_x=-50)
+        draw_dim(img, draw, dim_x_left, y0, dim_x_left, y0+h_px, f"{int(box_h)}", f_dim, dim_color, rotate=True)
         
-        # КРАКА (Ако има, се чертаят и оразмеряват отделно)
+        # КРАКА
         if kr > 0:
             kr_px = kr * scale
             draw.rectangle([x0+40, y0+h_px, x0+80, y0+h_px+kr_px], fill="#333333")
             draw.rectangle([x0+w_px-80, y0+h_px, x0+w_px-40, y0+h_px+kr_px], fill="#333333")
-            
             draw.line([(x0-150, y0+h_px+kr_px), (x0+w_px+150, y0+h_px+kr_px)], fill="#999999", width=2)
-            
-            # Размер на краката (Точно под размера на кутията)
-            draw_dim(img, draw, dim_x_left, y0+h_px, dim_x_left, y0+h_px+kr_px, f"{int(kr)}", f_dim, dim_color, rotate=True, offset_x=-50)
+            draw_dim(img, draw, dim_x_left, y0+h_px, dim_x_left, y0+h_px+kr_px, f"{int(kr)}", f_dim, dim_color, rotate=True)
 
         pages.append(img)
 

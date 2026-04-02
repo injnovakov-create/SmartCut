@@ -1247,7 +1247,7 @@ def draw_edge_marking(draw, x, y, w, h, side, text, font):
         draw.text((x_pos, mid_y), text, fill="black", font=font, anchor="mm")
 
 
-# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (ПЪЛНА 3D КОНСТРУКЦИЯ И РАФТОВЕ) ---
+# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (ИНЖЕНЕРНА ВЕРСИЯ С ФУРНИ И ЧЕКМЕДЖЕТА) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
     font_path = "Roboto-Regular.ttf"
     if not os.path.exists(font_path):
@@ -1325,17 +1325,19 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         try: kr = int(kraka_height)
         except: kr = 0
         
-        # РАЗПОЗНАВАНЕ НА ТИПА ШКАФ (И по номер, и по име)
+        # РАЗПОЗНАВАНЕ НА ТИПА ШКАФ
         m_num_str = str(m_num).lower()
         m_tip_str = str(m_tip).lower()
+        
         is_upper = "горен" in m_tip_str or "горни" in m_tip_str or "горен" in m_num_str or "горни" in m_num_str
         is_col = "колона" in m_tip_str or "колона" in m_num_str
+        is_drawer = "чекмедже" in m_tip_str or "чекмедже" in m_num_str
         is_lower = "долен" in m_tip_str or "долни" in m_tip_str or "долен" in m_num_str or "долни" in m_num_str
 
-        if not is_upper and not is_lower and not is_col:
-            is_lower = True # По подразбиране е долен
+        if not is_upper and not is_lower and not is_col and not is_drawer:
+            is_lower = True 
 
-        bottom_under_sides = is_lower or is_col
+        bottom_under_sides = is_lower or is_col or is_drawer
 
         if is_upper:
             kr = 0
@@ -1370,20 +1372,18 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         t_mm = 18
         t = t_mm * scale 
         
-        # СЪЗДАВАНЕ НА ПАНЕЛИТЕ КАТО ИСТИНСКИ 3D ОБЕКТИ
         boards = []
         if bottom_under_sides:
-            boards.append( (x0, y0, t, h_px - t) ) # Лява
-            boards.append( (x0 + w_px - t, y0, t, h_px - t) ) # Дясна
-            boards.append( (x0 + t, y0, w_px - 2*t, t) ) # Таван
-            boards.append( (x0, y0 + h_px - t, w_px, t) ) # Дъно
+            boards.append( (x0, y0, t, h_px - t) ) 
+            boards.append( (x0 + w_px - t, y0, t, h_px - t) ) 
+            boards.append( (x0 + t, y0, w_px - 2*t, t) ) 
+            boards.append( (x0, y0 + h_px - t, w_px, t) ) 
         else:
-            boards.append( (x0, y0, t, h_px) ) # Лява
-            boards.append( (x0 + w_px - t, y0, t, h_px) ) # Дясна
-            boards.append( (x0 + t, y0, w_px - 2*t, t) ) # Таван
-            boards.append( (x0 + t, y0 + h_px - t, w_px - 2*t, t) ) # Дъно
+            boards.append( (x0, y0, t, h_px) ) 
+            boards.append( (x0 + w_px - t, y0, t, h_px) ) 
+            boards.append( (x0 + t, y0, w_px - 2*t, t) ) 
+            boards.append( (x0 + t, y0 + h_px - t, w_px - 2*t, t) ) 
 
-        # ЧЕРТАЕНЕ НА ЗАДНИ И СВЪРЗВАЩИ ЛИНИИ ЗА ВСЕКИ ПАНЕЛ
         for bx, by, bw, bh in boards:
             draw.rectangle([bx+dx, by-dy, bx+bw+dx, by+bh-dy], outline=c_back, width=2)
             draw.line([(bx, by), (bx+dx, by-dy)], fill=c_back, width=2)
@@ -1391,28 +1391,41 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             draw.line([(bx, by+bh), (bx+dx, by+bh-dy)], fill=c_back, width=2)
             draw.line([(bx+bw, by+bh), (bx+bw+dx, by+bh-dy)], fill=c_back, width=2)
 
-        # ПОДСИЛВАНЕ НА ВЪНШНИТЕ ВИДИМИ РЪБОВЕ В ПЕРСПЕКТИВА
         draw.line([(x0, y0), (x0+dx, y0-dy)], fill=c_front, width=3)
         draw.line([(x0+w_px, y0), (x0+w_px+dx, y0-dy)], fill=c_front, width=3)
         draw.line([(x0+w_px, y0+h_px), (x0+w_px+dx, y0+h_px-dy)], fill=c_front, width=3)
 
-        # ЧЕРТАЕНЕ НА ПРЕДНИТЕ ЛИЦА НАЙ-ОТГОРЕ
         for bx, by, bw, bh in boards:
             draw.rectangle([bx, by, bx+bw, by+bh], outline=c_front, width=3)
-        
+            
         dim_color = "#D32F2F"
         shelf_color_dim = "#2196F3"
         
-        # РАФТОВЕ (ИЗЧИСЛЯВАНЕ ОТ ДОЛНИЯ РЪБ НА СТРАНИЦАТА)
-        shelves_data = [] # Пази (Y-координата, Размер за изписване)
+        # --- ЛОГИКА ЗА РАФТОВЕ ---
+        shelves_data = [] 
         
-        if is_col:
-            # За колоната: точни размери от долния ръб на страницата
-            for val in [760, 1440]:
-                y_start = y0 + h_px - t
-                sy = y_start - (val * scale)
-                shelves_data.append((sy, val))
+        if is_drawer:
+            # Шкаф с чекмеджета няма вътрешни рафтове
+            pass
+            
+        elif is_col:
+            # ЖЕЛЯЗНАТА ЛОГИКА ЗА КОЛОНА
+            door_h = 760 # Базова височина на вратата (може да се чете и от таблицата)
+            
+            c1 = door_h - t_mm - (t_mm / 2) # Рафт под фурна (733)
+            c2 = c1 + 609                   # Рафт над фурна (1342)
+            
+            y_start = y0 + h_px - t
+            shelves_data.append((y_start - (c1 * scale), c1))
+            shelves_data.append((y_start - (c2 * scale), c2))
+            
+            # Рафт за микровълнова (Ако колоната е достатъчно висока)
+            if box_h > 1800:
+                c3 = c2 + 390               # Рафт над микровълнова (1732)
+                shelves_data.append((y_start - (c3 * scale), c3))
+                
         else:
+            # Стандартни рафтове за обикновени шкафове
             num_shelves = get_val(mod, ['рафтове', 'Рафтове'], None)
             if num_shelves is None:
                 if box_h <= 500: num_shelves = 0
@@ -1426,25 +1439,22 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             gap = (inner_h - num_shelves * t_mm) / (num_shelves + 1) if num_shelves > 0 else inner_h
 
             for i in range(1, num_shelves + 1):
-                # Изчисляваме светлия отвор от вътрешното дъно до центъра на рафта
                 h_from_inner_bottom = i * gap + (i - 1) * t_mm + (t_mm / 2)
-                
                 if bottom_under_sides:
-                    dim_val = h_from_inner_bottom # Мерим от ръба на страницата (дъното не влиза в размера)
+                    dim_val = h_from_inner_bottom 
                     y_start = y0 + h_px - t
                 else:
-                    dim_val = h_from_inner_bottom + t_mm # Мерим от най-долната част (дъното влиза в размера)
+                    dim_val = h_from_inner_bottom + t_mm 
                     y_start = y0 + h_px
                     
                 sy = y_start - (dim_val * scale)
                 shelves_data.append((sy, dim_val))
 
-        # ЧЕРТАЕНЕ НА РАФТОВЕТЕ И ОРАЗМЕРЯВАНЕ
+        # ЧЕРТАЕНЕ НА РАФТОВЕТЕ И ТЕХНИТЕ РАЗМЕРИ
         for idx, (sy, dim_val) in enumerate(shelves_data):
             s_left = x0 + t
             s_width = w_px - 2*t
             
-            # 3D Рафт
             draw.rectangle([s_left+dx, sy-t/2-dy, s_left+s_width+dx, sy+t/2-dy], outline=c_shelf, width=2)
             draw.line([(s_left, sy-t/2), (s_left+dx, sy-t/2-dy)], fill=c_shelf, width=2)
             draw.line([(s_left+s_width, sy-t/2), (s_left+s_width+dx, sy-t/2-dy)], fill=c_shelf, width=2)
@@ -1452,13 +1462,43 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             draw.line([(s_left+s_width, sy+t/2), (s_left+s_width+dx, sy+t/2-dy)], fill=c_shelf, width=2)
             draw.rectangle([s_left, sy-t/2, s_left+s_width, sy+t/2], outline=c_shelf, width=2)
             
-            # Оразмерителни линии за рафта
             dim_x = x0 + w_px + 80 + ((idx+1) * 75) 
             y_baseline = (y0 + h_px - t) if bottom_under_sides else (y0 + h_px)
             
             draw_dim(img, draw, dim_x, y_baseline, dim_x, sy, f"{int(dim_val)}", f_dim, shelf_color_dim, rotate=True)
             draw.line([(x0+w_px, sy), (dim_x, sy)], fill="#bbbbbb", width=2)
             draw.line([(x0+w_px, y_baseline), (dim_x, y_baseline)], fill="#bbbbbb", width=2)
+
+        # --- ЧЕРТАЕНЕ НА ЧЕЛА ЗА ЧЕКМЕДЖЕТА ---
+        if is_drawer:
+            num_drawers = int(get_val(mod, ['чекмеджета', 'бр. чекмеджета'], 3))
+            if num_drawers < 2: num_drawers = 3
+            
+            # Разпределяне на височините: 1 малко горе (160мм), останалите се делят поравно
+            if num_drawers == 3:
+                h1 = 160 if box_h > 500 else box_h * 0.25
+                h2 = (box_h - h1) / 2
+                fronts = [h1, h2, h2]
+            elif num_drawers == 4:
+                h1 = 160 if box_h > 600 else box_h * 0.2
+                h2 = (box_h - h1) / 3
+                fronts = [h1, h2, h2, h2]
+            else:
+                fronts = [box_h / num_drawers] * num_drawers
+                
+            curr_y = y0
+            for idx, fh in enumerate(fronts):
+                fh_px = fh * scale
+                
+                # Чертае разделителните линии на челата (фугите)
+                if idx > 0:
+                    draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4)
+                    
+                # Оразмеряване на височината на всяко чело (отляво, малко по-навътре)
+                dim_x_dr = x0 - 160
+                draw_dim(img, draw, dim_x_dr, curr_y, dim_x_dr, curr_y+fh_px, f"{int(fh)}", f_dim, dim_color, rotate=True)
+                
+                curr_y += fh_px
 
         # ОРАЗМЕРИТЕЛНИ ЛИНИИ (ОСНОВНИ)
         dim_y = y0 + h_px + (kr * scale) + 80
@@ -1471,7 +1511,7 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         dim_x_left = x0 - 80
         draw_dim(img, draw, dim_x_left, y0, dim_x_left, y0+h_px, f"{int(box_h)}", f_dim, dim_color, rotate=True)
         
-        # КРАКА (Ако има такива)
+        # КРАКА
         if kr > 0:
             kr_px = kr * scale
             draw.rectangle([x0+40, y0+h_px, x0+80, y0+h_px+kr_px], fill="#333333")

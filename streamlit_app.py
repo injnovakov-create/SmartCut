@@ -1246,26 +1246,126 @@ def draw_edge_marking(draw, x, y, w, h, side, text, font):
         draw.line([x_pos, mid_y + gap_h, x_pos, y + h - inset_x], fill="black", width=line_w)
         draw.text((x_pos, mid_y), text, fill="black", font=font, anchor="mm")
 
-# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ ---
+# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (ИСТИНСКА 3D ВЕРСИЯ!) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
     font_path = "Roboto-Regular.ttf"
     if not os.path.exists(font_path):
         try: urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf", font_path)
         except: pass
-    try: f_title = ImageFont.truetype(font_path, 60)
-    except: f_title = ImageFont.load_default()
+    try: 
+        f_title = ImageFont.truetype(font_path, 50)
+        f_dim = ImageFont.truetype(font_path, 40)
+    except: 
+        f_title = f_dim = ImageFont.load_default()
+
+    # Помощна функция: търси сигурно данните, независимо как се казват колоните
+    def get_val(item, keys, default):
+        for k in keys:
+            if k in item and item[k] is not None and str(item[k]).strip() != "":
+                return item[k]
+        return default
 
     pages = []
     for mod in modules_meta:
         img = Image.new('RGB', (2480, 3508), 'white')
         draw = ImageDraw.Draw(img)
 
-        title = f"Шкаф: {mod.get('mod_num', '')} | {mod.get('mod_tip', '')}"
-        draw.text((100, 100), title, fill="black", font=f_title)
-        draw.line([(100, 180), (2380, 180)], fill="black", width=5)
+        # Извличаме данните с желязна защита срещу празни полета ("хх")
+        m_num = get_val(mod, ['mod_num', '№', 'Номер', 'id', 'num'], '?')
+        m_tip = get_val(mod, ['mod_tip', 'Модул', 'Вид', 'Име', 'name', 'Детайл'], 'Неизвестен Модул')
+        
+        try: w = float(get_val(mod, ['w', 'W', 'Ширина', 'width'], 600))
+        except: w = 600
+        try: h = float(get_val(mod, ['h_box', 'h', 'H', 'Височина', 'height'], 720))
+        except: h = 720
+        try: d = float(get_val(mod, ['d', 'D', 'Дълбочина', 'depth'], 550))
+        except: d = 550
 
-        draw.rectangle([400, 400, 2000, 2800], outline="black", width=3)
-        draw.text((1200, 3000), f"Размери: {mod.get('w', '')}x{mod.get('h_box', '')}x{mod.get('d', '')}", fill="black", font=f_title, anchor="mm")
+        # 1. Заглавие и описание на върха на чертежа
+        title = f"Шкаф [{m_num}] | {m_tip}"
+        draw.text((150, 150), title, fill="black", font=f_title)
+        draw.line([(150, 220), (2330, 220)], fill="black", width=5)
+        draw.text((150, 250), f"Габаритни размери: Ширина {int(w)} мм | Височина {int(h)} мм | Дълбочина {int(d)} мм", fill="#555555", font=f_dim)
+
+        # 2. ИЗОМЕТРИЧЕН 3D ЧЕРТЕЖ
+        center_x, center_y = 1240, 1800
+        
+        # Намираме мащаба, за да стои добре чертежът на А4 лист
+        max_dim = max(w, h, d)
+        scale = 1100 / max_dim if max_dim > 0 else 1
+        
+        w_px = w * scale
+        h_px = h * scale
+        d_px = d * scale * 0.5  # Оптическа перспектива (скъсена дълбочина за по-реалистичен обем)
+        
+        # Ъгъл 45 градуса за дълбочината
+        dx = d_px * 0.707
+        dy = d_px * 0.707
+
+        # Центриране на фигурата
+        x0 = center_x - (w_px + dx) / 2
+        y0 = center_y - (h_px - dy) / 2
+        
+        c_front = "black"
+        c_back = "#aaaaaa" # По-светло за задните линии, за да дава усещане за обем
+        
+        # ЗАДНА СТЕНА (чертае се първо, за да остане отзад)
+        draw.line([(x0+dx, y0-dy), (x0+dx+w_px, y0-dy)], fill=c_back, width=3)
+        draw.line([(x0+dx+w_px, y0-dy), (x0+dx+w_px, y0-dy+h_px)], fill=c_back, width=3)
+        draw.line([(x0+dx+w_px, y0-dy+h_px), (x0+dx, y0-dy+h_px)], fill=c_back, width=3)
+        draw.line([(x0+dx, y0-dy+h_px), (x0+dx, y0-dy)], fill=c_back, width=3)
+        
+        # СВЪРЗВАЩИ ЛИНИИ (Дълбочина)
+        draw.line([(x0, y0), (x0+dx, y0-dy)], fill=c_back, width=3)
+        draw.line([(x0+w_px, y0), (x0+w_px+dx, y0-dy)], fill=c_front, width=6)
+        draw.line([(x0, y0+h_px), (x0+dx, y0-dy+h_px)], fill=c_back, width=3)
+        draw.line([(x0+w_px, y0+h_px), (x0+w_px+dx, y0-dy+h_px)], fill=c_front, width=6)
+        
+        # ПРЕДНА СТЕНА
+        draw.rectangle([x0, y0, x0+w_px, y0+h_px], outline=c_front, width=6)
+        
+        # 3. ОРАЗМЕРИТЕЛНИ ЛИНИИ (Червени, технически стил)
+        dim_color = "#D32F2F"
+        
+        # ШИРИНА (W) - отдолу
+        dim_y = y0 + h_px + 100
+        draw.line([(x0, dim_y), (x0+w_px, dim_y)], fill=dim_color, width=3)
+        draw.line([(x0, dim_y-20), (x0, dim_y+20)], fill=dim_color, width=4)
+        draw.line([(x0+w_px, dim_y-20), (x0+w_px, dim_y+20)], fill=dim_color, width=4)
+        draw.text((x0 + w_px/2, dim_y + 30), f"W = {int(w)} мм", fill=dim_color, font=f_dim, anchor="mt")
+        
+        # ДЪЛБОЧИНА (D) - в перспектива
+        d_sx, d_sy = x0 + w_px + 40, y0 + h_px
+        d_ex, d_ey = x0 + w_px + dx + 40, y0 + h_px - dy
+        draw.line([(d_sx, d_sy), (d_ex, d_ey)], fill=dim_color, width=3)
+        draw.line([(d_sx-15, d_sy+15), (d_sx+15, d_sy-15)], fill=dim_color, width=4)
+        draw.line([(d_ex-15, d_ey+15), (d_ex+15, d_ey-15)], fill=dim_color, width=4)
+        draw.text((d_ex + 30, d_ey + 10), f"D = {int(d)} мм", fill=dim_color, font=f_dim, anchor="lm")
+
+        # ВИСОЧИНА (H) - отляво, завъртян текст
+        dim_x = x0 - 100
+        draw.line([(dim_x, y0), (dim_x, y0+h_px)], fill=dim_color, width=3)
+        draw.line([(dim_x-20, y0), (dim_x+20, y0)], fill=dim_color, width=4)
+        draw.line([(dim_x-20, y0+h_px), (dim_x+20, y0+h_px)], fill=dim_color, width=4)
+        
+        txt_img = Image.new('RGBA', (600, 100), (255,255,255,0))
+        txt_draw = ImageDraw.Draw(txt_img)
+        txt_draw.text((300, 50), f"H = {int(h)} мм", fill=dim_color, font=f_dim, anchor="mm")
+        txt_img = txt_img.rotate(90, expand=True)
+        img.paste(txt_img, (int(dim_x - 50), int(y0 + h_px/2 - 300)), txt_img)
+        
+        # 4. РИСУВАНЕ НА КРАКА
+        try: kr = int(kraka_height)
+        except: kr = 0
+        
+        if kr > 0:
+            kr_px = kr * scale
+            draw.rectangle([x0+40, y0+h_px, x0+80, y0+h_px+kr_px], fill="#333333")
+            draw.rectangle([x0+w_px-80, y0+h_px, x0+w_px-40, y0+h_px+kr_px], fill="#333333")
+            
+            # Пунктирана линия за пода
+            draw.line([(x0, y0+h_px+kr_px), (x0+w_px, y0+h_px+kr_px)], fill="#999999", width=2)
+            draw.text((x0 + w_px/2, y0 + h_px + kr_px + 20), f"Крака: {kr} мм", fill="#555555", font=f_dim, anchor="mt")
 
         pages.append(img)
 
@@ -1274,7 +1374,6 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
         return pdf_bytes.getvalue()
     return None
-
 # --- 3. ГЕНЕРИРАНЕ НА ЕТИКЕТИ С 44 БРОЯ НА А4 ---
 def generate_labels_pdf(boards_per_mat):
     font_path = "Roboto-Regular.ttf"

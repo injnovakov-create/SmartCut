@@ -458,10 +458,10 @@ with col1:
                     ])
                     h_vrata = h_k - fuga_obshto
                     
-                # Генериране на рафтове за всяка секция поотделно
+                # Генериране на рафтове за всяка секция поотделно - ВЕЧЕ С ПЪЛНА ДЪЛБОЧИНА (d)
                 for i, sh_count in enumerate(section_shelves):
                     if sh_count > 0:
-                        new_items.append(add_item(name, tip, f"Рафт подв. Секция {i+1}", sh_count, inner_w - 1, d - 10, "1д", mat_korpus, val_fl_korpus))
+                        new_items.append(add_item(name, tip, f"Рафт подв. Секция {i+1}", sh_count, inner_w - 1, d, "1д", mat_korpus, val_fl_korpus))
                     
                 w_vrata = (w - (vrati_broi + 1) * fuga_obshto) / vrati_broi
                 new_items.extend([

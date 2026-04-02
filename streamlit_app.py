@@ -1621,7 +1621,60 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             kr_px = kr * scale
             draw.rectangle([x0+40, y0+h_px, x0+80, y0+h_px+kr_px], fill="#333333")
             draw.rectangle([x0+w_px-80, y0+h_px, x0+w_px-40, y0+h_px+kr_px], fill="#333333")
-            draw.line([(x0-150, y0+h_px+kr_px), (x0+w_px+15
+            draw.line([(x0-150, y0+h_px+kr_px), (x0+w_px+150, y0+h_px+kr_px)], fill="#999999", width=2)
+            draw_dim(img, draw, dim_x_left, y0+h_px, dim_x_left, y0+h_px+kr_px, f"{int(kr)}", f_dim, dim_color, rotate=True)
+
+        tab_y = 2350
+        draw.text((150, tab_y - 60), f"Списък с детайли:", fill="black", font=f_title)
+        
+        draw.line([(150, tab_y), (2330, tab_y)], fill="black", width=4)
+        draw.text((160, tab_y + 10), "Детайл", font=f_tab_h, fill="black")
+        draw.text((900, tab_y + 10), "Размер (L x W)", font=f_tab_h, fill="black")
+        draw.text((1300, tab_y + 10), "Бр.", font=f_tab_h, fill="black")
+        draw.text((1450, tab_y + 10), "Кантове", font=f_tab_h, fill="black")
+        draw.text((1900, tab_y + 10), "Материал", font=f_tab_h, fill="black")
+        tab_y += 60
+        draw.line([(150, tab_y), (2330, tab_y)], fill="black", width=4)
+        
+        if not parts_for_this_mod:
+            draw.text((160, tab_y + 20), "Няма генерирани детайли в разкроя за този модул.", font=f_tab_r, fill="#777777")
+        else:
+            for p in parts_for_this_mod:
+                d_name = str(p.get('Детайл', ''))[:35]
+                try: d_dim = f"{int(float(p.get('Дължина', 0)))} x {int(float(p.get('Ширина', 0)))}"
+                except: d_dim = "-"
+                
+                d_qty = str(p.get('Бр', 1))
+                
+                edges = []
+                for k, lbl in [('Д1', 'Д1'), ('Д2', 'Д2'), ('Ш1', 'Ш1'), ('Ш2', 'Ш2')]:
+                    val = str(p.get(k, '')).strip()
+                    if val and val.lower() not in ['няма', '0', 'none', 'false', '']:
+                        edges.append(f"{lbl}:{val}")
+                d_edge = " ".join(edges) if edges else "Няма"
+                d_mat = str(p.get('Плоскост', ''))[:20]
+                
+                draw.text((160, tab_y + 15), d_name, font=f_tab_r, fill="#333333")
+                draw.text((900, tab_y + 15), d_dim, font=f_tab_r, fill="#333333")
+                draw.text((1300, tab_y + 15), d_qty, font=f_tab_r, fill="#333333")
+                draw.text((1450, tab_y + 15), d_edge, font=f_tab_r, fill="#333333")
+                draw.text((1900, tab_y + 15), d_mat, font=f_tab_r, fill="#333333")
+                
+                tab_y += 60
+                draw.line([(150, tab_y), (2330, tab_y)], fill="#dddddd", width=2)
+                
+                if tab_y > 3350:
+                    draw.text((160, tab_y + 10), "... (Списъкът продължава на следваща страница)", font=f_tab_r, fill="#777777")
+                    break
+
+        pages.append(img)
+
+    if pages:
+        import io
+        pdf_bytes = io.BytesIO()
+        pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
+        return pdf_bytes.getvalue()
+    return None
 # --- 3. ГЕНЕРИРАНЕ НА ЕТИКЕТИ С 44 БРОЯ НА А4 ---
 def generate_labels_pdf(boards_per_mat):
     font_path = "Roboto-Regular.ttf"

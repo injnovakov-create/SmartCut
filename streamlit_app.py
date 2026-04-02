@@ -939,104 +939,21 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
 def draw_edge_marking(draw, x, y, w, h, side, text, font):
     if not text or text == "": return
     line_w = 4
-    inset = 35  # Около 3 мм навътре към центъра
+    inset_x = 40  # Скъсява линията в краищата
+    inset_y = 50  # Мести линията НАВЪТРЕ към центъра (около 4.2 мм)
     
     if side == 'top':
-        draw.line([x + inset, y + inset, x + w - inset, y + inset], fill="black", width=line_w)
-        draw.text((x + w/2, y + inset + 5), text, fill="black", font=font, anchor="mt")
+        draw.line([x + inset_x, y + inset_y, x + w - inset_x, y + inset_y], fill="black", width=line_w)
+        draw.text((x + w/2, y + inset_y + 8), text, fill="black", font=font, anchor="mt")
     elif side == 'bottom':
-        draw.line([x + inset, y + h - inset, x + w - inset, y + h - inset], fill="black", width=line_w)
-        draw.text((x + w/2, y + h - inset - 5), text, fill="black", font=font, anchor="mb")
+        draw.line([x + inset_x, y + h - inset_y, x + w - inset_x, y + h - inset_y], fill="black", width=line_w)
+        draw.text((x + w/2, y + h - inset_y - 8), text, fill="black", font=font, anchor="mb")
     elif side == 'left':
-        draw.line([x + inset, y + inset, x + inset, y + h - inset], fill="black", width=line_w)
-        draw.text((x + inset + 5, y + h/2), text, fill="black", font=font, anchor="lm")
+        draw.line([x + inset_y, y + inset_x, x + inset_y, y + h - inset_x], fill="black", width=line_w)
+        draw.text((x + inset_y + 8, y + h/2), text, fill="black", font=font, anchor="lm")
     elif side == 'right':
-        draw.line([x + w - inset, y + inset, x + w - inset, y + h - inset], fill="black", width=line_w)
-        draw.text((x + w - inset - 5, y + h/2), text, fill="black", font=font, anchor="rm")
-
-# --- ГЕНЕРИРАНЕ НА ЕТИКЕТИ С 44 БРОЯ НА А4 (ЧЕРНО-БЯЛО С КАНТ ЛИНИИ) ---
-def generate_labels_pdf(boards_per_mat):
-    font_path = "Roboto-Regular.ttf"
-    if not os.path.exists(font_path):
-        try: urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf", font_path)
-        except: pass
-    try: 
-        font_small = ImageFont.truetype(font_path, 20)
-        font_text = ImageFont.truetype(font_path, 24)
-        font_huge = ImageFont.truetype(font_path, 45)
-        font_edge = ImageFont.truetype(font_path, 18)
-    except: 
-        font_small = font_text = font_huge = font_edge = ImageFont.load_default()
-
-    labels = []
-    for mat_name, boards in boards_per_mat.items():
-        for board in boards:
-            for p in board:
-                p_copy = p.copy()
-                p_copy['mat_label'] = mat_name
-                labels.append(p_copy)
-                
-    if not labels: return None
-
-    px_per_mm = 11.811
-    page_w, page_h = 2480, 3508
-    cols, rows = 4, 11
-    
-    label_w = int(44 * px_per_mm)
-    label_h = int(20 * px_per_mm)
-    margin_x = int(10 * px_per_mm)
-    margin_y = int(12 * px_per_mm)
-    gap_x = int(6 * px_per_mm)
-    gap_y = int(7 * px_per_mm)
-    padding = int(3 * px_per_mm)
-    
-    pages = []
-    current_page = Image.new('RGB', (page_w, page_h), 'white')
-    draw = ImageDraw.Draw(current_page)
-    
-    for i, lbl in enumerate(labels):
-        if i > 0 and i % (cols * rows) == 0:
-            pages.append(current_page)
-            current_page = Image.new('RGB', (page_w, page_h), 'white')
-            draw = ImageDraw.Draw(current_page)
-            
-        col = (i % (cols * rows)) % cols
-        row = (i % (cols * rows)) // cols
-        x = margin_x + col * (label_w + gap_x)
-        y = margin_y + row * (label_h + gap_y)
-        
-        draw.rectangle([x, y, x+label_w, y+label_h], outline="#dddddd", width=1)
-        
-        # Линиите на кантовете (вече с 3 мм навътре)
-        d1_t = get_edge_label_text(lbl.get('d1', ''))
-        d2_t = get_edge_label_text(lbl.get('d2', ''))
-        sh1_t = get_edge_label_text(lbl.get('sh1', ''))
-        sh2_t = get_edge_label_text(lbl.get('sh2', ''))
-        
-        draw_edge_marking(draw, x, y, label_w, label_h, 'top', d1_t, font_edge)
-        draw_edge_marking(draw, x, y, label_w, label_h, 'bottom', d2_t, font_edge)
-        draw_edge_marking(draw, x, y, label_w, label_h, 'left', sh1_t, font_edge)
-        draw_edge_marking(draw, x, y, label_w, label_h, 'right', sh2_t, font_edge)
-            
-        m_num = lbl.get('mod_num', lbl.get('№', '0'))
-        m_tip = lbl.get('mod_tip', 'Детайл')
-        p_name = lbl.get('part_name', lbl.get('Детайл', ''))
-        mat_text = lbl.get('mat_label', lbl.get('Плоскост', ''))
-        
-        mod_abbr = get_module_abbrev(m_tip)
-        top_text = f"[{m_num}] {mod_abbr} | {p_name}"
-        dim_text = f"{int(lbl.get('l', 0))} x {int(lbl.get('w', 0))}"
-        bot_text = f"{mat_text[:22]}"
-        
-        draw.text((x + label_w/2, y + padding), top_text, fill="black", font=font_text, anchor="mt")
-        draw.text((x + label_w/2, y + label_h/2), dim_text, fill="black", font=font_huge, anchor="mm")
-        draw.text((x + label_w/2, y + label_h - padding), bot_text, fill="black", font=font_small, anchor="mb")
-        
-    pages.append(current_page)
-    
-    pdf_bytes = io.BytesIO()
-    pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
-    return pdf_bytes.getvalue()
+        draw.line([x + w - inset_y, y + inset_x, x + w - inset_y, y + h - inset_x], fill="black", width=line_w)
+        draw.text((x + w - inset_y - 8, y + h/2), text, fill="black", font=font, anchor="rm")
 # --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (ИСТИНСКИ НЕСТИНГ ЗА ФОРМАТЕН ЦИРКУЛЯР + ЕТИКЕТИ) ---
 def get_optimized_boards(list_for_cutting):
     kerf, trim, board_l, board_w = 8, 8, 2800, 2070

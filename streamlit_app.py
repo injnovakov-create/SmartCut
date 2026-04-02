@@ -1247,7 +1247,7 @@ def draw_edge_marking(draw, x, y, w, h, side, text, font):
         draw.text((x_pos, mid_y), text, fill="black", font=font, anchor="mm")
 
 
-# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (ИНЖЕНЕРНА ВЕРСИЯ С ФУРНИ И ЧЕКМЕДЖЕТА) ---
+# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (ИНТЕЛИГЕНТНО ЧЕТЕНЕ НА ДАННИТЕ) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
     font_path = "Roboto-Regular.ttf"
     if not os.path.exists(font_path):
@@ -1325,19 +1325,34 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         try: kr = int(kraka_height)
         except: kr = 0
         
-        # РАЗПОЗНАВАНЕ НА ТИПА ШКАФ
         m_num_str = str(m_num).lower()
         m_tip_str = str(m_tip).lower()
         
+        # --- СКЕНЕР ЗА АКТУАЛНИ ДАННИ ОТ ТАБЛИЦАТА ---
+        num_drawers = 0
+        num_shelves = None
+        for k, v in mod.items():
+            k_lower = str(k).lower()
+            if "чекмедж" in k_lower:
+                try: num_drawers = int(v)
+                except: pass
+            if "рафт" in k_lower:
+                try: num_shelves = int(v)
+                except: pass
+                
         is_upper = "горен" in m_tip_str or "горни" in m_tip_str or "горен" in m_num_str or "горни" in m_num_str
         is_col = "колона" in m_tip_str or "колона" in m_num_str
         is_drawer = "чекмедже" in m_tip_str or "чекмедже" in m_num_str
         is_lower = "долен" in m_tip_str or "долни" in m_tip_str or "долен" in m_num_str or "долни" in m_num_str
 
-        if not is_upper and not is_lower and not is_col and not is_drawer:
+        # Ако е маркиран като чекмедже, но бройката липсва - слагаме 3 по подразбиране
+        if is_drawer and num_drawers == 0:
+            num_drawers = 3
+
+        if not is_upper and not is_lower and not is_col and num_drawers == 0:
             is_lower = True 
 
-        bottom_under_sides = is_lower or is_col or is_drawer
+        bottom_under_sides = is_lower or is_col or num_drawers > 0
 
         if is_upper:
             kr = 0
@@ -1401,56 +1416,56 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         dim_color = "#D32F2F"
         shelf_color_dim = "#2196F3"
         
-        # --- ЛОГИКА ЗА РАФТОВЕ ---
-        shelves_data = [] 
-        
-        if is_drawer:
-            # Шкаф с чекмеджета няма вътрешни рафтове
-            pass
-            
-        elif is_col:
-            # ЖЕЛЯЗНАТА ЛОГИКА ЗА КОЛОНА
-            door_h = 760 # Базова височина на вратата (може да се чете и от таблицата)
-            
-            c1 = door_h - t_mm - (t_mm / 2) # Рафт под фурна (733)
-            c2 = c1 + 609                   # Рафт над фурна (1342)
-            
-            y_start = y0 + h_px - t
-            shelves_data.append((y_start - (c1 * scale), c1))
-            shelves_data.append((y_start - (c2 * scale), c2))
-            
-            # Рафт за микровълнова (Ако колоната е достатъчно висока)
-            if box_h > 1800:
-                c3 = c2 + 390               # Рафт над микровълнова (1732)
-                shelves_data.append((y_start - (c3 * scale), c3))
-                
-        else:
-            # Стандартни рафтове за обикновени шкафове
-            num_shelves = get_val(mod, ['рафтове', 'Рафтове'], None)
-            if num_shelves is None:
-                if box_h <= 500: num_shelves = 0
-                elif box_h <= 1000: num_shelves = 1
-                elif box_h <= 1600: num_shelves = 2
-                else: num_shelves = 3
+        # --- ЛОГИКА ЗА ВИСОЧИНА НА ЧЕКМЕДЖЕТАТА ---
+        drawer_section_h = 0
+        if num_drawers > 0:
+            if is_col:
+                # В колона чекмеджетата заемат максимум 60% от височината
+                drawer_section_h = min(box_h * 0.6, num_drawers * 220)
             else:
-                num_shelves = int(num_shelves)
-
-            inner_h = box_h - 2*t_mm
-            gap = (inner_h - num_shelves * t_mm) / (num_shelves + 1) if num_shelves > 0 else inner_h
-
-            for i in range(1, num_shelves + 1):
-                h_from_inner_bottom = i * gap + (i - 1) * t_mm + (t_mm / 2)
-                if bottom_under_sides:
-                    dim_val = h_from_inner_bottom 
-                    y_start = y0 + h_px - t
-                else:
-                    dim_val = h_from_inner_bottom + t_mm 
-                    y_start = y0 + h_px
+                # В нормален долен шкаф заемат целия шкаф
+                drawer_section_h = box_h
+        
+        # --- ЛОГИКА ЗА РАФТОВЕ В ОСТАНАЛОТО ПРОСТРАНСТВО ---
+        shelves_data = [] 
+        space_for_shelves = box_h - drawer_section_h
+        
+        if space_for_shelves > 200:
+            if is_col and num_drawers == 0:
+                # Специална колона за фурна (Само ако няма чекмеджета)
+                door_h = 760 
+                c1 = door_h - t_mm - (t_mm / 2) # Рафт под фурна (733)
+                c2 = c1 + 609                   # Рафт над фурна (1342)
+                y_start = y0 + h_px - t
+                shelves_data.append((y_start - (c1 * scale), c1))
+                shelves_data.append((y_start - (c2 * scale), c2))
+                if box_h > 1800:
+                    c3 = c2 + 390               # Рафт над микровълнова (1732)
+                    shelves_data.append((y_start - (c3 * scale), c3))
                     
-                sy = y_start - (dim_val * scale)
-                shelves_data.append((sy, dim_val))
+            else:
+                # Динамични рафтове
+                if num_shelves is None:
+                    if space_for_shelves <= 500: num_shelves = 0
+                    elif space_for_shelves <= 1000: num_shelves = 1
+                    elif space_for_shelves <= 1600: num_shelves = 2
+                    else: num_shelves = 3
+                
+                if num_shelves > 0:
+                    gap = (space_for_shelves - num_shelves * t_mm) / (num_shelves + 1)
+                    for i in range(1, num_shelves + 1):
+                        h_from_bottom = drawer_section_h + i * gap + (i - 1) * t_mm + (t_mm / 2)
+                        if bottom_under_sides:
+                            dim_val = h_from_bottom 
+                            y_start = y0 + h_px - t
+                        else:
+                            dim_val = h_from_bottom + t_mm 
+                            y_start = y0 + h_px
+                            
+                        sy = y_start - (dim_val * scale)
+                        shelves_data.append((sy, dim_val))
 
-        # ЧЕРТАЕНЕ НА РАФТОВЕТЕ И ТЕХНИТЕ РАЗМЕРИ
+        # ЧЕРТАЕНЕ НА РАФТОВЕТЕ
         for idx, (sy, dim_val) in enumerate(shelves_data):
             s_left = x0 + t
             s_width = w_px - 2*t
@@ -1469,35 +1484,32 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             draw.line([(x0+w_px, sy), (dim_x, sy)], fill="#bbbbbb", width=2)
             draw.line([(x0+w_px, y_baseline), (dim_x, y_baseline)], fill="#bbbbbb", width=2)
 
-        # --- ЧЕРТАЕНЕ НА ЧЕЛА ЗА ЧЕКМЕДЖЕТА ---
-        if is_drawer:
-            num_drawers = int(get_val(mod, ['чекмеджета', 'бр. чекмеджета'], 3))
-            if num_drawers < 2: num_drawers = 3
-            
-            # Разпределяне на височините: 1 малко горе (160мм), останалите се делят поравно
-            if num_drawers == 3:
-                h1 = 160 if box_h > 500 else box_h * 0.25
-                h2 = (box_h - h1) / 2
-                fronts = [h1, h2, h2]
-            elif num_drawers == 4:
-                h1 = 160 if box_h > 600 else box_h * 0.2
-                h2 = (box_h - h1) / 3
-                fronts = [h1, h2, h2, h2]
+        # --- ЧЕРТАЕНЕ НА ЛИЦАТА НА ЧЕКМЕДЖЕТАТА ---
+        if num_drawers > 0:
+            if is_col:
+                curr_y = y0 + h_px - (drawer_section_h * scale)
+                draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4) # Разделител над чекмеджетата
+                fronts = [drawer_section_h / num_drawers] * num_drawers
             else:
-                fronts = [box_h / num_drawers] * num_drawers
-                
-            curr_y = y0
+                curr_y = y0 
+                if num_drawers == 3:
+                    h1 = 160 if drawer_section_h > 500 else drawer_section_h * 0.25
+                    h2 = (drawer_section_h - h1) / 2
+                    fronts = [h1, h2, h2]
+                elif num_drawers == 4:
+                    h1 = 160 if drawer_section_h > 600 else drawer_section_h * 0.2
+                    h2 = (drawer_section_h - h1) / 3
+                    fronts = [h1, h2, h2, h2]
+                else:
+                    fronts = [drawer_section_h / num_drawers] * num_drawers
+                    
             for idx, fh in enumerate(fronts):
                 fh_px = fh * scale
-                
-                # Чертае разделителните линии на челата (фугите)
                 if idx > 0:
                     draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4)
                     
-                # Оразмеряване на височината на всяко чело (отляво, малко по-навътре)
                 dim_x_dr = x0 - 160
                 draw_dim(img, draw, dim_x_dr, curr_y, dim_x_dr, curr_y+fh_px, f"{int(fh)}", f_dim, dim_color, rotate=True)
-                
                 curr_y += fh_px
 
         # ОРАЗМЕРИТЕЛНИ ЛИНИИ (ОСНОВНИ)

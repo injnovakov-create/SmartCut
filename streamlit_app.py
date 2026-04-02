@@ -231,13 +231,9 @@ with col1:
         }
     else:
         icons = {
-            "Шкаф Колона": "🏢", "Дублираща страница долен": "🗂️", "Нестандартен": "🧩"
+            "Шкаф Колона": "🏢", "Дублираща страница долен": "🗂️", "Нестандартен": "🧩",
+            "Шкаф с меж. стр.": "🚪"  # <--- НОВИЯТ МОДУЛ ДОБАВЕН ТУК
         }
-
-    # -------------------------------------------------------------
-# -------------------------------------------------------------
-
-# -------------------------------------------------------------
 
     tip = st.selectbox("Тип модул", options=list(icons.keys()), format_func=lambda x: f"{icons.get(x, '📌')} {x}")
     name = st.text_input("Име/№ на модула", value=tip)
@@ -252,6 +248,9 @@ with col1:
     custom_mat_name = "ПДЧ 18мм (Друго)"
     custom_edges_dict = {}
     
+    # -------------------------------------------------------------
+    # ИНТЕРФЕЙС ЗА ВЪВЕЖДАНЕ НА РАЗМЕРИ
+    # -------------------------------------------------------------
     if tip == "Дублираща страница долен":
         h = st.number_input("Височина (H) мм", value=860)
         d = st.number_input("Дълбочина (D) мм", value=580)
@@ -298,12 +297,30 @@ with col1:
             if split_doors: lower_door_h = st.number_input("Височина долна врата (мм)", value=718)
         vrati_broi = st.radio("Брой врати на ред:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_col")
         h = h_korpus + kraka 
+        
+    # --- НОВИЯТ ИНТЕРФЕЙС ЗА ШКАФА С МЕЖДИННА СТРАНИЦА ---
+    elif tip == "Шкаф с меж. стр.":
+        st.info("Модул с вертикален делител")
+        mod_podtip = st.radio("Избери вид шкаф:", ["Долен с делител", "Горен с делител"], horizontal=True)
+        
+        colA, colB, colC = st.columns(3)
+        w = colA.number_input("Ширина (W) мм", value=900)
+        h_box = colB.number_input("Височина на корпуса (H) мм", value=760 if "Долен" in mod_podtip else 720)
+        d = colC.number_input("Дълбочина (D) мм", value=520 if "Долен" in mod_podtip else 300)
+        
+        st.markdown("##### 📚 Разпределение на рафтовете")
+        col_l, col_r = st.columns(2)
+        shelves_l = col_l.number_input("Рафтове ЛЯВО (бр.)", min_value=0, value=2)
+        shelves_r = col_r.number_input("Рафтове ДЯСНО (бр.)", min_value=0, value=2)
+        
+        vrati_broi = st.radio("Брой врати:", [2, 3, 4], index=0, horizontal=True)
+        h = h_box + kraka if "Долен" in mod_podtip else h_box
+
     elif tip == "Шкаф с чекмеджета":
         w = st.number_input("Ширина (W) мм", value=600, key="w_ch")
         h_box = st.number_input("Височина на корпуса без крака (мм)", value=760, key="h_box_ch")
         num_ch = st.slider("Брой чекмеджета:", 1, 6, 3, key="n_ch")
         
-        # Оставяме интерфейса да показва чистата математика на корпуса
         total_front_h = h_box
         st.markdown(f"##### ↕️ Разпределение на височината (Общо: {total_front_h} мм):")
         
@@ -340,36 +357,7 @@ with col1:
         runner_len = st.number_input("Дължина водач (мм)", value=500, step=50, key="run_gard")
         vrati_broi = 2
         h = h_korpus + kraka
-        
-        # Оставяме интерфейса да показва чистата математика на корпуса
-        total_front_h = h_box
-        st.markdown(f"##### ↕️ Разпределение на височината (Общо: {total_front_h} мм):")
-        
-        cols_ch = st.columns(num_ch)
-        ch_heights = []
-        accumulated_h = 0
-        
-        for i in range(num_ch - 1):
-            with cols_ch[i]:
-                rem_drawers = num_ch - i
-                default_h = int((total_front_h - accumulated_h) / rem_drawers)
-                val_h = st.number_input(f"Чело {i+1} (мм)", value=default_h, min_value=50, max_value=total_front_h, key=f"ch_h_inp_{i}")
-                ch_heights.append(val_h)
-                accumulated_h += val_h
-                
-        last_ch_h = total_front_h - accumulated_h
-        ch_heights.append(last_ch_h)
-        
-        with cols_ch[-1]:
-            st.info(f"Чело {num_ch} (Остатък)")
-            if last_ch_h < 50:
-                st.error(f"⚠️ {last_ch_h} мм")
-            else:
-                st.success(f"**{last_ch_h}** мм")
-                
-        runner_len = st.number_input("Водач (мм)", value=500, step=50, key="run_ch")
-        d = st.number_input("Дълбочина (D) мм", value=520, key="d_ch")
-        h = h_box + kraka
+        # Остатъкът от интерфейса за гардероб е премахнат тук (както ти го беше изпратил, повтаряше чекмеджетата)
     else:
         default_w = 150 if tip == "Шкаф Бутилки 15см" else (1000 if "Глух" in tip else 600)
         w = st.number_input("Ширина (W) мм", value=default_w, key="w_std")
@@ -379,12 +367,11 @@ with col1:
             vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_up")
             vrati_orientacia = st.radio("Ориентация:", ["Вертикални", "Хоризонтални"], horizontal=True) if tip == "Горен Шкаф" else "Вертикални"
         else:
-            # ВЕЧЕ Е 760:
             h_box = st.number_input("Височина на корпуса без крака (мм)", value=760, key="h_box_low")
             d = st.number_input("Дълбочина (D) мм", value=(550 if tip == "Шкаф Мивка" else 520), key="d_low")
-            # Крайната височина за алгоритъма е корпус + крака
             h = h_box + kraka 
             vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_low")
+
     st.markdown("---")
     temp_meta = {"Тип": tip, "W": w, "H": h, "D": d, "vr_cnt": vrati_broi}
     try:
@@ -402,11 +389,10 @@ with col1:
         }
         st.session_state.history.append(current_snap)
         
-        # Ограничаваме историята до 15 стъпки, за да не бави браузъра
         if len(st.session_state.history) > 15:
             st.session_state.history.pop(0)
 
-        # --- СТЪПКА 2: ТВОИТЕ ИЗЧИСЛЕНИЯ (ПРОДЪЛЖАВАТ НАДОЛУ) ---
+        # --- СТЪПКА 2: ИЗЧИСЛЕНИЯ ЗА РАЗКРОЯ ---
         new_items = []
         new_hw = []
         otstyp_fazer = 4
@@ -418,30 +404,69 @@ with col1:
             
         h_shkaf_korpus = h_stranica + deb
         
-        # НОВО: Проверява дали има Gola профил и вади 30мм само от долните врати
         gola_offset = 30 if st.session_state.get("gola_profile", False) else 0
         h_vrata_standart = h_shkaf_korpus - fuga_obshto - gola_offset
         
         meta_dict = {"№": name, "Тип": tip, "W": w, "H": h, "D": d}
         
-        meta_dict = {"№": name, "Тип": tip, "W": w, "H": h, "D": d}
         if tip == "Шкаф Колона":
             meta_dict.update({"app_type": appliances_type, "ld_h": lower_door_h, "lower_type": lower_type})
+        
+        # --- НОВО: Записваме метаданните за Шкафа с междинна страница, за да ги чете чертежа ---
+        elif tip == "Шкаф с меж. стр.":
+            meta_dict.update({"mod_tip": mod_podtip, "рафтове ляво": shelves_l, "рафтове дясно": shelves_r})
+            
         st.session_state.modules_meta.append(meta_dict)
 
         if tip in ["Стандартен Долен", "Шкаф Мивка", "Шкаф Бутилки 15см", "Глух Ъгъл (Долен)", "Шкаф за Фурна", "Шкаф с чекмеджета", "Шкаф Колона"]:
             hw_legs = 5 if w > 900 else 4
             new_hw.append({"№": name, "Артикул": "Крака за долен шкаф", "Брой": hw_legs})
 
-        if tip in ["Стандартен Долен", "Шкаф Мивка", "Горен Шкаф"]:
-            h_door_hw = h_vrata_standart if tip != "Горен Шкаф" else (h - fuga_obshto if vrati_orientacia == "Вертикални" else (h - fuga_obshto if vrati_broi == 1 else int((h/2) - fuga_obshto)))
+        if tip in ["Стандартен Долен", "Шкаф Мивка", "Горен Шкаф", "Шкаф с меж. стр."]:
+            h_door_hw = h_vrata_standart if "Горен" not in tip else (h - fuga_obshto if 'vrati_orientacia' not in locals() or vrati_orientacia == "Вертикални" else (h - fuga_obshto if vrati_broi == 1 else int((h/2) - fuga_obshto)))
             hw_hinges = calculate_hinges(h_door_hw) * vrati_broi
             new_hw.append({"№": name, "Артикул": "Панти покрит кант", "Брой": hw_hinges})
             new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": vrati_broi})
 
+        # =========================================================
+        # МАТЕМАТИКА ЗА НОВИЯ ШКАФ С МЕЖДИННА СТРАНИЦА
+        # =========================================================
+        if tip == "Шкаф с меж. стр.":
+            inner_w = (w - 3 * deb) / 2  
+            h_k = h_box # Вземаме чистата височина на кутията
+            
+            if mod_podtip == "Долен с делител":
+                new_items.append(add_item(name, tip, "Дъно", 1, w, d, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, tip, "Страница лява", 1, h_k - deb, d, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, tip, "Страница дясна", 1, h_k - deb, d, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, tip, "Бленда (Таван) предна", 1, w - 2*deb, 112, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, tip, "Бленда (Таван) задна", 1, w - 2*deb, 112, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, tip, "Междинна страница (Делител)", 1, h_k - deb, d - 10, "1д", mat_korpus, val_fl_korpus))
+                
+                h_vrata = h_k - fuga_obshto - gola_offset
+                
+            else: # Горен с делител
+                new_items.append(add_item(name, tip, "Страница лява", 1, h_k, d, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, tip, "Страница дясна", 1, h_k, d, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, tip, "Таван", 1, w - 2*deb, d, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, tip, "Дъно", 1, w - 2*deb, d, "1д", mat_korpus, val_fl_korpus))
+                new_items.append(add_item(name, tip, "Междинна страница (Делител)", 1, h_k - 2*deb, d - 10, "1д", mat_korpus, val_fl_korpus))
+                
+                h_vrata = h_k - fuga_obshto
+                
+            if shelves_l > 0:
+                new_items.append(add_item(name, tip, "Рафт подвижен ЛЯВ", shelves_l, inner_w - 1, d - 20, "1д", mat_korpus, val_fl_korpus))
+            if shelves_r > 0:
+                new_items.append(add_item(name, tip, "Рафт подвижен ДЕСЕН", shelves_r, inner_w - 1, d - 20, "1д", mat_korpus, val_fl_korpus))
+                
+            w_vrata = (w - (vrati_broi + 1) * fuga_obshto) / vrati_broi
+            new_items.append(add_item(name, tip, "Врата", vrati_broi, h_vrata, w_vrata, "4", mat_lice, val_fl_lice))
+            new_items.append(add_item(name, tip, "Гръб (Фазер)", 1, h_k - otstyp_fazer, w - otstyp_fazer, "Без кант", mat_fazer, "Няма"))
+
+        # =========================================================
+        
         elif tip == "Гардероб чекм+врати":
             w_in = w - 2 * deb
-            # Корпус
             st.session_state.order_list.append(add_item(name, tip, "Страница лява", 1, h_korpus, d, "1д 2к", mat_korpus, val_fl_korpus))
             st.session_state.order_list.append(add_item(name, tip, "Страница дясна", 1, h_korpus, d, "1д 2к", mat_korpus, val_fl_korpus))
             st.session_state.order_list.append(add_item(name, tip, "Дъно", 1, w_in, d, "1д", mat_korpus, val_fl_korpus))
@@ -449,18 +474,16 @@ with col1:
             st.session_state.order_list.append(add_item(name, tip, "Твърд рафт (между чекм. и врати)", 1, w_in, d, "1д", mat_korpus, val_fl_korpus))
             st.session_state.order_list.append(add_item(name, tip, "Гръб (Фазер)", 1, h_korpus - 2, w - 2, "Без кант", mat_fazer, "Няма"))
             
-            # Чекмеджета (2 бр. широки)
-            h_front = int((h_drawers - 3 * fuga_obshto) / 2) # Две чела по височина
+            h_front = int((h_drawers - 3 * fuga_obshto) / 2) 
             w_front = w - 2 * fuga_obshto
             st.session_state.order_list.append(add_item(name, tip, "Чело", 2, h_front, w_front, "4", mat_lice, val_fl_lice))
             
-            h_box = h_front - 30
-            w_box_front = w_in - 26 # 13мм луфт за водачи на страна
-            st.session_state.order_list.append(add_item(name, tip, "Царги предни/задни", 4, w_box_front, h_box, "1д", mat_chekm, val_fl_chekm))
-            st.session_state.order_list.append(add_item(name, tip, "Страници чекмедже", 4, runner_len, h_box, "1д", mat_chekm, val_fl_chekm))
+            h_box_inner = h_front - 30
+            w_box_front = w_in - 26 
+            st.session_state.order_list.append(add_item(name, tip, "Царги предни/задни", 4, w_box_front, h_box_inner, "1д", mat_chekm, val_fl_chekm))
+            st.session_state.order_list.append(add_item(name, tip, "Страници чекмедже", 4, runner_len, h_box_inner, "1д", mat_chekm, val_fl_chekm))
             st.session_state.order_list.append(add_item(name, tip, "Дъно чекмедже", 2, runner_len - 2, w_box_front + 2*deb - 2, "Без кант", mat_fazer, "Няма"))
 
-            # Врати (2 бр. над чекмеджетата)
             h_doors = h_korpus - h_drawers - int(1.5 * fuga_obshto)
             w_door = int((w - 3 * fuga_obshto) / 2)
             st.session_state.order_list.append(add_item(name, tip, "Врата горна", 2, h_doors, w_door, "4", mat_lice, val_fl_lice))

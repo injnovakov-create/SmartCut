@@ -882,9 +882,8 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         num_sections = num_dividers + 1
 
         if has_divider and not section_shelves:
-            ns_l = int(get_val(mod, ['рафтове ляво'], 2))
-            ns_r = int(get_val(mod, ['рафтове дясно'], 2))
-            section_shelves = [ns_l] + [0]*(num_sections-2) + [ns_r] if num_sections > 1 else [ns_l]
+            # Защита, ако липсват данни за секциите - слага по 2 рафта
+            section_shelves = [2] * num_sections
 
         fronts_with_names.sort(key=lambda x: x[0])
         real_front_heights = [f[1] for f in fronts_with_names]
@@ -1115,7 +1114,7 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         d_ex, d_ey = x0 + w_px + dx + 40, y0 + h_px - dy
         draw_dim(img, draw, d_sx, d_sy, d_ex, d_ey, f"{int(d)}", f_dim, dim_color)
 
-        dim_x_left = x0 - 70
+        dim_x_left = x0 - 80
         draw_dim(img, draw, dim_x_left, y0, dim_x_left, y0+h_px, f"{int(box_h)}", f_dim, dim_color, rotate=True)
         
         if kr > 0:

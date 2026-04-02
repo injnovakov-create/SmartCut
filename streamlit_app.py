@@ -299,21 +299,31 @@ with col1:
 
         # --- ИНТЕРФЕЙС ЗА НОВИЯ МОДУЛ ---
         elif tip == "Шкаф с меж. стр.":
-            st.info("Модул с вертикален делител")
+            st.info("Модул с вертикални делители")
             mod_podtip = st.radio("Избери вид шкаф:", ["Долен с делител", "Горен с делител"], horizontal=True)
             
             colA, colB, colC = st.columns(3)
-            w = colA.number_input("Ширина (W) мм", value=900)
+            w = colA.number_input("Ширина (W) мм", value=1200)
             h_box = colB.number_input("Височина на корпуса (H) мм", value=760 if "Долен" in mod_podtip else 720)
             d = colC.number_input("Дълбочина (D) мм", value=520 if "Долен" in mod_podtip else 300)
             
-            st.markdown("##### 📚 Разпределение на рафтовете")
-            col_l, col_r = st.columns(2)
-            shelves_l = col_l.number_input("Рафтове ЛЯВО (бр.)", min_value=0, value=2)
-            shelves_r = col_r.number_input("Рафтове ДЯСНО (бр.)", min_value=0, value=2)
+            # НОВО: Плъзгач за до 6 междинни страници
+            num_dividers = st.slider("Брой междинни страници (делители):", 1, 6, 1)
+            num_sections = num_dividers + 1 # Ако има 1 страница, секциите са 2 и т.н.
             
-            vrati_broi = st.radio("Брой врати:", [2, 3, 4], index=0, horizontal=True)
-            h = h_box + kraka if "Долен" in mod_podtip else h_box
+            st.markdown("##### 📚 Рафтове по секции (отляво надясно)")
+            cols_shelves = st.columns(num_sections)
+            section_shelves = []
+            
+            # НОВО: Автоматично генериране на кутийки за рафтове според броя секции
+            for i in range(num_sections):
+                with cols_shelves[i]:
+                    val = st.number_input(f"Секция {i+1}", min_value=0, value=2, key=f"shelf_sec_{i}")
+                    section_shelves.append(val)
+            
+            # Броят на вратите вече се съобразява с максималния брой секции
+            vrati_broi = st.radio("Брой врати:", [2, 3, 4, 5, 6, 7], index=num_sections-1 if num_sections <= 7 else 0, horizontal=True)
+            h = h_box + (kraka if "Долен" in mod_podtip else 0)
 
         elif tip == "Шкаф с чекмеджета":
             w = st.number_input("Ширина (W) мм", value=600, key="w_ch")

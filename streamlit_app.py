@@ -1197,38 +1197,67 @@ def draw_edge_marking(draw, x, y, w, h, side, text, font):
     elif side == 'right':
         draw.line([x + w - inset_y, y + inset_x, x + w - inset_y, y + h - inset_x], fill="black", width=line_w)
         draw.text((x + w - inset_y - 8, y + h/2), text, fill="black", font=font, anchor="rm")
-# --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (ИСТИНСКИ НЕСТИНГ ЗА ФОРМАТЕН ЦИРКУЛЯР + ЕТИКЕТИ) ---
+# --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (ИСТИНСКИ НЕСТИНГ С БЛОКОВЕ 1, 2, 3...) ---
 def get_optimized_boards(list_for_cutting):
     kerf, trim, board_l, board_w = 8, 8, 2800, 2070
     use_l, use_w = board_l - 2*trim, board_w - 2*trim
-    materials_dict = {}
+    
+    # 1. Разделяме детайлите на стандартни и такива в БЛОК
+    blocks = {} # ключ: (mat_name, mod_num), стойност: списък от детайли
+    standard_parts_by_mat = {}
     
     for item in list_for_cutting:
         mat = item.get('Плоскост', 'Неизвестен')
-        if mat not in materials_dict: materials_dict[mat] = []
+        if mat not in standard_parts_by_mat: standard_parts_by_mat[mat] = []
+        
+        note = str(item.get('Забележка', '')).strip().upper()
+        
+        # Търсим "БЛОК" или "БЛОК 1", "БЛОК 2" и т.н.
+        import re
+        match = re.search(r'БЛОК\s*(\d*)', note)
+        
         try:
+            # Разгъваме бройките (ако са 2 врати, стават 2 отделни детайла за правилно подреждане)
             for _ in range(int(item['Бр'])):
                 flader_val = str(item.get('Фладер', 'Да')).strip().lower()
                 can_rotate = (flader_val == "не" or flader_val == "няма")
                 
-                # ПАЗИМ ВСИЧКИ ДАННИ ЗА ЕТИКЕТИТЕ!
-                part_dict = item.copy() 
+                part_dict = item.copy()
                 part_dict.update({
                     'name': f"{item.get('№', '')} {get_abbrev(item.get('Детайл', ''))}", 
                     'l': float(item['Дължина']), 'w': float(item['Ширина']),
                     'd1': str(item.get('Д1', '')).strip(), 'd2': str(item.get('Д2', '')).strip(),
                     'sh1': str(item.get('Ш1', '')).strip(), 'sh2': str(item.get('Ш2', '')).strip(),
-                    'can_rotate': can_rotate,
-                    # Подсигуряване, ако ключът липсва:
-                    'mod_tip': item.get('mod_tip', item.get('Детайл', 'Детайл'))
+                    'can_rotate': can_rotate
                 })
-                materials_dict[mat].append(part_dict)
+                
+                if match:
+                    # Ако има число го взимаме, иначе по подразбиране е 1 (за да работи и старото "В БЛОК")
+                    b_num_str = match.group(1)
+                    block_num = int(b_num_str) if b_num_str else 1
+                    part_dict['block_num'] = block_num
+                    
+                    b_key = f"{mat}_{item.get('№', '0')}"
+                    if b_key not in blocks: blocks[b_key] = []
+                    blocks[b_key].append(part_dict)
+                else:
+                    standard_parts_by_mat[mat].append(part_dict)
         except: pass
-    
+
     boards_per_material = {}
     
-    for mat_name, parts in materials_dict.items():
-        mat_can_rotate = all(p['can_rotate'] for p in parts)
+    # 2. Обработваме всеки материал поотделно
+    all_materials = set(list(standard_parts_by_mat.keys()) + [k.split('_')[0] for k in blocks.keys()])
+    
+    for mat_name in all_materials:
+        std_parts = standard_parts_by_mat.get(mat_name, [])
+        blk_parts_for_mat = [p for k, v in blocks.items() if k.startswith(mat_name + "_") for p in v]
+        all_mat_parts = std_parts + blk_parts_for_mat
+        
+        if not all_mat_parts: continue
+        
+        # Проверяваме дали материалът позволява въртене 
+        mat_can_rotate = all(p['can_rotate'] for p in all_mat_parts)
         
         packer = newPacker(
             mode=PackingMode.Offline, 
@@ -1237,45 +1266,128 @@ def get_optimized_boards(list_for_cutting):
             rotation=mat_can_rotate
         )
         
-        for i, p in enumerate(parts):
-            rect_l = int(p['l'] + kerf)
-            rect_w = int(p['w'] + kerf)
-            packer.add_rect(rect_l, rect_w, rid=i)
+        items_to_pack = []
+        pack_idx = 0
+        
+        # Добавяме стандартните детайли
+        for p in std_parts:
+            items_to_pack.append({'type': 'single', 'part': p})
+            packer.add_rect(int(p['l'] + kerf), int(p['w'] + kerf), rid=pack_idx)
+            pack_idx += 1
             
-        for _ in range(20): 
-            packer.add_bin(int(use_l), int(use_w))
+        # Добавяме БЛОКОВЕТЕ (Матрицата от чела/врати)
+        for b_key, b_parts in blocks.items():
+            if not b_key.startswith(mat_name + "_"): continue
             
+            # Групираме по номера на блока (1, 2, 3...)
+            sub_blocks = {}
+            for p in b_parts:
+                b_num = p['block_num']
+                if b_num not in sub_blocks: sub_blocks[b_num] = []
+                sub_blocks[b_num].append(p)
+                
+            sorted_nums = sorted(list(sub_blocks.keys()))
+            packed_parts_info = []
+            
+            current_l_offset = 0
+            max_super_w = 0
+            
+            # Обхождаме поредните номера (Подреждане по Дължина / L)
+            for num in sorted_nums:
+                sub_parts = sub_blocks[num]
+                
+                current_w_offset = 0
+                max_sub_l = 0
+                
+                # Обхождаме еднаквите номера (Подреждане по Ширина / W)
+                for p in sub_parts:
+                    p['rel_x'] = current_l_offset
+                    p['rel_y'] = current_w_offset
+                    packed_parts_info.append(p)
+                    
+                    current_w_offset += p['w'] + kerf
+                    if p['l'] > max_sub_l:
+                        max_sub_l = p['l']
+                        
+                sub_total_w = current_w_offset - kerf
+                if sub_total_w > max_super_w:
+                    max_super_w = sub_total_w
+                    
+                current_l_offset += max_sub_l + kerf
+                
+            super_l = current_l_offset - kerf
+            super_w = max_super_w
+            
+            # Подаваме целия сглобен супер-блок към алгоритъма
+            items_to_pack.append({
+                'type': 'super_block',
+                'parts': packed_parts_info,
+                'l': super_l,
+                'w': super_w
+            })
+            packer.add_rect(int(super_l + kerf), int(super_w + kerf), rid=pack_idx)
+            pack_idx += 1
+            
+        # Добавяме празни плочи
+        for _ in range(20): packer.add_bin(int(use_l), int(use_w))
         packer.pack()
         
+        # 3. Възстановяваме координатите
         all_boards = []
         for abin in packer:
             current_board_parts = []
             for rect in abin:
                 idx = rect.rid
-                orig = parts[idx]
-                
+                pack_item = items_to_pack[idx]
                 res_x, res_y, res_w, res_h = rect.x, rect.y, rect.width, rect.height
                 
-                p_copy = orig.copy()
-                p_copy['x'] = res_x
-                p_copy['y'] = res_y
-                
-                final_l = res_w - kerf
-                final_w = res_h - kerf
-                
-                if abs(final_l - orig['w']) < 2:
-                    p_copy['l'] = final_l
-                    p_copy['w'] = final_w
-                    p_copy['d1'], p_copy['d2'], p_copy['sh1'], p_copy['sh2'] = orig['sh1'], orig['sh2'], orig['d1'], orig['d2']
-                else:
-                    p_copy['l'] = final_l
-                    p_copy['w'] = final_w
-                
-                current_board_parts.append(p_copy)
-            
+                if pack_item['type'] == 'single':
+                    orig = pack_item['part']
+                    p_copy = orig.copy()
+                    p_copy['x'] = res_x
+                    p_copy['y'] = res_y
+                    final_l = res_w - kerf
+                    final_w = res_h - kerf
+                    
+                    # Проверка дали единичният детайл се е завъртял
+                    if abs(final_l - orig['w']) < 2:
+                        p_copy['l'] = final_l
+                        p_copy['w'] = final_w
+                        p_copy['d1'], p_copy['d2'], p_copy['sh1'], p_copy['sh2'] = orig['sh1'], orig['sh2'], orig['d1'], orig['d2']
+                    else:
+                        p_copy['l'] = final_l
+                        p_copy['w'] = final_w
+                        
+                    current_board_parts.append(p_copy)
+                    
+                elif pack_item['type'] == 'super_block':
+                    super_l = pack_item['l']
+                    super_w = pack_item['w']
+                    
+                    # Проверяваме дали целият СУПЕР БЛОК се е завъртял
+                    is_rotated = False
+                    if abs((res_w - kerf) - super_w) < 2:
+                        is_rotated = True
+                        
+                    for p in pack_item['parts']:
+                        p_copy = p.copy()
+                        if is_rotated:
+                            p_copy['x'] = res_x + p['rel_y']
+                            p_copy['y'] = res_y + p['rel_x']
+                            p_copy['l'] = p['w']
+                            p_copy['w'] = p['l']
+                            p_copy['d1'], p_copy['d2'], p_copy['sh1'], p_copy['sh2'] = p['sh1'], p['sh2'], p['d1'], p['d2']
+                        else:
+                            p_copy['x'] = res_x + p['rel_x']
+                            p_copy['y'] = res_y + p['rel_y']
+                            p_copy['l'] = p['l']
+                            p_copy['w'] = p['w']
+                            
+                        current_board_parts.append(p_copy)
+
             if current_board_parts:
                 all_boards.append(current_board_parts)
-                
+        
         boards_per_material[mat_name] = all_boards
         
     return boards_per_material, board_l, board_w, trim

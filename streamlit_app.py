@@ -725,7 +725,7 @@ with col2:
     else:
         st.info("Списъкът е празен. Добави първия си модул отляво!")
 
-# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (ГАРДЕРОБИ С ДО 6 ДЕЛИТЕЛЯ) ---
+# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (СЕКЦИИ И ГАРДЕРОБИ) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
     import math
     import re
@@ -881,7 +881,6 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             
         num_sections = num_dividers + 1
 
-        # Защита: Ако сме пропуснали данните в метаданните
         if has_divider and not section_shelves:
             ns_l = int(get_val(mod, ['рафтове ляво'], 2))
             ns_r = int(get_val(mod, ['рафтове дясно'], 2))
@@ -999,7 +998,7 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                 ns = int(section_shelves[s]) if s < len(section_shelves) else 0
                 s_left = x0 + t + s * (inner_w_px + t)
                 
-                # Половината размери вляво, половината вдясно, за да не се преплитат
+                # Каскадно разделяне на размерите, за да не става мазало от цифри
                 dim_side = 'left' if s < num_sections / 2 else 'right'
                 dim_offset = s if dim_side == 'left' else (num_sections - 1 - s)
                 
@@ -1052,7 +1051,7 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                 s_left = col['s_left']
                 s_width = col['s_width']
                 
-                # 3D Рафтове
+                # 3D Рафтове в съответната секция
                 draw.rectangle([s_left+dx, sy-t/2-dy, s_left+s_width+dx, sy+t/2-dy], outline=c_shelf, width=2)
                 draw.line([(s_left, sy-t/2), (s_left+dx, sy-t/2-dy)], fill=c_shelf, width=2)
                 draw.line([(s_left+s_width, sy-t/2), (s_left+s_width+dx, sy-t/2-dy)], fill=c_shelf, width=2)
@@ -1062,14 +1061,14 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                 
                 y_baseline = (y0 + h_px - t) if bottom_under_sides else (y0 + h_px)
                 
-                # Каскадно изнасяне на размерите, за да не се преплитат
+                # Каскадно изнасяне на размерите, за да са ясни и четливи
                 if col['dim_side'] == 'right':
                     dim_x = x0 + w_px + 80 + (col['dim_offset'] * 120) + ((idx+1) * 65)
                     draw_dim(img, draw, dim_x, y_baseline, dim_x, sy, f"{int(dim_val)}", f_dim, shelf_color_dim, rotate=True)
                     draw.line([(x0+w_px, sy), (dim_x, sy)], fill="#bbbbbb", width=2)
                     draw.line([(x0+w_px, y_baseline), (dim_x, y_baseline)], fill="#bbbbbb", width=2)
                 else:
-                    dim_x = x0 - 180 - (col['dim_offset'] * 120) - ((idx+1) * 65)
+                    dim_x = x0 - 200 - (col['dim_offset'] * 120) - ((idx+1) * 65)
                     draw_dim(img, draw, dim_x, y_baseline, dim_x, sy, f"{int(dim_val)}", f_dim, shelf_color_dim, rotate=True)
                     draw.line([(x0, sy), (dim_x, sy)], fill="#bbbbbb", width=2)
                     draw.line([(x0, y_baseline), (dim_x, y_baseline)], fill="#bbbbbb", width=2)
@@ -1085,7 +1084,7 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                 for idx, fh in enumerate(real_front_heights):
                     fh_visual_px = fh * scale_f * scale 
                     if idx > 0: draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4)
-                    dim_x_dr = x0 - 100
+                    dim_x_dr = x0 - 140
                     draw_dim(img, draw, dim_x_dr, curr_y, dim_x_dr, curr_y+fh_visual_px, f"{int(fh)}", f_dim, dim_color, rotate=True)
                     curr_y += fh_visual_px
             else:
@@ -1104,7 +1103,7 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                 for idx, fh in enumerate(fronts):
                     fh_px = fh * scale
                     if idx > 0: draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4)
-                    dim_x_dr = x0 - 100
+                    dim_x_dr = x0 - 140
                     draw_dim(img, draw, dim_x_dr, curr_y, dim_x_dr, curr_y+fh_px, f"{int(fh)}", f_dim, dim_color, rotate=True)
                     curr_y += fh_px
 
@@ -1116,7 +1115,7 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         d_ex, d_ey = x0 + w_px + dx + 40, y0 + h_px - dy
         draw_dim(img, draw, d_sx, d_sy, d_ex, d_ey, f"{int(d)}", f_dim, dim_color)
 
-        dim_x_left = x0 - 80
+        dim_x_left = x0 - 70
         draw_dim(img, draw, dim_x_left, y0, dim_x_left, y0+h_px, f"{int(box_h)}", f_dim, dim_color, rotate=True)
         
         if kr > 0:

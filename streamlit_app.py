@@ -1247,7 +1247,7 @@ def draw_edge_marking(draw, x, y, w, h, side, text, font):
         draw.text((x_pos, mid_y), text, fill="black", font=font, anchor="mm")
 
 
-# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (3D С ДЕБЕЛИНА 18ММ, РАФТОВЕ И ПРЕКЪСНАТИ ЛИНИИ) ---
+# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (ИНДИВИДУАЛНА КОНСТРУКЦИЯ ПО МОДУЛИ) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
     font_path = "Roboto-Regular.ttf"
     if not os.path.exists(font_path):
@@ -1255,7 +1255,7 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         except: pass
     try: 
         f_title = ImageFont.truetype(font_path, 50)
-        f_dim = ImageFont.truetype(font_path, 42) # Увеличен с 5%
+        f_dim = ImageFont.truetype(font_path, 42) 
     except: 
         f_title = f_dim = ImageFont.load_default()
 
@@ -1265,7 +1265,6 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                 return item[k]
         return default
 
-    # Подобрена функция за оразмерителни линии (текстът "къса" линията)
     def draw_dim(img, draw, x1, y1, x2, y2, text, font, color, rotate=False):
         import math
         mid_x, mid_y = (x1 + x2) / 2, (y1 + y2) / 2
@@ -1273,22 +1272,19 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         if dist < 1: return
         ux, uy = (x2-x1)/dist, (y2-y1)/dist
         
-        # Взимаме реалния размер на текста
         txt_img_temp = Image.new('RGBA', (10, 10), (255,255,255,0))
         temp_draw = ImageDraw.Draw(txt_img_temp)
         bbox = temp_draw.textbbox((0,0), text, font=font)
         tw = bbox[2] - bbox[0]
         
-        gap = (tw / 2) + 12 # Място за текста + малък отстъп
+        gap = (tw / 2) + 12 
         
-        # Прекъсване на линията
         if dist > gap * 2:
             draw.line([(x1, y1), (mid_x - ux*gap, mid_y - uy*gap)], fill=color, width=3)
             draw.line([(mid_x + ux*gap, mid_y + uy*gap), (x2, y2)], fill=color, width=3)
         else:
             draw.line([(x1, y1), (x2, y2)], fill=color, width=3)
             
-        # Засечки в краищата
         tick_len = 15
         if abs(x2-x1) > abs(y2-y1):
             draw.line([(x1, y1-tick_len), (x1, y1+tick_len)], fill=color, width=4)
@@ -1300,7 +1296,6 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             draw.line([(x1-tick_len, y1+tick_len), (x1+tick_len, y1-tick_len)], fill=color, width=4)
             draw.line([(x2-tick_len, y2+tick_len), (x2+tick_len, y2-tick_len)], fill=color, width=4)
             
-        # Поставяне на центриран текст в дупката
         txt_img = Image.new('RGBA', (400, 100), (255,255,255,0))
         txt_draw = ImageDraw.Draw(txt_img)
         txt_draw.text((200, 50), text, fill=color, font=font, anchor="mm")
@@ -1317,20 +1312,27 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         img = Image.new('RGB', (2480, 3508), 'white')
         draw = ImageDraw.Draw(img)
 
-        m_num = get_val(mod, ['mod_num', '№', 'Номер', 'id', 'num'], '?')
-        m_tip = get_val(mod, ['mod_tip', 'Модул', 'Вид', 'Име', 'name', 'Детайл'], 'Неизвестен Модул')
+        m_num = get_val(mod, ['mod_num', '№', 'Номер'], '?')
+        m_tip = get_val(mod, ['mod_tip', 'Модул', 'Вид'], 'Неизвестен Модул')
         
-        try: w = float(get_val(mod, ['w', 'W', 'Ширина', 'width'], 600))
+        try: w = float(get_val(mod, ['w', 'W', 'Ширина'], 600))
         except: w = 600
-        try: h = float(get_val(mod, ['h_box', 'h', 'H', 'Височина', 'height'], 860))
+        try: h = float(get_val(mod, ['h_box', 'h', 'H', 'Височина'], 860))
         except: h = 860
-        try: d = float(get_val(mod, ['d', 'D', 'Дълбочина', 'depth'], 550))
+        try: d = float(get_val(mod, ['d', 'D', 'Дълбочина'], 550))
         except: d = 550
 
         try: kr = int(kraka_height)
         except: kr = 0
         
+        # РАЗПОЗНАВАНЕ НА ТИПА ШКАФ
         is_upper = "Горен" in m_tip or "горен" in m_tip or "Горни" in m_tip
+        is_col = "Колона" in m_tip or "колона" in m_tip
+        is_lower = "Долен" in m_tip or "долен" in m_tip or "Долни" in m_tip
+
+        # Конструктивно правило за дъното
+        bottom_under_sides = is_lower or is_col
+
         if is_upper:
             kr = 0
             box_h = h
@@ -1362,64 +1364,66 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         c_back = "#aaaaaa"
         c_shelf = "#3c8dbc" 
         t_mm = 18
-        t = t_mm * scale # 18mm дебелина в пиксели
-        
-        # ЗАДНИ ЛИНИИ (Вътрешна и външна рамка за дебелина)
-        draw.rectangle([x0+dx, y0-dy, x0+w_px+dx, y0+h_px-dy], outline=c_back, width=2)
-        draw.rectangle([x0+t+dx, y0+t-dy, x0+w_px-t+dx, y0+h_px-t-dy], outline=c_back, width=2)
+        t = t_mm * scale 
         
         # СВЪРЗВАЩИ ДЪЛБОЧИННИ ЛИНИИ
         draw.line([(x0, y0), (x0+dx, y0-dy)], fill=c_back, width=2)
-        draw.line([(x0+w_px, y0), (x0+w_px+dx, y0-dy)], fill=c_front, width=3) # Видима
+        draw.line([(x0+w_px, y0), (x0+w_px+dx, y0-dy)], fill=c_front, width=3) 
         draw.line([(x0, y0+h_px), (x0+dx, y0-dy+h_px)], fill=c_back, width=2)
-        draw.line([(x0+w_px, y0+h_px), (x0+w_px+dx, y0-dy+h_px)], fill=c_front, width=3) # Видима
+        draw.line([(x0+w_px, y0+h_px), (x0+w_px+dx, y0-dy+h_px)], fill=c_front, width=3) 
         
-        draw.line([(x0+t, y0+t), (x0+t+dx, y0+t-dy)], fill=c_back, width=2)
-        draw.line([(x0+w_px-t, y0+t), (x0+w_px-t+dx, y0+t-dy)], fill=c_back, width=2)
-        draw.line([(x0+t, y0+h_px-t), (x0+t+dx, y0+h_px-t-dy)], fill=c_back, width=2)
-        draw.line([(x0+w_px-t, y0+h_px-t), (x0+w_px-t+dx, y0+h_px-t-dy)], fill=c_back, width=2)
-        
-        # ПРЕДНИ ЛИЦА (С ЯСНО ЗАСТЪПВАНЕ НА 18ММ)
-        # Лява страница (до долу)
-        draw.rectangle([x0, y0, x0+t, y0+h_px], outline=c_front, width=3)
-        # Дясна страница (до долу)
-        draw.rectangle([x0+w_px-t, y0, x0+w_px, y0+h_px], outline=c_front, width=3)
-        # Таван (между страниците)
-        draw.rectangle([x0+t, y0, x0+w_px-t, y0+t], outline=c_front, width=3)
-        # Дъно (между страниците)
-        draw.rectangle([x0+t, y0+h_px-t, x0+w_px-t, y0+h_px], outline=c_front, width=3)
-        
-        # РАФТОВЕ (3D с дебелина 18мм)
-        num_shelves = get_val(mod, ['рафтове', 'Рафтове', 'raftove', 'Брой рафтове', 'бр. рафтове'], None)
-        if num_shelves is None:
-            if box_h <= 500: num_shelves = 0
-            elif box_h <= 1000: num_shelves = 1
-            elif box_h <= 1600: num_shelves = 2
-            elif box_h <= 2000: num_shelves = 3
-            else: num_shelves = 4
+        # ПРЕДНИ ЛИЦА (СЪС СПЕЦИФИЧНА КОНСТРУКЦИЯ)
+        if bottom_under_sides:
+            # Долни и Колони: Страниците стъпват ВЪРХУ дъното
+            draw.rectangle([x0, y0, x0+t, y0+h_px-t], outline=c_front, width=3) # Лява стр.
+            draw.rectangle([x0+w_px-t, y0, x0+w_px, y0+h_px-t], outline=c_front, width=3) # Дясна стр.
+            draw.rectangle([x0, y0+h_px-t, x0+w_px, y0+h_px], outline=c_front, width=3) # Дъно под страниците
+            draw.rectangle([x0+t, y0, x0+w_px-t, y0+t], outline=c_front, width=3) # Бленда/Таван горе
         else:
-            num_shelves = int(num_shelves)
-
+            # Горни: Дъното е МЕЖДУ страниците
+            draw.rectangle([x0, y0, x0+t, y0+h_px], outline=c_front, width=3) # Лява стр. до долу
+            draw.rectangle([x0+w_px-t, y0, x0+w_px, y0+h_px], outline=c_front, width=3) # Дясна стр. до долу
+            draw.rectangle([x0+t, y0, x0+w_px-t, y0+t], outline=c_front, width=3) # Таван
+            draw.rectangle([x0+t, y0+h_px-t, x0+w_px-t, y0+h_px], outline=c_front, width=3) # Дъно
+        
         dim_color = "#D32F2F"
         shelf_color_dim = "#2196F3"
         
-        inner_h = box_h - 2*t_mm
-        gap = (inner_h - num_shelves * t_mm) / (num_shelves + 1) if num_shelves > 0 else inner_h
+        # РАФТОВЕ (ИНДИВИДУАЛНА ЛОГИКА)
+        shelves_centers_mm = []
+        
+        if is_col:
+            # --- СПЕЦИФИЧНИ РАФТОВЕ ЗА КОЛОНА ---
+            # Тук задаваме точните височини на рафтовете от долния ръб
+            shelves_centers_mm = [760, 1440] 
+        else:
+            # --- ДИНАМИЧНИ РАФТОВЕ ЗА ОСТАНАЛИТЕ ---
+            num_shelves = get_val(mod, ['рафтове', 'Рафтове'], None)
+            if num_shelves is None:
+                if box_h <= 500: num_shelves = 0
+                elif box_h <= 1000: num_shelves = 1
+                elif box_h <= 1600: num_shelves = 2
+                else: num_shelves = 3
+            else:
+                num_shelves = int(num_shelves)
 
-        for i in range(1, num_shelves + 1):
-            # Точна математика: от долния ръб на страницата -> дъно 18мм -> светъл отвор -> център на рафт (9мм)
-            center_h_mm = t_mm + i * gap + (i - 1) * t_mm + (t_mm / 2)
+            inner_h = box_h - 2*t_mm
+            gap = (inner_h - num_shelves * t_mm) / (num_shelves + 1) if num_shelves > 0 else inner_h
+
+            for i in range(1, num_shelves + 1):
+                c_h = t_mm + i * gap + (i - 1) * t_mm + (t_mm / 2)
+                shelves_centers_mm.append(c_h)
+
+        # Чертаене на изчислените рафтове
+        for idx, center_h_mm in enumerate(shelves_centers_mm):
             sy = y0 + h_px - (center_h_mm * scale)
             
-            # Предна част на рафта
             draw.rectangle([x0+t, sy-t/2, x0+w_px-t, sy+t/2], outline=c_shelf, width=2)
-            # Горна повърхност в дълбочина
             draw.line([(x0+t, sy-t/2), (x0+t+dx, sy-t/2-dy)], fill=c_shelf, width=2)
             draw.line([(x0+w_px-t, sy-t/2), (x0+w_px-t+dx, sy-t/2-dy)], fill=c_shelf, width=2)
             draw.line([(x0+t+dx, sy-t/2-dy), (x0+w_px-t+dx, sy-t/2-dy)], fill=c_shelf, width=2)
             
-            # Оразмеряване до центъра на рафта (Отдясно)
-            dim_x = x0 + w_px + 80 + (i * 75) 
+            dim_x = x0 + w_px + 80 + ((idx+1) * 75) 
             draw_dim(img, draw, dim_x, y0 + h_px, dim_x, sy, f"{int(center_h_mm)}", f_dim, shelf_color_dim, rotate=True)
             draw.line([(x0+w_px, sy), (dim_x, sy)], fill="#bbbbbb", width=2)
             draw.line([(x0+w_px, y0+h_px), (dim_x, y0+h_px)], fill="#bbbbbb", width=2)

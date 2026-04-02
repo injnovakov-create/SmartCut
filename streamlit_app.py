@@ -1490,7 +1490,7 @@ def draw_edge_marking(draw, x, y, w, h, side, text, font):
         draw.text((x_pos, mid_y), text, fill="black", font=font, anchor="mm")
 
 
-# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (ГАРДЕРОБИ С ДО 6 ДЕЛИТЕЛЯ) ---
+# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (УМНО ОРАЗМЕРЯВАНЕ ЗА ДЕЛИТЕЛИ) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
     import math
     import re
@@ -1647,7 +1647,6 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         num_sections = num_dividers + 1
 
         if has_divider and not section_shelves:
-            # Защита: Ако липсват данни за секциите, слага по 2 рафта
             section_shelves = [2] * num_sections
 
         fronts_with_names.sort(key=lambda x: x[0])
@@ -1721,8 +1720,8 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             boards.append( (x0 + t, y0 + h_px - t, w_px - 2*t, t) ) 
             
         # --- 3D ЧЕРТАЕНЕ НА ВЕРТИКАЛНИТЕ ДЕЛИТЕЛИ ---
+        inner_w_px = (w_px - (2 + num_dividers) * t) / num_sections if has_divider else 0
         if has_divider:
-            inner_w_px = (w_px - (2 + num_dividers) * t) / num_sections
             for i in range(1, num_dividers + 1):
                 div_x = x0 + t + i * inner_w_px + (i - 1) * t
                 div_y = y0 + t
@@ -1757,12 +1756,10 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         # --- ПОДГОТОВКА НА РАФТОВЕТЕ ПО СЕКЦИИ ---
         if has_divider:
             columns_data = []
-            inner_w_px = (w_px - (2 + num_dividers) * t) / num_sections
             for s in range(num_sections):
                 ns = int(section_shelves[s]) if s < len(section_shelves) else 0
                 s_left = x0 + t + s * (inner_w_px + t)
                 
-                # Каскадно разделяне на размерите
                 dim_side = 'left' if s < num_sections / 2 else 'right'
                 dim_offset = s if dim_side == 'left' else (num_sections - 1 - s)
                 
@@ -1774,7 +1771,7 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             ns = real_shelves if parts_for_this_mod else -1 
             columns_data = [{'s_left': x0 + t, 's_width': w_px - 2*t, 'ns': ns, 'dim_side': 'right', 'dim_offset': 0}]
 
-        # --- ЧЕРТАЕНЕ НА РАФТОВЕТЕ И ОРАЗМЕРЯВАНЕ ---
+        # --- ЧЕРТАЕНЕ НА РАФТОВЕТЕ ---
         for col_idx, col in enumerate(columns_data):
             ns = col['ns']
             col_shelves = []
@@ -1800,22 +1797,19 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                     if ns > 0:
                         gap = (space_for_shelves - ns * t_mm) / (ns + 1)
                         for i in range(1, ns + 1):
-                            h_from_bottom = drawer_section_h + i * gap + (i - 1) * t_mm + (t_mm / 2)
+                            pure_h = drawer_section_h + i * gap + (i - 1) * t_mm + (t_mm / 2)
                             if bottom_under_sides:
-                                dim_val = h_from_bottom 
-                                y_start = y0 + h_px - t
+                                sy = (y0 + h_px - t) - (pure_h * scale)
                             else:
-                                dim_val = h_from_bottom + t_mm 
-                                y_start = y0 + h_px
+                                sy = (y0 + h_px) - ((pure_h + t_mm) * scale)
                                 
-                            sy = y_start - (dim_val * scale)
-                            col_shelves.append((sy, dim_val))
+                            col_shelves.append((sy, pure_h))
 
-            for idx, (sy, dim_val) in enumerate(col_shelves):
+            for idx, (sy, pure_h) in enumerate(col_shelves):
                 s_left = col['s_left']
                 s_width = col['s_width']
                 
-                # 3D Рафтове в съответната секция
+                # 3D Рафтове
                 draw.rectangle([s_left+dx, sy-t/2-dy, s_left+s_width+dx, sy+t/2-dy], outline=c_shelf, width=2)
                 draw.line([(s_left, sy-t/2), (s_left+dx, sy-t/2-dy)], fill=c_shelf, width=2)
                 draw.line([(s_left+s_width, sy-t/2), (s_left+s_width+dx, sy-t/2-dy)], fill=c_shelf, width=2)
@@ -1823,9 +1817,23 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                 draw.line([(s_left+s_width, sy+t/2), (s_left+s_width+dx, sy+t/2-dy)], fill=c_shelf, width=2)
                 draw.rectangle([s_left, sy-t/2, s_left+s_width, sy+t/2], outline=c_shelf, width=2)
                 
-                y_baseline = (y0 + h_px - t) if bottom_under_sides else (y0 + h_px)
+                # --- УМНО ОРАЗМЕРЯВАНЕ СПРЯМО СТРАНАТА ---
+                if is_upper:
+                    if col['dim_side'] == 'left':
+                        y_baseline = y0 + h_px
+                        dim_val = pure_h + t_mm
+                    else:
+                        if has_divider:
+                            y_baseline = y0 + h_px - t
+                            dim_val = pure_h
+                        else:
+                            y_baseline = y0 + h_px
+                            dim_val = pure_h + t_mm
+                else:
+                    y_baseline = (y0 + h_px - t) if bottom_under_sides else (y0 + h_px)
+                    dim_val = pure_h if bottom_under_sides else (pure_h + t_mm)
                 
-                # Каскадно изнасяне на размерите, за да са ясни и четливи
+                # Изнасяне на размерите
                 if col['dim_side'] == 'right':
                     dim_x = x0 + w_px + 80 + (col['dim_offset'] * 120) + ((idx+1) * 65)
                     draw_dim(img, draw, dim_x, y_baseline, dim_x, sy, f"{int(dim_val)}", f_dim, shelf_color_dim, rotate=True)
@@ -1888,6 +1896,26 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             draw.rectangle([x0+w_px-80, y0+h_px, x0+w_px-40, y0+h_px+kr_px], fill="#333333")
             draw.line([(x0-150, y0+h_px+kr_px), (x0+w_px+150, y0+h_px+kr_px)], fill="#999999", width=2)
             draw_dim(img, draw, dim_x_left, y0+h_px, dim_x_left, y0+h_px+kr_px, f"{int(kr)}", f_dim, dim_color, rotate=True)
+
+        # --- ПЪЛНА РАЗМЕРНА ВЕРИГА ОТГОРЕ (СЕКЦИИ И ДЕЛИТЕЛИ) ---
+        if has_divider:
+            dim_top_y = y0 - dy - 120
+            inner_w_real = (w - (2 + num_dividers) * t_mm) / num_sections
+            
+            curr_x = x0
+            draw_dim(img, draw, curr_x, dim_top_y, curr_x + t, dim_top_y, str(int(t_mm)), f_dim, dim_color)
+            draw.line([(curr_x, y0), (curr_x, dim_top_y)], fill="#bbbbbb", width=2)
+            curr_x += t
+            draw.line([(curr_x, y0), (curr_x, dim_top_y)], fill="#bbbbbb", width=2)
+            
+            for s in range(num_sections):
+                draw_dim(img, draw, curr_x, dim_top_y, curr_x + inner_w_px, dim_top_y, f"{int(inner_w_real)}", f_dim, dim_color)
+                curr_x += inner_w_px
+                draw.line([(curr_x, y0), (curr_x, dim_top_y)], fill="#bbbbbb", width=2)
+                
+                draw_dim(img, draw, curr_x, dim_top_y, curr_x + t, dim_top_y, str(int(t_mm)), f_dim, dim_color)
+                curr_x += t
+                draw.line([(curr_x, y0), (curr_x, dim_top_y)], fill="#bbbbbb", width=2)
 
         # --- ТАБЛИЦА С ДЕТАЙЛИ ---
         tab_y = 2350

@@ -216,9 +216,9 @@ with st.sidebar:
             st.error(f"❌ Грешка при четенето: {e}")
 
 # --- ОСНОВЕН ИНТЕРФЕЙС ---
-    col1, col2 = st.columns([1, 2.5])
+col1, col2 = st.columns([1, 2.5])
 
-    with col1:
+with col1:
         st.subheader("📝 Добави Модул")
         
         cat_choice = st.radio("Избери категория:", ["🍳 Кухненски Шкафове", "🏢 Колони и Допълнителни"], horizontal=True)

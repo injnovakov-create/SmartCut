@@ -714,164 +714,428 @@ with col2:
     else:
         st.info("Списъкът е празен. Добави първия си модул отляво!")
 
-# --- ГЕНЕРИРАНЕ НА PDF С ЧЕРТЕЖИ (ЧЕРНО-БЯЛО) ---
+# --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (ЗЛАТНА ВЕРСИЯ + МЕЖДИННА СТРАНИЦА) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
+    import math
+    import re
+    import os
+    import urllib.request
+    import io
+    from PIL import Image, ImageDraw, ImageFont
+    
     font_path = "Roboto-Regular.ttf"
+    font_path_it = "Roboto-Italic.ttf"
+    
     if not os.path.exists(font_path):
         try: urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf", font_path)
         except: pass
+    if not os.path.exists(font_path_it):
+        try: urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Italic.ttf", font_path_it)
+        except: pass
+        
     try: 
-        font_title = ImageFont.truetype(font_path, 80)
-        font_text = ImageFont.truetype(font_path, 50) 
-        font_dim = ImageFont.truetype(font_path, 60)
-        font_bold = ImageFont.truetype(font_path, 55)
+        f_title = ImageFont.truetype(font_path, 50)
+        f_dim = ImageFont.truetype(font_path, 42) 
+        f_tab_h = ImageFont.truetype(font_path, 36) 
+        f_tab_r = ImageFont.truetype(font_path_it, 34) 
     except: 
-        font_title = font_text = font_dim = font_bold = ImageFont.load_default()
+        f_title = f_dim = f_tab_h = f_tab_r = ImageFont.load_default()
+
+    def get_val(item, keys, default):
+        for k in keys:
+            if k in item and item[k] is not None and str(item[k]).strip() != "":
+                return item[k]
+        return default
+
+    def draw_dim(img, draw, x1, y1, x2, y2, text, font, color, rotate=False):
+        mid_x, mid_y = (x1 + x2) / 2, (y1 + y2) / 2
+        dist = math.hypot(x2-x1, y2-y1)
+        if dist < 1: return
+        ux, uy = (x2-x1)/dist, (y2-y1)/dist
+        
+        txt_img_temp = Image.new('RGBA', (10, 10), (255,255,255,0))
+        temp_draw = ImageDraw.Draw(txt_img_temp)
+        bbox = temp_draw.textbbox((0,0), text, font=font)
+        tw = bbox[2] - bbox[0]
+        
+        gap = (tw / 2) + 12 
+        
+        if dist > gap * 2:
+            draw.line([(x1, y1), (mid_x - ux*gap, mid_y - uy*gap)], fill=color, width=3)
+            draw.line([(mid_x + ux*gap, mid_y + uy*gap), (x2, y2)], fill=color, width=3)
+        else:
+            draw.line([(x1, y1), (x2, y2)], fill=color, width=3)
+            
+        tick_len = 15
+        if abs(x2-x1) > abs(y2-y1):
+            draw.line([(x1, y1-tick_len), (x1, y1+tick_len)], fill=color, width=4)
+            draw.line([(x2, y2-tick_len), (x2, y2+tick_len)], fill=color, width=4)
+        elif abs(y2-y1) > abs(x2-x1):
+            draw.line([(x1-tick_len, y1), (x1+tick_len, y1)], fill=color, width=4)
+            draw.line([(x2-tick_len, y2), (x2+tick_len, y2)], fill=color, width=4)
+        else:
+            draw.line([(x1-tick_len, y1+tick_len), (x1+tick_len, y1-tick_len)], fill=color, width=4)
+            draw.line([(x2-tick_len, y2+tick_len), (x2+tick_len, y2-tick_len)], fill=color, width=4)
+            
+        txt_img = Image.new('RGBA', (400, 100), (255,255,255,0))
+        txt_draw = ImageDraw.Draw(txt_img)
+        txt_draw.text((200, 50), text, fill=color, font=font, anchor="mm")
+        
+        if rotate:
+            txt_img = txt_img.rotate(90, expand=True)
+            rot_w, rot_h = txt_img.size
+            img.paste(txt_img, (int(mid_x - rot_w/2), int(mid_y - rot_h/2)), txt_img)
+        else:
+            img.paste(txt_img, (int(mid_x - 200), int(mid_y - 50)), txt_img)
 
     pages = []
     for mod in modules_meta:
         img = Image.new('RGB', (2480, 3508), 'white')
         draw = ImageDraw.Draw(img)
+
+        m_num = get_val(mod, ['mod_num', '№', 'Номер'], '?')
+        m_tip = get_val(mod, ['mod_tip', 'Модул', 'Вид', 'Тип'], 'Неизвестен Модул')
         
-        draw.text((150, 150), f"МОДУЛ: {mod['№']} - {mod['Тип']}", fill="black", font=font_title)
-        draw.line([(150, 250), (2330, 250)], fill="black", width=5)
+        try: w = max(float(get_val(mod, ['w', 'W', 'Ширина'], 600)), 60)
+        except: w = 600
+        try: h = max(float(get_val(mod, ['h_box', 'h', 'H', 'Височина'], 860)), 60)
+        except: h = 860
+        try: d = max(float(get_val(mod, ['d', 'D', 'Дълбочина'], 550)), 60)
+        except: d = 550
+        try: kr = int(kraka_height)
+        except: kr = 0
         
-        W, H, D = float(mod['W']), float(mod['H']), float(mod['D'])
-        max_dim = max(W, H, D)
-        if max_dim == 0: max_dim = 1
-        scale = 1000.0 / max_dim
+        m_num_str = str(m_num).strip().lower()
+        m_tip_str = str(m_tip).strip().lower()
+        full_name_str = f"{m_num_str} {m_tip_str}"
         
-        w_px, h_px, d_px = W * scale, H * scale, D * scale * 0.5
-        offset_x, offset_y = d_px * 0.866, d_px * 0.5
+        cabinet_count = sum(1 for m in modules_meta if str(get_val(m, ['mod_num', '№', 'Номер'], '?')).strip().lower() == m_num_str)
+        if cabinet_count < 1: cabinet_count = 1
         
-        start_x = 1240 - (w_px + offset_x)/2
-        start_y = 1000 - (h_px + offset_y)/2
+        parts_for_this_mod = []
+        if order_list:
+            seen = set()
+            for p in order_list:
+                p_num = str(p.get('mod_num', p.get('№', ''))).strip().lower()
+                p_tip = str(p.get('mod_tip', p.get('Детайл', ''))).strip().lower()
+                
+                matches_num = (p_num == m_num_str and m_num_str not in ['', '?'])
+                matches_name = (m_num_str in ['', '?'] and p_tip == m_tip_str)
+                
+                if matches_num or matches_name:
+                    p_sig = f"{p.get('Детайл')}_{p.get('Дължина')}_{p.get('Ширина')}_{p.get('Плоскост')}"
+                    if p_sig not in seen:
+                        seen.add(p_sig)
+                        parts_for_this_mod.append(p)
         
-        f_tl, f_tr = (start_x, start_y), (start_x + w_px, start_y)
-        f_bl, f_br = (start_x, start_y + h_px), (start_x + w_px, start_y + h_px)
-        r_tl, r_tr = (start_x + offset_x, start_y - offset_y), (start_x + w_px + offset_x, start_y - offset_y)
-        r_bl, r_br = (start_x + offset_x, start_y + h_px - offset_y), (start_x + w_px + offset_x, start_y + h_px - offset_y)
-        
-        draw.polygon([f_tl, r_tl, r_tr, f_tr], fill="#e0e0e0", outline="black", width=5) 
-        draw.polygon([f_tr, r_tr, r_br, f_br], fill="#d0d0d0", outline="black", width=5) 
-        draw.polygon([f_tl, f_tr, f_br, f_bl], fill="#f5f5f5", outline="black", width=5) 
-        
-        tip = mod['Тип']
-        lower_types = ["Долен", "Мивка", "чекмеджета", "Фурна", "Бутилки", "Колона"]
-        
-        leg_h_px = 0
-        if any(t.lower() in tip.lower() for t in lower_types):
-            kraka_px = kraka_height * scale
-            leg_h_px = kraka_px
-            plinth_y = start_y + h_px - kraka_px
-            draw.line([(start_x, plinth_y), (start_x + w_px, plinth_y)], fill="#555555", width=4)
-            draw.line([(start_x + w_px, plinth_y), (start_x + w_px + offset_x, plinth_y - offset_y)], fill="#555555", width=4)
+        fronts_with_names = []
+        real_shelves = 0
+        real_shelves_l = 0
+        real_shelves_r = 0
+        has_divider = False
+
+        for p in parts_for_this_mod:
+            d_name = str(p.get('Детайл', '')).lower()
+            raw_qty = int(p.get('Бр', 1))
+            qty_per_cab = max(1, round(raw_qty / cabinet_count))
             
-            leg_w = 40 * scale
-            offset = 50 * scale
-            draw.rectangle([start_x+offset, start_y+h_px-kraka_px, start_x+offset+leg_w, start_y+h_px], outline="black", width=3)
-            draw.rectangle([start_x+w_px-offset-leg_w, start_y+h_px-kraka_px, start_x+w_px-offset, start_y+h_px], outline="black", width=3)
-            draw.rectangle([start_x+offset+offset_x, start_y+h_px-kraka_px-offset_y, start_x+offset+leg_w+offset_x, start_y+h_px-offset_y], outline="black", width=2)
-            draw.rectangle([start_x+w_px-offset-leg_w+offset_x, start_y+h_px-kraka_px-offset_y, start_x+w_px-offset+offset_x, start_y+h_px-offset_y], outline="black", width=2)
-
-        parts = [p for p in order_list if str(p.get("№", "")) == str(mod["№"])]
-        vrati_count = 1
-        has_split = False
-        ld_h = mod.get("ld_h", 0)
-
-        for p in parts:
-            if "врата" in str(p['Детайл']).lower():
-                vrati_count = int(p['Бр'])
-            if "врата долна" in str(p['Детайл']).lower() or "чело долно" in str(p['Детайл']).lower():
-                has_split = True
+            if 'чело' in d_name:
+                try:
+                    fh = min(float(p.get('Дължина', 0)), float(p.get('Ширина', 0)))
+                    match = re.search(r'\d+', d_name)
+                    sort_idx = int(match.group()) if match else 999
+                    for _ in range(qty_per_cab):
+                        fronts_with_names.append((sort_idx, fh))
+                except: pass
                 
-        if tip == "Шкаф Колона":
-            if ld_h > 0:
-                split_y_1 = start_y + h_px - leg_h_px - (ld_h * scale)
-                draw.line([(start_x, split_y_1), (start_x + w_px, split_y_1)], fill="black", width=4)
-                
-                app_type = mod.get("app_type", "Без уреди")
-                if app_type != "Без уреди":
-                    split_y_2 = split_y_1 - (595 * scale)
-                    draw.line([(start_x, split_y_2), (start_x + w_px, split_y_2)], fill="black", width=4)
-                    draw.text((start_x + w_px/2, split_y_1 - (297 * scale)), "ФУРНА\n595", fill="#555555", font=font_dim, anchor="mm", align="center")
+            elif 'рафт' in d_name and 'твърд' not in d_name and 'тв.' not in d_name:
+                if 'ляв' in d_name:
+                    real_shelves_l += qty_per_cab
+                elif 'десен' in d_name:
+                    real_shelves_r += qty_per_cab
+                else:
+                    real_shelves += qty_per_cab
                     
-                    if app_type == "Фурна + Микровълнова":
-                        split_y_3 = split_y_2 - (380 * scale)
-                        draw.line([(start_x, split_y_3), (start_x + w_px, split_y_3)], fill="black", width=4)
-                        draw.text((start_x + w_px/2, split_y_2 - (190 * scale)), "М.В.\n380", fill="#555555", font=font_dim, anchor="mm", align="center")
+            if 'междинна' in d_name or 'делител' in d_name:
+                has_divider = True
                 
-                lower_type = mod.get("lower_type", "Врата")
-                if "Чекмеджета" in lower_type:
-                    if lower_type == "2 Чекмеджета":
-                        mid_y = start_y + h_px - leg_h_px - ((ld_h/2) * scale)
-                        draw.line([(start_x, mid_y), (start_x + w_px, mid_y)], fill="#333333", width=6)
-                    elif lower_type == "3 Чекмеджета":
-                        y1 = start_y + h_px - leg_h_px - ((ld_h - 180) * scale)
-                        y2 = y1 + (250 * scale)
-                        draw.line([(start_x, y1), (start_x + w_px, y1)], fill="#333333", width=6)
-                        draw.line([(start_x, y2), (start_x + w_px, y2)], fill="#333333", width=6)
-                        
-        if "чекмеджета" in tip.lower() and tip != "Шкаф Колона":
-            d1_y = start_y + (180 * scale)
-            draw.line([(start_x, d1_y), (start_x + w_px, d1_y)], fill="#333333", width=6)
-            d2_y = d1_y + (250 * scale)
-            draw.line([(start_x, d2_y), (start_x + w_px, d2_y)], fill="#333333", width=6)
-            
-        elif "Фурна" in tip and tip != "Шкаф Колона":
-            d_y = start_y + h_px - leg_h_px - (157 * scale)
-            draw.line([(start_x, d_y), (start_x + w_px, d_y)], fill="#333333", width=6)
-
-        if vrati_count == 2 and tip != "Шкаф Колона":
-            draw.line([(start_x + w_px/2, start_y), (start_x + w_px/2, start_y + h_px - leg_h_px)], fill="black", width=3)
-        elif vrati_count == 2 and tip == "Шкаф Колона":
-            draw.line([(start_x + w_px/2, start_y), (start_x + w_px/2, start_y + h_px - leg_h_px)], fill="black", width=3)
-
-        draw.text((start_x + w_px/2 - 100, start_y + h_px + 30), f"W: {int(W)}", fill="black", font=font_dim)
-        draw.text((start_x - 250, start_y + h_px/2 - 30), f"H: {int(H)}", fill="black", font=font_dim)
-        draw.text((start_x + w_px + offset_x/2 + 30, start_y + h_px - offset_y/2 - 30), f"D: {int(D)}", fill="black", font=font_dim)
-
-        draw.text((150, 1800), "СПЕЦИФИКАЦИЯ НА ДЕТАЙЛИТЕ:", fill="black", font=font_title)
-        cols_x = [170, 850, 1150, 1400, 1600, 2000]
-        lines_x = [150, 830, 1130, 1380, 1580, 1980, 2350]
-        y_offset = 1950
-        start_y_table = y_offset - 20 
+        if "делител" in m_tip_str or "меж." in m_num_str or "междинна" in m_tip_str:
+            has_divider = True
+                    
+        fronts_with_names.sort(key=lambda x: x[0])
+        real_front_heights = [f[1] for f in fronts_with_names]
+        real_drawers = len(real_front_heights)
         
-        headers = ["ДЕТАЙЛ", "ДЪЛЖ.", "ШИР.", "БР.", "КАНТ", "ПЛОСКОСТ"]
-        for i, h_text in enumerate(headers):
-            draw.text((cols_x[i], y_offset), h_text, fill="black", font=font_bold)
-            
-        y_offset += 80
-        draw.line([(150, y_offset), (2350, y_offset)], fill="black", width=4) 
-        y_offset += 20
+        lower_type = str(mod.get('lower_type', '')).lower()
+        if 'чекмедж' in lower_type:
+            match = re.search(r'(\d+)', lower_type)
+            num_drawers = int(match.group(1)) if match else 2
+        elif 'врата' in lower_type:
+            num_drawers = 0 
+        else:
+            match_dr = re.search(r'(\d+)\s*чекмедж', full_name_str)
+            if match_dr: num_drawers = int(match_dr.group(1))
+            elif "чекмедже" in full_name_str: num_drawers = real_drawers if real_drawers > 0 else 3
+            else: num_drawers = 0
+
+        is_upper = "горен" in full_name_str or "горни" in full_name_str
+        is_col = "колона" in full_name_str
+        is_lower = "долен" in full_name_str or "долни" in full_name_str
+
+        if not is_upper and not is_lower and not is_col and num_drawers == 0:
+            is_lower = True 
+
+        bottom_under_sides = is_lower or is_col or num_drawers > 0
+
+        if is_upper:
+            kr = 0
+            box_h = h
+        else:
+            box_h = h - kr if h > kr and h >= 800 else h
+
+        title = f"Шкаф [{m_num}] | {m_tip}"
+        draw.text((150, 100), title, fill="black", font=f_title)
+        draw.line([(150, 170), (2330, 170)], fill="black", width=5)
         
-        for p in parts:
-            kant_str = ""
-            if p.get('Д1'): kant_str += f"Д1({get_edge_label_text(p['Д1'])}) "
-            if p.get('Д2'): kant_str += f"Д2({get_edge_label_text(p['Д2'])}) "
-            if p.get('Ш1'): kant_str += f"Ш1({get_edge_label_text(p['Ш1'])}) "
-            if p.get('Ш2'): kant_str += f"Ш2({get_edge_label_text(p['Ш2'])}) "
+        actual_total_h = box_h + kr
+        draw.text((150, 200), f"Габаритни размери: Ширина {int(w)} мм | Височина {int(actual_total_h)} мм | Дълбочина {int(d)} мм", fill="#555555", font=f_dim)
+
+        center_x, center_y = 1240, 1250
+        max_dim = max(w, box_h + kr, d)
+        scale = 1000 / max_dim if max_dim > 0 else 1
+        
+        w_px = w * scale
+        h_px = box_h * scale
+        d_px = d * scale * 0.5  
+        
+        dx = d_px * 0.707
+        dy = d_px * 0.707
+
+        x0 = center_x - (w_px + dx) / 2
+        y0 = center_y - (h_px + kr*scale - dy) / 2
+        
+        c_front = "black"
+        c_back = "#aaaaaa"
+        c_shelf = "#3c8dbc" 
+        t_mm = 18
+        t = t_mm * scale 
+        
+        boards = []
+        if bottom_under_sides:
+            boards.append( (x0, y0, t, h_px - t) ) 
+            boards.append( (x0 + w_px - t, y0, t, h_px - t) ) 
+            boards.append( (x0 + t, y0, w_px - 2*t, t) ) 
+            boards.append( (x0, y0 + h_px - t, w_px, t) ) 
+        else:
+            boards.append( (x0, y0, t, h_px) ) 
+            boards.append( (x0 + w_px - t, y0, t, h_px) ) 
+            boards.append( (x0 + t, y0, w_px - 2*t, t) ) 
+            boards.append( (x0 + t, y0 + h_px - t, w_px - 2*t, t) ) 
             
-            row_data = [
-                str(p['Детайл'])[:18], str(int(p['Дължина'])), str(int(p['Ширина'])),
-                str(int(p['Бр'])), kant_str[:15], str(p['Плоскост'])[:15]
+        if has_divider:
+            div_x = x0 + w_px / 2 - t / 2
+            div_y = y0 + t
+            div_h = h_px - 2*t
+            boards.append( (div_x, div_y, t, div_h) )
+
+        for bx, by, bw, bh in boards:
+            draw.rectangle([bx+dx, by-dy, bx+bw+dx, by+bh-dy], outline=c_back, width=2)
+            draw.line([(bx, by), (bx+dx, by-dy)], fill=c_back, width=2)
+            draw.line([(bx+bw, by), (bx+bw+dx, by-dy)], fill=c_back, width=2)
+            draw.line([(bx, by+bh), (bx+dx, by+bh-dy)], fill=c_back, width=2)
+            draw.line([(bx+bw, by+bh), (bx+bw+dx, by+bh-dy)], fill=c_back, width=2)
+
+        draw.line([(x0, y0), (x0+dx, y0-dy)], fill=c_front, width=3)
+        draw.line([(x0+w_px, y0), (x0+w_px+dx, y0-dy)], fill=c_front, width=3)
+        draw.line([(x0+w_px, y0+h_px), (x0+w_px+dx, y0+h_px-dy)], fill=c_front, width=3)
+
+        for bx, by, bw, bh in boards:
+            draw.rectangle([bx, by, bx+bw, by+bh], outline=c_front, width=3)
+            
+        dim_color = "#D32F2F"
+        shelf_color_dim = "#2196F3"
+        
+        drawer_section_h = 0
+        if num_drawers > 0:
+            if is_col: drawer_section_h = 760 
+            else: drawer_section_h = box_h
+                
+        if real_front_heights and sum(real_front_heights) > drawer_section_h + 50:
+            real_front_heights = []
+            
+        if has_divider:
+            ns_l = real_shelves_l if parts_for_this_mod else int(get_val(mod, ['рафтове ляво'], 2))
+            ns_r = real_shelves_r if parts_for_this_mod else int(get_val(mod, ['рафтове дясно'], 2))
+            
+            inner_w = (w_px - 3*t) / 2
+            columns_data = [
+                {'s_left': x0 + t, 's_width': inner_w, 'ns': ns_l, 'dim_side': 'left'},
+                {'s_left': x0 + 2*t + inner_w, 's_width': inner_w, 'ns': ns_r, 'dim_side': 'right'}
             ]
-            for i, text in enumerate(row_data):
-                draw.text((cols_x[i], y_offset), text, fill="#222222", font=font_text)
-                
-            y_offset += 75
-            draw.line([(150, y_offset), (2350, y_offset)], fill="#aaaaaa", width=2) 
-            y_offset += 20
-            if y_offset > 3300: break 
+        else:
+            ns = real_shelves if parts_for_this_mod else -1 
+            columns_data = [
+                {'s_left': x0 + t, 's_width': w_px - 2*t, 'ns': ns, 'dim_side': 'right'}
+            ]
+
+        for col_idx, col in enumerate(columns_data):
+            ns = col['ns']
+            col_shelves = []
             
-        for lx in lines_x:
-            draw.line([(lx, start_y_table), (lx, y_offset)], fill="black", width=3)
-        draw.line([(150, start_y_table), (2350, start_y_table)], fill="black", width=4) 
-        draw.line([(150, y_offset), (2350, y_offset)], fill="black", width=4) 
+            if is_col and not has_divider and num_drawers == 0:
+                c1 = 760 - t_mm - (t_mm / 2) 
+                c2 = c1 + 609                
+                y_start = y0 + h_px - t
+                col_shelves.append((y_start - (c1 * scale), c1))
+                col_shelves.append((y_start - (c2 * scale), c2))
+                if box_h > 1800:
+                    c3 = c2 + 390            
+                    col_shelves.append((y_start - (c3 * scale), c3))
+            else:
+                space_for_shelves = box_h - drawer_section_h
+                if space_for_shelves > 200:
+                    if ns == -1: 
+                        if space_for_shelves <= 500: ns = 0
+                        elif space_for_shelves <= 1000: ns = 1
+                        elif space_for_shelves <= 1600: ns = 2
+                        else: ns = 3
+                    
+                    if ns > 0:
+                        gap = (space_for_shelves - ns * t_mm) / (ns + 1)
+                        for i in range(1, ns + 1):
+                            h_from_bottom = drawer_section_h + i * gap + (i - 1) * t_mm + (t_mm / 2)
+                            if bottom_under_sides:
+                                dim_val = h_from_bottom 
+                                y_start = y0 + h_px - t
+                            else:
+                                dim_val = h_from_bottom + t_mm 
+                                y_start = y0 + h_px
+                                
+                            sy = y_start - (dim_val * scale)
+                            col_shelves.append((sy, dim_val))
+
+            for idx, (sy, dim_val) in enumerate(col_shelves):
+                s_left = col['s_left']
+                s_width = col['s_width']
                 
-        pages.append(img)
+                draw.rectangle([s_left+dx, sy-t/2-dy, s_left+s_width+dx, sy+t/2-dy], outline=c_shelf, width=2)
+                draw.line([(s_left, sy-t/2), (s_left+dx, sy-t/2-dy)], fill=c_shelf, width=2)
+                draw.line([(s_left+s_width, sy-t/2), (s_left+s_width+dx, sy-t/2-dy)], fill=c_shelf, width=2)
+                draw.line([(s_left, sy+t/2), (s_left+dx, sy+t/2-dy)], fill=c_shelf, width=2)
+                draw.line([(s_left+s_width, sy+t/2), (s_left+s_width+dx, sy+t/2-dy)], fill=c_shelf, width=2)
+                draw.rectangle([s_left, sy-t/2, s_left+s_width, sy+t/2], outline=c_shelf, width=2)
+                
+                y_baseline = (y0 + h_px - t) if bottom_under_sides else (y0 + h_px)
+                
+                if col['dim_side'] == 'right':
+                    dim_x = x0 + w_px + 80 + ((idx+1) * 75) 
+                    draw_dim(img, draw, dim_x, y_baseline, dim_x, sy, f"{int(dim_val)}", f_dim, shelf_color_dim, rotate=True)
+                    draw.line([(x0+w_px, sy), (dim_x, sy)], fill="#bbbbbb", width=2)
+                    draw.line([(x0+w_px, y_baseline), (dim_x, y_baseline)], fill="#bbbbbb", width=2)
+                else:
+                    dim_x = x0 - 200 - ((idx+1) * 75)
+                    draw_dim(img, draw, dim_x, y_baseline, dim_x, sy, f"{int(dim_val)}", f_dim, shelf_color_dim, rotate=True)
+                    draw.line([(x0, sy), (dim_x, sy)], fill="#bbbbbb", width=2)
+                    draw.line([(x0, y_baseline), (dim_x, y_baseline)], fill="#bbbbbb", width=2)
+
+        if num_drawers > 0:
+            curr_y = y0 if not is_col else y0 + h_px - (drawer_section_h * scale)
+            if is_col: draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4) 
+                
+            if real_front_heights:
+                total_fh = sum(real_front_heights)
+                scale_f = drawer_section_h / total_fh if total_fh > 0 else 1
+                for idx, fh in enumerate(real_front_heights):
+                    fh_visual_px = fh * scale_f * scale 
+                    if idx > 0: draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4)
+                    dim_x_dr = x0 - 160
+                    draw_dim(img, draw, dim_x_dr, curr_y, dim_x_dr, curr_y+fh_visual_px, f"{int(fh)}", f_dim, dim_color, rotate=True)
+                    curr_y += fh_visual_px
+            else:
+                if num_drawers == 1: fronts = [drawer_section_h]
+                elif num_drawers == 2: fronts = [drawer_section_h / 2] * 2
+                elif num_drawers == 3:
+                    h1 = 160 if drawer_section_h > 500 else drawer_section_h * 0.25
+                    h2 = (drawer_section_h - h1) / 2
+                    fronts = [h1, h2, h2]
+                elif num_drawers == 4:
+                    h1 = 160 if drawer_section_h > 600 else drawer_section_h * 0.2
+                    h2 = (drawer_section_h - h1) / 3
+                    fronts = [h1, h2, h2, h2]
+                else: fronts = [drawer_section_h / num_drawers] * num_drawers
+                    
+                for idx, fh in enumerate(fronts):
+                    fh_px = fh * scale
+                    if idx > 0: draw.line([(x0, curr_y), (x0+w_px, curr_y)], fill=c_front, width=4)
+                    dim_x_dr = x0 - 160
+                    draw_dim(img, draw, dim_x_dr, curr_y, dim_x_dr, curr_y+fh_px, f"{int(fh)}", f_dim, dim_color, rotate=True)
+                    curr_y += fh_px
+
+        dim_y = y0 + h_px + (kr * scale) + 80
+        draw_dim(img, draw, x0, dim_y, x0+w_px, dim_y, f"{int(w)}", f_dim, dim_color)
         
+        d_sx, d_sy = x0 + w_px + 40, y0 + h_px
+        d_ex, d_ey = x0 + w_px + dx + 40, y0 + h_px - dy
+        draw_dim(img, draw, d_sx, d_sy, d_ex, d_ey, f"{int(d)}", f_dim, dim_color)
+
+        dim_x_left = x0 - 80
+        draw_dim(img, draw, dim_x_left, y0, dim_x_left, y0+h_px, f"{int(box_h)}", f_dim, dim_color, rotate=True)
+        
+        if kr > 0:
+            kr_px = kr * scale
+            draw.rectangle([x0+40, y0+h_px, x0+80, y0+h_px+kr_px], fill="#333333")
+            draw.rectangle([x0+w_px-80, y0+h_px, x0+w_px-40, y0+h_px+kr_px], fill="#333333")
+            draw.line([(x0-150, y0+h_px+kr_px), (x0+w_px+150, y0+h_px+kr_px)], fill="#999999", width=2)
+            draw_dim(img, draw, dim_x_left, y0+h_px, dim_x_left, y0+h_px+kr_px, f"{int(kr)}", f_dim, dim_color, rotate=True)
+
+        tab_y = 2350
+        draw.text((150, tab_y - 60), f"Списък с детайли:", fill="black", font=f_title)
+        
+        draw.line([(150, tab_y), (2330, tab_y)], fill="black", width=4)
+        draw.text((160, tab_y + 10), "Детайл", font=f_tab_h, fill="black")
+        draw.text((900, tab_y + 10), "Размер (L x W)", font=f_tab_h, fill="black")
+        draw.text((1300, tab_y + 10), "Бр.", font=f_tab_h, fill="black")
+        draw.text((1450, tab_y + 10), "Кантове", font=f_tab_h, fill="black")
+        draw.text((1900, tab_y + 10), "Материал", font=f_tab_h, fill="black")
+        tab_y += 60
+        draw.line([(150, tab_y), (2330, tab_y)], fill="black", width=4)
+        
+        if not parts_for_this_mod:
+            draw.text((160, tab_y + 20), "Няма генерирани детайли в разкроя за този модул.", font=f_tab_r, fill="#777777")
+        else:
+            for p in parts_for_this_mod:
+                d_name = str(p.get('Детайл', ''))[:35]
+                try: d_dim = f"{int(float(p.get('Дължина', 0)))} x {int(float(p.get('Ширина', 0)))}"
+                except: d_dim = "-"
+                
+                raw_qty = int(p.get('Бр', 1))
+                display_qty = str(max(1, round(raw_qty / cabinet_count)))
+                
+                edges = []
+                for k, lbl in [('Д1', 'Д1'), ('Д2', 'Д2'), ('Ш1', 'Ш1'), ('Ш2', 'Ш2')]:
+                    val = str(p.get(k, '')).strip()
+                    if val and val.lower() not in ['няма', '0', 'none', 'false', '']:
+                        edges.append(f"{lbl}:{val}")
+                d_edge = " ".join(edges) if edges else "Няма"
+                d_mat = str(p.get('Плоскост', ''))[:20]
+                
+                draw.text((160, tab_y + 15), d_name, font=f_tab_r, fill="#333333")
+                draw.text((900, tab_y + 15), d_dim, font=f_tab_r, fill="#333333")
+                draw.text((1300, tab_y + 15), display_qty, font=f_tab_r, fill="#333333")
+                draw.text((1450, tab_y + 15), d_edge, font=f_tab_r, fill="#333333")
+                draw.text((1900, tab_y + 15), d_mat, font=f_tab_r, fill="#333333")
+                
+                tab_y += 60
+                draw.line([(150, tab_y), (2330, tab_y)], fill="#dddddd", width=2)
+                
+                if tab_y > 3350:
+                    draw.text((160, tab_y + 10), "... (Списъкът продължава на следваща страница)", font=f_tab_r, fill="#777777")
+                    break
+
+        pages.append(img)
+
     if pages:
+        import io
         pdf_bytes = io.BytesIO()
         pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
         return pdf_bytes.getvalue()

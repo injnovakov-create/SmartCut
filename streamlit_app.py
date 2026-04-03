@@ -910,32 +910,29 @@ with col1:
             st.rerun()
 
 with col2:
-    # --- МАЛКА 3D СКИЦА НАД ТАБЛИЦАТА ---
-    st.markdown("<div style='text-align: center; color: #008080; font-weight: bold; margin-bottom: 5px;'>👀 3D Изглед</div>", unsafe_allow_html=True)
-    try:
-        # Използваме широки празни колонки отляво и отдясно (по 2 части), 
-        # за да свием картинката само в средната (1 част)
-        _, img_col, _ = st.columns([2, 1, 2])
-        with img_col:
-            st.image(draw_3d_preview(temp_meta, kraka), use_container_width=True)
-    except Exception as e:
-        pass
+    # --- ЗАГЛАВИЕ И 3D СКИЦА НА ЕДИН РЕД ---
+    header_col, img_col = st.columns([4, 1.5]) # 4 части за заглавието, 1.5 за малката скица
+    
+    with header_col:
+        st.subheader("📋 Списък за разкрой (Редактируем)")
         
-    st.markdown("---")
-    
-    st.subheader("📋 Списък за разкрой (Редактируем)")
-    
-    # --- БУТОН ЗА ВРЪЩАНЕ НАЗАД (UNDO) ---
-    if st.session_state.get("history"):
-        # Слагаме бутона в малка колонка, за да не се разпъва на цял екран
-        c_undo, _ = st.columns([1, 6])
-        with c_undo:
-            if st.button("↩️ Върни една стъпка назад"):
-                last_state = st.session_state.history.pop()
-                st.session_state.order_list = last_state["order"]
-                st.session_state.hardware_list = last_state["hw"]
-                st.session_state.modules_meta = last_state["meta"]
-                st.rerun()
+        # --- БУТОН ЗА ВРЪЩАНЕ НАЗАД ---
+        if st.session_state.get("history"):
+            c_undo, _ = st.columns([1.5, 4]) # Свиваме бутона, за да не е дълъг
+            with c_undo:
+                if st.button("↩️ Върни една стъпка назад"):
+                    last_state = st.session_state.history.pop()
+                    st.session_state.order_list = last_state["order"]
+                    st.session_state.hardware_list = last_state["hw"]
+                    st.session_state.modules_meta = last_state["meta"]
+                    st.rerun()
+                    
+    with img_col:
+        st.markdown("<div style='text-align: center; color: #008080; font-weight: bold; margin-bottom: 0px;'>👀 3D Изглед</div>", unsafe_allow_html=True)
+        try:
+            st.image(draw_3d_preview(temp_meta, kraka), use_container_width=True)
+        except:
+            pass # Ако няма скица, остава празно
     
     # --- УПРАВЛЕНИЕ НА МОДУЛИ И ТАБЛИЦА ---
     if st.session_state.order_list:

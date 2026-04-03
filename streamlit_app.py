@@ -229,17 +229,21 @@ with col1:
                 "Шкаф Мивка": "🚰", "Шкаф с чекмеджета": "🔢", "Шкаф Бутилки 15см": "🍾", 
                 "Шкаф за Фурна": "🍳", "Глух Ъгъл (Долен)": "📐", "Глух Ъгъл (Горен)": "📐"
             }
-            # ... тук продължава твоят код за избор на шкаф (tip = st.selectbox(...)) ...
         else:
             icons = {
                 "Шкаф Колона": "🏢", 
-                "Шкаф с меж. стр.": "🚪",  # <--- НОВИЯТ МОДУЛ Е ТУК
+                "Шкаф с меж. стр.": "🚪",  
                 "Дублираща страница долен": "🗂️", 
                 "Нестандартен": "🧩"
             }
 
         tip = st.selectbox("Тип модул", options=list(icons.keys()), format_func=lambda x: f"{icons.get(x, '📌')} {x}")
         name = st.text_input("Име/№ на модула", value=tip)
+        
+        # ---- НОВО: ДОБАВЕНО ИЗБИРАНЕ НА ПОСОКА НА ФЛАДЕРА ----
+        st.markdown("---")
+        flader_posoka = st.radio("🔄 Посока на фладера (за лица и чекмеджета):", ["Вертикален", "Хоризонтален"], horizontal=True)
+        st.markdown("---")
         
         appliances_type = "Без уреди"
         split_doors = False
@@ -298,7 +302,6 @@ with col1:
             vrati_broi = st.radio("Брой врати на ред:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_col")
             h = h_korpus + kraka 
 
-        # --- ИНТЕРФЕЙС ЗА НОВИЯ МОДУЛ ---
         elif tip == "Шкаф с меж. стр.":
             st.info("Модул с вертикални делители")
             mod_podtip = st.radio("Избери вид шкаф:", ["Долен с делител", "Горен с делител"], horizontal=True)
@@ -308,21 +311,18 @@ with col1:
             h_box = colB.number_input("Височина на корпуса (H) мм", value=760 if "Долен" in mod_podtip else 720)
             d = colC.number_input("Дълбочина (D) мм", value=520 if "Долен" in mod_podtip else 300)
             
-            # НОВО: Плъзгач за до 6 междинни страници
             num_dividers = st.slider("Брой междинни страници (делители):", 1, 6, 1)
-            num_sections = num_dividers + 1 # Ако има 1 страница, секциите са 2 и т.н.
+            num_sections = num_dividers + 1 
             
             st.markdown("##### 📚 Рафтове по секции (отляво надясно)")
             cols_shelves = st.columns(num_sections)
             section_shelves = []
             
-            # НОВО: Автоматично генериране на кутийки за рафтове според броя секции
             for i in range(num_sections):
                 with cols_shelves[i]:
                     val = st.number_input(f"Секция {i+1}", min_value=0, value=2, key=f"shelf_sec_{i}")
                     section_shelves.append(val)
             
-            # Броят на вратите вече се съобразява с максималния брой секции
             vrati_broi = st.radio("Брой врати:", [2, 3, 4, 5, 6, 7], index=num_sections-1 if num_sections <= 7 else 0, horizontal=True)
             h = h_box + (kraka if "Долен" in mod_podtip else 0)
 
@@ -384,7 +384,8 @@ with col1:
                 vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_low")
 
         st.markdown("---")
-        temp_meta = {"Тип": tip, "W": w, "H": h, "D": d, "vr_cnt": vrati_broi}
+        # ---- НОВО: Добавяме fl_posoka в метаданните ----
+        temp_meta = {"Тип": tip, "W": w, "H": h, "D": d, "vr_cnt": vrati_broi, "fl_posoka": flader_posoka}
         try:
             preview_img = draw_mini_preview(temp_meta, kraka)
             st.image(preview_img, caption="Скица на модула")

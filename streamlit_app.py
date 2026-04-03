@@ -388,7 +388,7 @@ with col1:
                 if tip == "Шкаф Бутилки 15см":
                     vrati_broi = 1
                     st.markdown("🚪 **Брой врати:** 1 (стандартно за бутилиера)")
-                else:
+            else:
                     vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_low")
             else:
                 h_box = st.number_input("Височина на корпуса без крака (мм)", value=760, key="h_box_low")

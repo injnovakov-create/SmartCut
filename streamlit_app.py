@@ -10,22 +10,39 @@ from rectpack import newPacker, PackingMode, PackingBin, SORT_AREA, GuillotineBs
 st.set_page_config(page_title="OPTIVIK: Витя-М", layout="wide")
 
 # --- CSS ЗА СБИТ ДИЗАЙН ---
+# --- CSS ЗА СБИТ ДИЗАЙН ---
 st.markdown("""
 <style>
-html { zoom: 0.95; }
+html { zoom: 0.85; } /* По-отдалечено за повече работно място */
 .stApp { background-color: #dce1e6 !important; } 
 .opti-text { color: #000000; font-weight: bold; }
 .vik-text { color: #FF0000; font-weight: bold; font-style: italic; }
 div[data-baseweb="select"] {
     border: 2px solid #008080 !important;
-    border-radius: 6px !important;
+    border-radius: 4px !important;
 }
-hr { margin-top: 0.8rem !important; margin-bottom: 0.8rem !important; border-color: #a3b0bd !important; }
-.stButton>button { background-color: #008080 !important; color: white !important; font-weight: bold !important; border-radius: 6px !important; border: none !important; padding: 0.5rem 1rem !important; width: 100%; }
+hr { margin-top: 0.3rem !important; margin-bottom: 0.3rem !important; border-color: #a3b0bd !important; }
+
+/* МИНИ БУТОНИ */
+.stButton>button { 
+    background-color: #008080 !important; 
+    color: white !important; 
+    font-weight: bold !important; 
+    border-radius: 4px !important; 
+    border: none !important; 
+    padding: 0.1rem 0.3rem !important; 
+    font-size: 13px !important; 
+    width: 100%; 
+    min-height: 28px !important;
+}
 .stButton>button:hover { background-color: #005959 !important; }
+
+/* СВИВАНЕ НА РАЗСТОЯНИЯТА */
 [data-testid="stSidebar"] { background-color: #cdd4db !important; border-right: 2px solid #a3b0bd !important; } 
-[data-testid="stDataFrame"] { filter: brightness(0.90) contrast(0.95); border-radius: 8px; overflow: hidden; }
-.stTextInput, .stNumberInput, .stSelectbox, .stRadio { margin-bottom: -0.5rem !important; }
+[data-testid="stDataFrame"] { filter: brightness(0.90) contrast(0.95); border-radius: 6px; overflow: hidden; }
+.stTextInput, .stNumberInput, .stSelectbox, .stRadio { margin-bottom: -15px !important; }
+.element-container { margin-bottom: -8px !important; }
+div[data-testid="stVerticalBlock"] { gap: 0.1rem !important; }
 </style>
 """, unsafe_allow_html=True)
 

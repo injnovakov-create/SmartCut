@@ -136,6 +136,73 @@ def calculate_hinges(height):
     elif height <= 1300: return 3
     else: return 4
 
+# --- НОВА ФУНКЦИЯ ЗА ЖИВА 3D СКИЦА ---
+def draw_3d_preview(meta, kraka_height):
+    from PIL import Image, ImageDraw
+    import io
+    
+    tip = meta.get("Тип", "Стандартен")
+    w = max(float(meta.get("W", 600)), 60)
+    h_total = max(float(meta.get("H", 760)), 60)
+    d = max(float(meta.get("D", 520)), 60)
+    
+    is_upper = "горен" in tip.lower() or "надстройка" in tip.lower()
+    has_legs = not is_upper and tip != "Трети ред (Надстройка)"
+    kr = int(kraka_height) if has_legs else 0
+    box_h = h_total - kr if has_legs else h_total
+    
+    canvas_w, canvas_h = 600, 600
+    img = Image.new('RGB', (canvas_w, canvas_h), '#ffffff')
+    draw = ImageDraw.Draw(img)
+    
+    center_x, center_y = canvas_w / 2, canvas_h / 2
+    max_dim = max(w, box_h + kr, d)
+    scale = (canvas_w * 0.55) / max_dim if max_dim > 0 else 1
+    
+    w_px = w * scale
+    h_px = box_h * scale
+    d_px = d * scale * 0.5  
+    
+    dx, dy = d_px * 0.707, d_px * 0.707
+    x0 = center_x - (w_px + dx) / 2
+    y0 = center_y - (h_px + kr*scale - dy) / 2 + (20 if kr>0 else 0)
+    
+    c_front, c_back = "black", "#aaaaaa"
+    t = 18 * scale 
+    
+    boards = [
+        (x0, y0, t, h_px), 
+        (x0 + w_px - t, y0, t, h_px), 
+        (x0 + t, y0, w_px - 2*t, t), 
+        (x0 + t, y0 + h_px - t, w_px - 2*t, t)
+    ]
+    
+    for bx, by, bw, bh in boards:
+        draw.rectangle([bx+dx, by-dy, bx+bw+dx, by+bh-dy], outline=c_back, width=2)
+        draw.line([(bx, by), (bx+dx, by-dy)], fill=c_back, width=2)
+        draw.line([(bx+bw, by), (bx+bw+dx, by-dy)], fill=c_back, width=2)
+        draw.line([(bx, by+bh), (bx+dx, by+bh-dy)], fill=c_back, width=2)
+        draw.line([(bx+bw, by+bh), (bx+bw+dx, by+bh-dy)], fill=c_back, width=2)
+
+    draw.line([(x0, y0), (x0+dx, y0-dy)], fill=c_front, width=3)
+    draw.line([(x0+w_px, y0), (x0+w_px+dx, y0-dy)], fill=c_front, width=3)
+    draw.line([(x0+w_px, y0+h_px), (x0+w_px+dx, y0+h_px-dy)], fill=c_front, width=3)
+
+    for bx, by, bw, bh in boards:
+        draw.rectangle([bx, by, bx+bw, by+bh], outline=c_front, width=3)
+
+    if kr > 0:
+        draw.rectangle([x0+w_px*0.1, y0+h_px, x0+w_px*0.1+t*2, y0+h_px+kr*scale], fill="#333333")
+        draw.rectangle([x0+w_px*0.9-t*2, y0+h_px, x0+w_px*0.9, y0+h_px+kr*scale], fill="#333333")
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return buf
+
+# --- СТРАНИЧНО МЕНЮ ---
+with st.sidebar:
+
     
     fig, ax = plt.subplots(figsize=(3, 3))
     

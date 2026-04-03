@@ -385,14 +385,12 @@ with col1:
                 vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_low")
 
         st.markdown("---")
-        # ---- НОВО: Добавяме fl_posoka в метаданните ----
         temp_meta = {"Тип": tip, "W": w, "H": h, "D": d, "vr_cnt": vrati_broi, "fl_posoka": flader_posoka}
         try:
             preview_img = draw_mini_preview(temp_meta, kraka)
-            st.image(preview_img, caption="Скица на модула")
-        except:
-            pass
-
+            st.image(preview_img, caption="Скица на модула", use_container_width=True)
+        except Exception as e:
+            st.error(f"Не мога да начертая скицата. Грешка: {e}")
         if st.button("➕ Добави към списъка"):
             current_snap = {
                 "order": json.loads(json.dumps(st.session_state.order_list)),

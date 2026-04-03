@@ -765,15 +765,31 @@ with col1:
         st.rerun()
 
 with col2:
-    st.subheader("📋 Списък за разкрой (Редактируем)")
+    # Разделяме дясната колона на две: тясна за 3D изгледа и широка за таблицата
+    col2_img, col2_table = st.columns([1, 2.5])
     
-    if st.session_state.get("history"):
-        if st.button("↩️ Върни една стъпка назад"):
-            last_state = st.session_state.history.pop()
-            st.session_state.order_list = last_state["order"]
-            st.session_state.hardware_list = last_state["hw"]
-            st.session_state.modules_meta = last_state["meta"]
-            st.rerun()
+    with col2_img:
+        st.markdown("<div style='text-align: center; color: #008080; font-weight: bold; margin-bottom: 10px;'>👀 3D Изглед</div>", unsafe_allow_html=True)
+        try:
+            preview_img = draw_3d_preview(temp_meta, kraka)
+            st.image(preview_img, use_container_width=True)
+        except:
+            pass # Ако модулът няма скица, просто оставяме празно
+            
+    with col2_table:
+        st.subheader("📋 Списък за разкрой (Редактируем)")
+        
+        # --- БУТОН ЗА ВРЪЩАНЕ НАЗАД (UNDO) ---
+        if st.session_state.get("history"):
+            if st.button("↩️ Върни една стъпка назад"):
+                last_state = st.session_state.history.pop()
+                st.session_state.order_list = last_state["order"]
+                st.session_state.hardware_list = last_state["hw"]
+                st.session_state.modules_meta = last_state["meta"]
+                st.rerun()
+        
+        # --- УПРАВЛЕНИЕ НА МОДУЛИ ---
+        if st.session_state.order_list:
     
     if st.session_state.order_list:
         unique_modules = list(dict.fromkeys([str(item["№"]) for item in st.session_state.order_list]))

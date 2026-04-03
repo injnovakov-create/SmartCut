@@ -323,7 +323,8 @@ with col1:
                     val = st.number_input(f"Секция {i+1}", min_value=0, value=2, key=f"shelf_sec_{i}")
                     section_shelves.append(val)
             
-            vrati_broi = st.radio("Брой врати:", [2, 3, 4, 5, 6, 7], index=num_sections-1 if num_sections <= 7 else 0, horizontal=True)
+            # --- НОВО: Добавена е 0 и е оправен индексът ---
+            vrati_broi = st.radio("Брой врати (0 = без врати):", [0, 1, 2, 3, 4, 5, 6, 7], index=num_sections if num_sections <= 7 else 0, horizontal=True)
             h = h_box + (kraka if "Долен" in mod_podtip else 0)
 
         elif tip == "Шкаф с чекмеджета":

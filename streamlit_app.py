@@ -370,7 +370,7 @@ with col1:
             vrati_broi = 2
             h = h_korpus + kraka
             
-           else:
+            else:
             default_w = 150 if tip == "Шкаф Бутилки 15см" else (1000 if "Глух" in tip else 600)
             w = st.number_input("Ширина (W) мм", value=default_w, key="w_std")
             

@@ -409,7 +409,7 @@ with st.sidebar:
             st.error(f"❌ Грешка при четенето: {e}")
 
 # --- ОСНОВЕН ИНТЕРФЕЙС ---
-col1, col2 = st.columns([1, 2.5])
+col1, col2 = st.columns([1, 4])
 
 with col1:
         st.subheader("📝 Добави Модул")

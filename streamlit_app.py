@@ -437,10 +437,12 @@ with col1:
                 new_hw.append({"№": name, "Артикул": "Крака за долен шкаф", "Брой": hw_legs})
 
             if tip in ["Стандартен Долен", "Шкаф Мивка", "Горен Шкаф", "Шкаф с меж. стр."]:
-                h_door_hw = h_vrata_standart if "Горен" not in tip else (h - fuga_obshto if 'vrati_orientacia' not in locals() or vrati_orientacia == "Вертикални" else (h - fuga_obshto if vrati_broi == 1 else int((h/2) - fuga_obshto)))
-                hw_hinges = calculate_hinges(h_door_hw) * vrati_broi
-                new_hw.append({"№": name, "Артикул": "Панти покрит кант", "Брой": hw_hinges})
-                new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": vrati_broi})
+                # --- ТУК Е ЗАЩИТАТА ЗА ОБКОВА ---
+                if vrati_broi > 0:
+                    h_door_hw = h_vrata_standart if "Горен" not in tip else (h - fuga_obshto if 'vrati_orientacia' not in locals() or vrati_orientacia == "Вертикални" else (h - fuga_obshto if vrati_broi == 1 else int((h/2) - fuga_obshto)))
+                    hw_hinges = calculate_hinges(h_door_hw) * vrati_broi
+                    new_hw.append({"№": name, "Артикул": "Панти покрит кант", "Брой": hw_hinges})
+                    new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": vrati_broi})
 
             # ЛОГИКА ЗА РАЗКРОЙ 
             if tip == "Шкаф с меж. стр.":
@@ -469,14 +471,14 @@ with col1:
                 for i, sh_count in enumerate(section_shelves):
                     if sh_count > 0:
                         new_items.append(add_item(name, tip, f"Рафт подв. Секция {i+1}", sh_count, inner_w - 1, d, "1д", mat_korpus, val_fl_korpus))
-                    
-                w_vrata = (w - (vrati_broi + 1) * fuga_obshto) / vrati_broi
-                lf, wf, nf = get_front_dims(h_vrata, w_vrata)
                 
-                new_items.extend([
-                    add_item(name, tip, "Врата", vrati_broi, lf, wf, "4 страни", mat_lice, val_fl_lice, nf),
-                    add_item(name, tip, "Гръб (Фазер)", 1, h_k - 4, w - 4, "Без", mat_fazer, "Няма")
-                ])
+                # --- ТУК Е ЗАЩИТАТА ЗА ВРАТИТЕ И ДЕЛЕНЕТО НА НУЛА ---
+                if vrati_broi > 0:
+                    w_vrata = (w - (vrati_broi + 1) * fuga_obshto) / vrati_broi
+                    lf, wf, nf = get_front_dims(h_vrata, w_vrata)
+                    new_items.append(add_item(name, tip, "Врата", vrati_broi, lf, wf, "4 страни", mat_lice, val_fl_lice, nf))
+                
+                new_items.append(add_item(name, tip, "Гръб (Фазер)", 1, h_k - 4, w - 4, "Без", mat_fazer, "Няма"))
 
             elif tip == "Трети ред (Надстройка)":
                 w_izbrana = int((w/2) - fuga_obshto) if vrati_broi == 2 else int(w - fuga_obshto)
@@ -692,7 +694,7 @@ with col1:
                 new_items.append(add_item(name, tip, custom_detail, custom_count, custom_l, custom_w, "", m_choice, f_choice, custom_edges=custom_edges_dict))
 
             elif tip == "Дублираща страница долен":
-                lf, wf, _ = get_front_dims(h, d) # Завъртваме само размерите, забележката не е нужна
+                lf, wf, _ = get_front_dims(h, d) 
                 new_items.append(add_item(name, tip, "Дублираща страница", 1, lf, wf, "4 страни", mat_lice, val_fl_lice))
 
             # ФИНАЛИЗИРАНЕ

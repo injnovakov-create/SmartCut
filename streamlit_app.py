@@ -136,6 +136,11 @@ def calculate_hinges(height):
     elif height <= 1300: return 3
     else: return 4
 
+def calculate_hinges(height):
+    if height <= 950: return 2
+    elif height <= 1300: return 3
+    else: return 4
+
 # --- НОВА ФУНКЦИЯ ЗА ЖИВА 3D СКИЦА ---
 def draw_3d_preview(meta, kraka_height):
     from PIL import Image, ImageDraw
@@ -197,53 +202,6 @@ def draw_3d_preview(meta, kraka_height):
 
     buf = io.BytesIO()
     img.save(buf, format="PNG")
-    buf.seek(0)
-    return buf
-
-# --- СТРАНИЧНО МЕНЮ ---
-with st.sidebar:
-
-    
-    fig, ax = plt.subplots(figsize=(3, 3))
-    
-    has_legs = "Горен" not in tip and tip != "Трети ред (Надстройка)"
-    k = kraka_visochina if has_legs else 0
-    h_korpus = h - k if has_legs else h
-    
-    if has_legs and k > 0:
-        ax.add_patch(patches.Rectangle((w*0.1, 0), w*0.08, k, facecolor="#333333"))
-        ax.add_patch(patches.Rectangle((w*0.82, 0), w*0.08, k, facecolor="#333333"))
-        
-    ax.add_patch(patches.Rectangle((0, k), w, h_korpus, fill=True, facecolor="#f4f4f4", edgecolor="#333333", lw=2))
-    
-    if tip == "Шкаф за Фурна":
-        ax.add_patch(patches.Rectangle((2, k + 2), w-4, 150, fill=True, facecolor="#e0e0e0", edgecolor="#666666"))
-        ax.add_patch(patches.Rectangle((2, k + 154), w-4, h_korpus - 156, fill=True, facecolor="#444444", edgecolor="#111111"))
-        
-    elif "чекмеджета" in tip.lower() or "чекмедже" in meta.get("lower_type", "").lower():
-        ch_count = 3
-        ch_h = h_korpus / ch_count
-        for i in range(ch_count):
-            ax.add_patch(patches.Rectangle((2, k + i*ch_h + 2), w-4, ch_h-4, fill=True, facecolor="#e0e0e0", edgecolor="#666666"))
-            ax.plot([w/2 - 30, w/2 + 30], [k + i*ch_h + ch_h/2, k + i*ch_h + ch_h/2], color='#888888', lw=2)
-            
-    elif vr_cnt > 0:
-        vr_w = w / vr_cnt
-        for i in range(int(vr_cnt)):
-            ax.add_patch(patches.Rectangle((i*vr_w + 2, k + 2), vr_w - 4, h_korpus - 4, fill=True, facecolor="#e0e0e0", edgecolor="#666666"))
-            hx = (i*vr_w) + 20 if i == 0 else (i*vr_w + vr_w) - 20
-            hy = k + h_korpus/2
-            if "Горен" in tip: hy = k + h_korpus*0.15
-            ax.plot(hx, hy, 'o', color='#888888', markersize=5) 
-
-    ax.set_xlim(-w*0.1, w*1.1)
-    ax.set_ylim(-h*0.1, h*1.1)
-    ax.set_aspect('equal')
-    ax.axis('off')
-    
-    buf = io.BytesIO()
-    plt.savefig(buf, format="png", bbox_inches='tight', transparent=True, dpi=100)
-    plt.close(fig)
     buf.seek(0)
     return buf
 

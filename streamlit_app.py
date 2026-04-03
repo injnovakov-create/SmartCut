@@ -910,31 +910,36 @@ with col1:
             st.rerun()
 
 with col2:
-    col2_img, col2_table = st.columns([1, 2.5])
-    
-    with col2_img:
-        st.markdown("<div style='text-align: center; color: #008080; font-weight: bold; margin-bottom: 10px;'>👀 3D Изглед</div>", unsafe_allow_html=True)
-        try:
+    # --- МАЛКА 3D СКИЦА НАД ТАБЛИЦАТА ---
+    st.markdown("<div style='text-align: center; color: #008080; font-weight: bold; margin-bottom: 5px;'>👀 3D Изглед</div>", unsafe_allow_html=True)
+    try:
+        # Използваме широки празни колонки отляво и отдясно (по 2 части), 
+        # за да свием картинката само в средната (1 част)
+        _, img_col, _ = st.columns([2, 1, 2])
+        with img_col:
             st.image(draw_3d_preview(temp_meta, kraka), use_container_width=True)
-        except Exception as e:
-            pass
-
-    with col2_table:
-        st.subheader("📋 Списък за разкрой (Редактируем)")
+    except Exception as e:
+        pass
         
-        # --- НОВО: БУТОН ЗА ВРЪЩАНЕ НАЗАД (UNDO) ---
-        if st.session_state.get("history"):
+    st.markdown("---")
+    
+    st.subheader("📋 Списък за разкрой (Редактируем)")
+    
+    # --- БУТОН ЗА ВРЪЩАНЕ НАЗАД (UNDO) ---
+    if st.session_state.get("history"):
+        # Слагаме бутона в малка колонка, за да не се разпъва на цял екран
+        c_undo, _ = st.columns([1, 6])
+        with c_undo:
             if st.button("↩️ Върни една стъпка назад"):
-                # Взимаме последната "снимка" от историята
                 last_state = st.session_state.history.pop()
-                
-                # Възстановяваме списъците към това състояние
                 st.session_state.order_list = last_state["order"]
                 st.session_state.hardware_list = last_state["hw"]
                 st.session_state.modules_meta = last_state["meta"]
-                
-                # Презареждаме, за да се види промяната веднага
                 st.rerun()
+    
+    # --- УПРАВЛЕНИЕ НА МОДУЛИ И ТАБЛИЦА ---
+    if st.session_state.order_list:
+        # ... ТУК НАДОЛУ ОСТАВА ТВОЯТ КОД ЗА ТАБЛИЦАТА (unique_modules и т.н.) ...
         
         # --- УПРАВЛЕНИЕ НА МОДУЛИ ---
         if st.session_state.order_list:

@@ -136,12 +136,6 @@ def calculate_hinges(height):
     elif height <= 1300: return 3
     else: return 4
 
-# --- ЖИВА 2D СКИЦА ---
-def draw_mini_preview(meta, kraka_visochina):
-    tip = meta.get("Тип", "Стандартен")
-    w = meta.get("W", 600)
-    h = meta.get("H", 760)
-    vr_cnt = meta.get("vr_cnt", 0)
     
     fig, ax = plt.subplots(figsize=(3, 3))
     

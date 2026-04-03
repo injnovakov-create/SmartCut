@@ -493,7 +493,9 @@ with col1:
             st.session_state.modules_meta.append(meta_dict)
 
             # --- УМНА ФУНКЦИЯ ЗА ЗАВЪРТАНЕ НА ФЛАДЕРА ---
-            def get_front_dims(h_front, w_front):
+            def get_front_dims(h_front, w_front, has_flader=val_fl_lice):
+                if has_flader in ["Не", "Няма"]:
+                    return h_front, w_front, ""
                 if flader_posoka == "Хоризонтален":
                     return w_front, h_front, "В БЛОК Х"
                 return h_front, w_front, "В БЛОК"
@@ -623,7 +625,8 @@ with col1:
                 cargi_w = w - (2*deb) - 49
                 duno_w = cargi_w + 12
                 duno_l = runner_len - 13
-                h_tsarga_furna = 157 - 60
+                h_stranica_chekm = 157 - 45
+                h_tsarga_furna = h_stranica_chekm - 15
                 lf, wf, nf = get_front_dims(157, w - fuga_obshto)
                 
                 new_items.extend([
@@ -633,7 +636,7 @@ with col1:
                     add_item(name, tip, "Рафт (под фурна)", 1, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
                     add_item(name, tip, "Чело чекмедже", 1, lf, wf, "4 страни", mat_lice, val_fl_lice, nf), 
                     add_item(name, tip, "Царги чекм.", 2, cargi_w, h_tsarga_furna, "1д", mat_chekm, val_fl_chekm),
-                    add_item(name, tip, "Страници чекм.", 2, runner_len - 10, h_tsarga_furna, "2д", mat_chekm, val_fl_chekm),
+                    add_item(name, tip, "Страници чекм.", 2, runner_len - 10, h_stranica_chekm, "2д", mat_chekm, val_fl_chekm),
                     add_item(name, tip, "Дъно чекмедже", 1, duno_l, duno_w, "Без", mat_fazer, "Няма")
                 ])
 
@@ -649,13 +652,14 @@ with col1:
                 ])
                 for idx, ch_h in enumerate(ch_heights):
                     final_front_h = ch_h - fuga_obshto - gola_offset
-                    h_tsarga = int(final_front_h - 60)
+                    h_stranica_chekm = int(final_front_h - 45)
+                    h_tsarga = h_stranica_chekm - 15
                     lf, wf, nf = get_front_dims(final_front_h, w - fuga_obshto)
                     
                     new_items.extend([
                         add_item(name, tip, f"Чело {idx+1}", 1, lf, wf, "4 страни", mat_lice, val_fl_lice, nf),
                         add_item(name, tip, f"Царги чекм. {idx+1}", 2, cargi_w, h_tsarga, "1д", mat_chekm, val_fl_chekm),
-                        add_item(name, tip, f"Страници чекм. {idx+1}", 2, runner_len - 10, h_tsarga, "2д", mat_chekm, val_fl_chekm)
+                        add_item(name, tip, f"Страници чекм. {idx+1}", 2, runner_len - 10, h_stranica_chekm, "2д", mat_chekm, val_fl_chekm)
                     ])
                 new_items.append(add_item(name, tip, "Дъно чекмедже", len(ch_heights), duno_l, duno_w, "Без", mat_fazer, "Няма"))
 
@@ -692,13 +696,14 @@ with col1:
                     else: 
                         num_c = 2 if lower_type == "2 Чекмеджета" else 3
                         chelo_h = lower_door_h / num_c
-                        h_tsarga = int(chelo_h - 60)
+                        h_stranica_chekm = int(chelo_h - 45)
+                        h_tsarga = h_stranica_chekm - 15
                         for idx in range(num_c):
                             lf, wf, nf = get_front_dims(chelo_h - fuga_obshto, w - fuga_obshto)
                             new_items.extend([
                                 add_item(name, tip, f"Чело долно {idx+1}", 1, lf, wf, "4 страни", mat_lice, val_fl_lice, nf),
                                 add_item(name, tip, f"Царги чекм.", 2, w - (2*deb) - 49, h_tsarga, "1д", mat_chekm, val_fl_chekm),
-                                add_item(name, tip, f"Страници чекм.", 2, runner_len - 10, h_tsarga, "2д", mat_chekm, val_fl_chekm)
+                                add_item(name, tip, f"Страници чекм.", 2, runner_len - 10, h_stranica_chekm, "2д", mat_chekm, val_fl_chekm)
                             ])
                         new_items.append(add_item(name, tip, "Дъно чекмедже", num_c, runner_len - 13, w - (2*deb) - 49 + 12, "Без", mat_fazer, "Няма"))
                     
@@ -731,11 +736,17 @@ with col1:
                 h_front = int((h_drawers - 3 * fuga_obshto) / 2)
                 lf_c, wf_c, nf_c = get_front_dims(h_front, w - 2 * fuga_obshto)
                 new_items.append(add_item(name, tip, "Чело", 2, lf_c, wf_c, "4", mat_lice, val_fl_lice, nf_c))
-                h_tsarga = h_front - 30
+                
+                h_stranica_chekm = int(h_front - 45)
+                h_tsarga = h_stranica_chekm - 15
+                cargi_w = w_in - 49
+                duno_w = cargi_w + 12
+                duno_l = runner_len - 13
+                
                 new_items.extend([
-                    add_item(name, tip, "Царги", 4, w_in - 26, h_tsarga, "1д", mat_chekm, val_fl_chekm),
-                    add_item(name, tip, "Страници чекм.", 4, runner_len, h_tsarga, "1д", mat_chekm, val_fl_chekm),
-                    add_item(name, tip, "Дъно чекм.", 2, runner_len - 2, w_in - 26 + 2*deb - 2, "Без", mat_fazer, "Няма")
+                    add_item(name, tip, "Царги", 4, cargi_w, h_tsarga, "1д", mat_chekm, val_fl_chekm),
+                    add_item(name, tip, "Страници чекм.", 4, runner_len - 10, h_stranica_chekm, "2д", mat_chekm, val_fl_chekm),
+                    add_item(name, tip, "Дъно чекм.", 2, duno_l, duno_w, "Без", mat_fazer, "Няма")
                 ])
                 lf_u, wf_u, nf_u = get_front_dims(h_korpus - h_drawers - int(1.5 * fuga_obshto), int((w - 3 * fuga_obshto) / 2))
                 new_items.append(add_item(name, tip, "Врата горна", 2, lf_u, wf_u, "4", mat_lice, val_fl_lice, nf_u))

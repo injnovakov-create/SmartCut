@@ -446,8 +446,8 @@ with col1:
                 vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_low")
 
     st.markdown("---")
-        # Събираме данните за 3D скицата (с предпазител, ако липсват променливи)
-        temp_meta = {
+    # Събираме данните за 3D скицата (с предпазител, ако липсват променливи)
+    temp_meta = {
             "Тип": tip, "W": w, "H": h, "D": d, "vr_cnt": vrati_broi, "fl_posoka": flader_posoka,
             "num_dividers": locals().get('num_dividers', 0),
             "num_ch": locals().get('num_ch', 0),

@@ -6,8 +6,6 @@ import json
 import urllib.request
 import math
 import re
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 from PIL import Image, ImageDraw, ImageFont
 from rectpack import newPacker, PackingMode, PackingBin, SORT_AREA, GuillotineBssfMaxas
 

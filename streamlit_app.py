@@ -373,8 +373,18 @@ with col1:
         else:
             default_w = 150 if tip == "Шкаф Бутилки 15см" else (1000 if "Глух" in tip else 600)
             w = st.number_input("Ширина (W) мм", value=default_w, key="w_std")
-            
-            if "
+            if "Горен" in tip:
+                h = st.number_input("Височина (H) мм", value=720, key="h_up")
+                d = st.number_input("Дълбочина (D) мм", value=300, key="d_up")
+                vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_up")
+                vrati_orientacia = st.radio("Ориентация:", ["Вертикални", "Хоризонтални"], horizontal=True) if tip == "Горен Шкаф" else "Вертикални"
+            else:
+                h_box = st.number_input("Височина на корпуса без крака (мм)", value=760, key="h_box_low")
+                d = st.number_input("Дълбочина (D) мм", value=(550 if tip == "Шкаф Мивка" else 520), key="d_low")
+                h = h_box + kraka 
+                vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_low")
+
+        st.markdown("---")
         # ---- НОВО: Добавяме fl_posoka в метаданните ----
         temp_meta = {"Тип": tip, "W": w, "H": h, "D": d, "vr_cnt": vrati_broi, "fl_posoka": flader_posoka}
         try:

@@ -369,7 +369,8 @@ with col1:
             runner_len = st.number_input("Дължина водач (мм)", value=500, step=50, key="run_gard")
             vrati_broi = 2
             h = h_korpus + kraka
-           else:
+            
+        else:
             default_w = 150 if tip == "Шкаф Бутилки 15см" else (1000 if "Глух" in tip else 600)
             w = st.number_input("Ширина (W) мм", value=default_w, key="w_std")
             
@@ -387,7 +388,10 @@ with col1:
                 if tip == "Шкаф Бутилки 15см":
                     vrati_broi = 1
                     st.markdown("🚪 **Брой врати:** 1 (стандартно за бутилиера)")
-            else:
+                else:
+                    vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_low")
+
+        st.markdown("---")
                     vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_low")
             else:
                 h_box = st.number_input("Височина на корпуса без крака (мм)", value=760, key="h_box_low")

@@ -446,12 +446,14 @@ with col1:
                 vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_low")
 
     st.markdown("---")
-    temp_meta = {"Тип": tip, "W": w, "H": h, "D": d, "vr_cnt": vrati_broi, "fl_posoka": flader_posoka}
-    try:
-        preview_img = draw_mini_preview(temp_meta, kraka)
-        st.image(preview_img, caption="Скица на модула", use_container_width=True)
-    except Exception as e:
-        st.error(f"Не мога да начертая скицата. Грешка: {e}")
+        # Събираме данните за 3D скицата (с предпазител, ако липсват променливи)
+        temp_meta = {
+            "Тип": tip, "W": w, "H": h, "D": d, "vr_cnt": vrati_broi, "fl_posoka": flader_posoka,
+            "num_dividers": locals().get('num_dividers', 0),
+            "num_ch": locals().get('num_ch', 0),
+            "lower_door_h": locals().get('lower_door_h', 0),
+            "appliances_type": locals().get('appliances_type', "Без уреди")
+        }
 
     if st.button("➕ Добави към списъка"):
         current_snap = {

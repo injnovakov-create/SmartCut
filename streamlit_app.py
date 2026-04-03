@@ -791,7 +791,7 @@ with col2:
         # --- УПРАВЛЕНИЕ НА МОДУЛИ ---
         if st.session_state.order_list:
     
-    if st.session_state.order_list:
+        if st.session_state.order_list:
         unique_modules = list(dict.fromkeys([str(item["№"]) for item in st.session_state.order_list]))
         with st.expander("⚙️ Управление на добавени модули (Изтриване)"):
             for m_num in unique_modules:

@@ -137,16 +137,62 @@ def calculate_hinges(height):
     else: return 4
 
 # --- НОВА ФУНКЦИЯ ЗА ЖИВА 3D СКИЦА ---
+# --- НОВА ФУНКЦИЯ ЗА ЖИВА 3D СКИЦА (КАТО В PDF-А) ---
 def draw_3d_preview(meta, kraka_height):
-    from PIL import Image, ImageDraw
+    from PIL import Image, ImageDraw, ImageFont
     import io
+    import math
     
+    # Опитваме да заредим хубавия шрифт за размерите
+    try: f_dim = ImageFont.truetype("Roboto-Regular.ttf", 16)
+    except: f_dim = ImageFont.load_default()
+        
+    # Вътрешна помощна функция за чертане на червени размери
+    def draw_dim(img, draw, x1, y1, x2, y2, text, font, color, rotate=False):
+        mid_x, mid_y = (x1 + x2) / 2, (y1 + y2) / 2
+        dist = math.hypot(x2-x1, y2-y1)
+        if dist < 1: return
+        ux, uy = (x2-x1)/dist, (y2-y1)/dist
+        
+        txt_img_temp = Image.new('RGBA', (10, 10), (255,255,255,0))
+        temp_draw = ImageDraw.Draw(txt_img_temp)
+        bbox = temp_draw.textbbox((0,0), text, font=font)
+        tw = bbox[2] - bbox[0]
+        gap = (tw / 2) + 4
+        
+        if dist > gap * 2:
+            draw.line([(x1, y1), (mid_x - ux*gap, mid_y - uy*gap)], fill=color, width=2)
+            draw.line([(mid_x + ux*gap, mid_y + uy*gap), (x2, y2)], fill=color, width=2)
+        else:
+            draw.line([(x1, y1), (x2, y2)], fill=color, width=2)
+            
+        tick_len = 5
+        if abs(x2-x1) > abs(y2-y1):
+            draw.line([(x1, y1-tick_len), (x1, y1+tick_len)], fill=color, width=2)
+            draw.line([(x2, y2-tick_len), (x2, y2+tick_len)], fill=color, width=2)
+        else:
+            draw.line([(x1-tick_len, y1), (x1+tick_len, y1)], fill=color, width=2)
+            draw.line([(x2-tick_len, y2), (x2+tick_len, y2)], fill=color, width=2)
+            
+        txt_img = Image.new('RGBA', (100, 40), (255,255,255,0))
+        txt_draw = ImageDraw.Draw(txt_img)
+        txt_draw.text((50, 20), text, fill=color, font=font, anchor="mm")
+        
+        if rotate:
+            txt_img = txt_img.rotate(90, expand=True)
+            rot_w, rot_h = txt_img.size
+            img.paste(txt_img, (int(mid_x - rot_w/2), int(mid_y - rot_h/2)), txt_img)
+        else:
+            img.paste(txt_img, (int(mid_x - 50), int(mid_y - 20)), txt_img)
+
+    # Вземаме данните от менюто
     tip = meta.get("Тип", "Стандартен")
     w = max(float(meta.get("W", 600)), 60)
     h_total = max(float(meta.get("H", 760)), 60)
     d = max(float(meta.get("D", 520)), 60)
     
     is_upper = "горен" in tip.lower() or "надстройка" in tip.lower()
+    is_col = "колона" in tip.lower()
     has_legs = not is_upper and tip != "Трети ред (Надстройка)"
     kr = int(kraka_height) if has_legs else 0
     box_h = h_total - kr if has_legs else h_total
@@ -157,7 +203,7 @@ def draw_3d_preview(meta, kraka_height):
     
     center_x, center_y = canvas_w / 2, canvas_h / 2
     max_dim = max(w, box_h + kr, d)
-    scale = (canvas_w * 0.55) / max_dim if max_dim > 0 else 1
+    scale = (canvas_w * 0.45) / max_dim if max_dim > 0 else 1
     
     w_px = w * scale
     h_px = box_h * scale
@@ -165,18 +211,27 @@ def draw_3d_preview(meta, kraka_height):
     
     dx, dy = d_px * 0.707, d_px * 0.707
     x0 = center_x - (w_px + dx) / 2
-    y0 = center_y - (h_px + kr*scale - dy) / 2 + (20 if kr>0 else 0)
+    y0 = center_y - (h_px + kr*scale - dy) / 2
     
-    c_front, c_back = "black", "#aaaaaa"
-    t = 18 * scale 
+    c_front, c_back, c_shelf = "black", "#aaaaaa", "#3c8dbc"
+    t_mm = 18
+    t = t_mm * scale 
     
-    boards = [
-        (x0, y0, t, h_px), 
-        (x0 + w_px - t, y0, t, h_px), 
-        (x0 + t, y0, w_px - 2*t, t), 
-        (x0 + t, y0 + h_px - t, w_px - 2*t, t)
-    ]
+    bottom_under_sides = not is_upper
     
+    # 1. Чертаем Корпуса
+    boards = []
+    if bottom_under_sides:
+        boards.extend([(x0, y0, t, h_px - t), (x0 + w_px - t, y0, t, h_px - t), (x0 + t, y0, w_px - 2*t, t), (x0, y0 + h_px - t, w_px, t)])
+    else:
+        boards.extend([(x0, y0, t, h_px), (x0 + w_px - t, y0, t, h_px), (x0 + t, y0, w_px - 2*t, t), (x0 + t, y0 + h_px - t, w_px - 2*t, t)])
+        
+    num_dividers = int(meta.get("num_dividers", 0))
+    if num_dividers > 0:
+        inner_w_px = (w_px - (2 + num_dividers) * t) / (num_dividers + 1)
+        for i in range(1, num_dividers + 1):
+            boards.append((x0 + t + i * inner_w_px + (i - 1) * t, y0 + t, t, h_px - 2*t))
+
     for bx, by, bw, bh in boards:
         draw.rectangle([bx+dx, by-dy, bx+bw+dx, by+bh-dy], outline=c_back, width=2)
         draw.line([(bx, by), (bx+dx, by-dy)], fill=c_back, width=2)
@@ -189,17 +244,77 @@ def draw_3d_preview(meta, kraka_height):
     draw.line([(x0+w_px, y0+h_px), (x0+w_px+dx, y0+h_px-dy)], fill=c_front, width=3)
 
     for bx, by, bw, bh in boards:
-        draw.rectangle([bx, by, bx+bw, by+bh], outline=c_front, width=3)
+        draw.rectangle([bx, by, bx+bw, by+bh], outline=c_front, width=2)
+
+    # 2. Чертаем размерите (като в PDF)
+    dim_color = "#D32F2F"
+    
+    dim_y = y0 + h_px + (kr * scale) + 40
+    draw_dim(img, draw, x0, dim_y, x0+w_px, dim_y, f"{int(w)}", f_dim, dim_color)
+    
+    d_sx, d_sy = x0 + w_px + 20, y0 + h_px
+    d_ex, d_ey = x0 + w_px + dx + 20, y0 + h_px - dy
+    draw_dim(img, draw, d_sx, d_sy, d_ex, d_ey, f"{int(d)}", f_dim, dim_color)
+    
+    dim_x_left = x0 - 40
+    draw_dim(img, draw, dim_x_left, y0, dim_x_left, y0+h_px, f"{int(box_h)}", f_dim, dim_color, rotate=True)
 
     if kr > 0:
-        draw.rectangle([x0+w_px*0.1, y0+h_px, x0+w_px*0.1+t*2, y0+h_px+kr*scale], fill="#333333")
-        draw.rectangle([x0+w_px*0.9-t*2, y0+h_px, x0+w_px*0.9, y0+h_px+kr*scale], fill="#333333")
+        kr_px = kr * scale
+        draw.rectangle([x0+w_px*0.1, y0+h_px, x0+w_px*0.1+t*2, y0+h_px+kr_px], fill="#333333")
+        draw.rectangle([x0+w_px*0.9-t*2, y0+h_px, x0+w_px*0.9, y0+h_px+kr_px], fill="#333333")
+        draw_dim(img, draw, dim_x_left, y0+h_px, dim_x_left, y0+h_px+kr_px, f"{int(kr)}", f_dim, dim_color, rotate=True)
+
+    # 3. Чертаем лица, фурни и чекмеджета
+    num_ch = int(meta.get("num_ch", 0))
+    vr_cnt = int(meta.get("vr_cnt", 0))
+    lower_door_h = float(meta.get("lower_door_h", 718))
+    appliances_type = meta.get("appliances_type", "Без уреди")
+    
+    if "фурна" in tip.lower():
+        sy = y0 + h_px - t - (157 * scale)
+        draw.rectangle([x0+dx+t, sy-t/2-dy, x0+w_px-t+dx, sy+t/2-dy], outline=c_shelf, width=2)
+        draw.rectangle([x0+t, sy-t/2, x0+w_px-t, sy+t/2], outline=c_shelf, width=2)
+        draw.rectangle([x0+t, y0+t, x0+w_px-t, sy-t/2], fill="#3a3a3a")
+        draw.rectangle([x0, sy+t/2, x0+w_px, y0+h_px], outline=c_front, width=3)
+        dim_x_dr = x0 - 80
+        draw_dim(img, draw, dim_x_dr, sy+t/2, dim_x_dr, y0+h_px, "157", f_dim, dim_color, rotate=True)
+        draw.line([(x0, sy+t/2), (dim_x_dr, sy+t/2)], fill="#bbbbbb", width=1)
+        draw.line([(x0, y0+h_px), (dim_x_dr, y0+h_px)], fill="#bbbbbb", width=1)
+        
+    elif "чекмеджета" in tip.lower() or num_ch > 0:
+        nc = num_ch if num_ch > 0 else 3
+        ch_h = h_px / nc
+        for i in range(nc):
+            draw.rectangle([x0, y0+i*ch_h, x0+w_px, y0+(i+1)*ch_h], outline=c_front, width=3)
+            draw.line([(x0+w_px/2-15, y0+i*ch_h+ch_h/2), (x0+w_px/2+15, y0+i*ch_h+ch_h/2)], fill="#888888", width=3)
+            dim_x_dr = x0 - 80
+            draw_dim(img, draw, dim_x_dr, y0+i*ch_h, dim_x_dr, y0+(i+1)*ch_h, f"{int(box_h/nc)}", f_dim, dim_color, rotate=True)
+            draw.line([(x0, y0+i*ch_h), (dim_x_dr, y0+i*ch_h)], fill="#bbbbbb", width=1)
+        draw.line([(x0, y0+h_px), (x0-80, y0+h_px)], fill="#bbbbbb", width=1)
+        
+    elif is_col and appliances_type != "Без уреди":
+        ld_h_px = lower_door_h * scale
+        f_h_px = 595 * scale
+        draw.rectangle([x0, y0+h_px-ld_h_px, x0+w_px, y0+h_px], outline=c_front, width=3)
+        draw.rectangle([x0+t, y0+h_px-ld_h_px-f_h_px, x0+w_px-t, y0+h_px-ld_h_px], fill="#3a3a3a")
+        draw.rectangle([x0, y0, x0+w_px, y0+h_px-ld_h_px-f_h_px], outline=c_front, width=3)
+        dim_x_dr = x0 - 80
+        draw_dim(img, draw, dim_x_dr, y0+h_px-ld_h_px, dim_x_dr, y0+h_px, f"{int(lower_door_h)}", f_dim, dim_color, rotate=True)
+        draw.line([(x0, y0+h_px-ld_h_px), (dim_x_dr, y0+h_px-ld_h_px)], fill="#bbbbbb", width=1)
+        
+    elif vr_cnt > 0:
+        vr_w = w_px / vr_cnt
+        for i in range(vr_cnt):
+            draw.rectangle([x0+i*vr_w, y0, x0+(i+1)*vr_w, y0+h_px], outline=c_front, width=3)
+            hx = x0 + i*vr_w + 15 if i == 0 else x0 + (i+1)*vr_w - 15
+            hy = y0 + h_px/2 if not is_upper else y0 + h_px*0.8
+            draw.ellipse([hx-2, hy-2, hx+2, hy+2], fill="#888888")
 
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     buf.seek(0)
     return buf
-
 
 # --- СТРАНИЧНО МЕНЮ ---
 with st.sidebar:

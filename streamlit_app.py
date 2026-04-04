@@ -937,7 +937,21 @@ with col2:
         except Exception:
             pass # Ако няма скица, остава празно
     
-    # --- ТАБЛИЦА (Без сортиране, за да са най-новите отгоре) ---
+    # --- УПРАВЛЕНИЕ НА МОДУЛИ И ТАБЛИЦА ---
+    if st.session_state.order_list:
+        unique_modules = list(dict.fromkeys([str(item["№"]) for item in st.session_state.order_list]))
+        with st.expander("⚙️ Управление на добавени модули (Изтриване)"):
+            for m_num in unique_modules:
+                col_m1, col_m2 = st.columns([4, 1])
+                col_m1.write(f"📦 Модул: **{m_num}**")
+                if col_m2.button("🗑️ Изтрий", key=f"del_{m_num}"):
+                    st.session_state.order_list = [item for item in st.session_state.order_list if str(item["№"]) != m_num]
+                    st.session_state.hardware_list = [item for item in st.session_state.hardware_list if str(item.get("№", "")) != m_num]
+                    st.session_state.modules_meta = [item for item in st.session_state.modules_meta if str(item.get("№", "")) != m_num]
+                    st.rerun()
+        st.markdown("---")
+        
+        # --- ТАБЛИЦА (Без сортиране, за да са най-новите отгоре) ---
         df = pd.DataFrame(st.session_state.order_list)
         
         cols_order = ["Плоскост", "№", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
@@ -951,10 +965,9 @@ with col2:
             color_map = {mod: i % 2 for i, mod in enumerate(unique_mods)}
             
             def highlight_modules(row):
-                # Използваме rgba (прозрачност), което Streamlit разчита безотказно!
-                # 0 = стандартния фон на темата, 1 = лек тюркоазен/син акцент
-                bg_color = 'background-color: rgba(0, 128, 128, 0.15);' if color_map.get(row['№'], 0) == 1 else ''
-                return [bg_color] * len(row)
+                # Редуваме стандартно бяло с много светло синьо-сиво
+                bg_color = '#ffffff' if color_map.get(row['№'], 0) == 0 else '#eef4f8'
+                return [f'background-color: {bg_color}'] * len(row)
             
             # Прилагаме стила върху таблицата
             display_df = df.style.apply(highlight_modules, axis=1)
@@ -980,10 +993,9 @@ with col2:
                 pd.DataFrame(st.session_state.hardware_list).groupby("Артикул")["Брой"].sum().reset_index().to_excel(writer, index=False, sheet_name='Обков')
         st.download_button(label="📊 Свали в Excel (.xlsx)", data=output.getvalue(), file_name="razkroi_vitya_kuhni.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-    # ЕТО ГО ПОДРАВНЕНОТО ELSE:
-        
+    # ЕТО ГО ЛИПСВАЩОТО ELSE, КОЕТО ОПРАВЯ ПРОБЛЕМА:
+    else:
         st.info("Списъкът е празен. Добави първия си модул отляво!")
-
 # --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (СЕКЦИИ И ГАРДЕРОБИ) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
     import math

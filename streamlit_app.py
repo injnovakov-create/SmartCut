@@ -460,26 +460,49 @@ with col1:
             vrati_broi = st.radio("Брой врати:", [1, 2], index=0, horizontal=True, key="vr_tret")
         elif tip == "Нестандартен":
             custom_detail = st.text_input("Име на детайла", value="Нестандартен детайл")
+            
             colA, colB, colC = st.columns(3)
-            h = custom_l = colA.number_input("Дължина (L) мм", value=600)
-            d = custom_w = colB.number_input("Ширина (W) мм", value=300)
-            w = deb
+            custom_l = colA.number_input("Дължина (L) мм", value=600)
+            custom_w = colB.number_input("Ширина (W) мм", value=300)
             custom_count = colC.number_input("Брой", value=1, min_value=1)
+            
+            # За вътрешни изчисления
+            h, d, w = custom_l, custom_w, deb
             
             colE, colF = st.columns(2)
             custom_mat_type = colE.selectbox("Вид материал", ["Корпус", "Лице", "Чекмеджета", "Фазер", "Специфичен (въведи)"])
             custom_flader = colF.radio("Спазва фладер?", ["Да", "Не"], index=0, horizontal=True)
-            if custom_mat_type == "Специфичен (въведи)":
-                custom_mat_name = st.text_input("Въведи име на материала:", value="ПДЧ 18мм (Друго)")
-                
-            st.markdown("##### 📏 Кантове по страни")
-            st.caption("Избери конкретен кант за всяка страна. Програмата сама ще го приспадне!")
+            
+            # Вземаме името на материала според избора
+            if custom_mat_type == "Корпус": current_mat_name = mat_korpus
+            elif custom_mat_type == "Лице": current_mat_name = mat_lice
+            elif custom_mat_type == "Чекмеджета": current_mat_name = mat_chekm
+            elif custom_mat_type == "Фазер": current_mat_name = mat_fazer
+            else: current_mat_name = st.text_input("Име на специфичен материал:", value="ПДЧ 18мм")
+
+            st.markdown("##### 📏 Дебелина на канта по страни")
+            st.caption(f"Декорът на канта автоматично ще бъде: **{current_mat_name}**")
+            
+            # Опростен избор на дебелина
+            edge_options = ["Без", "0.45", "2.0"]
             colD1, colD2, colSh1, colSh2 = st.columns(4)
-            c_d1 = colD1.selectbox("Дължина 1 (Д1)", available_edges, index=0)
-            c_d2 = colD2.selectbox("Дължина 2 (Д2)", available_edges, index=0)
-            c_sh1 = colSh1.selectbox("Ширина 1 (Ш1)", available_edges, index=0)
-            c_sh2 = colSh2.selectbox("Ширина 2 (Ш2)", available_edges, index=0)
-            custom_edges_dict = {"Д1": c_d1, "Д2": c_d2, "Ш1": c_sh1, "Ш2": c_sh2}
+            
+            e_d1 = colD1.selectbox("Д1 (Горе)", edge_options, index=0)
+            e_d2 = colD2.selectbox("Д2 (Долу)", edge_options, index=0)
+            e_sh1 = colSh1.selectbox("Ш1 (Ляво)", edge_options, index=0)
+            e_sh2 = colSh2.selectbox("Ш2 (Дясно)", edge_options, index=0)
+
+            # Функция за сглобяване на името на канта за таблицата
+            def format_edge(thickness, mat_name):
+                if thickness == "Без": return "Без"
+                return f"{mat_name} {thickness}мм"
+
+            custom_edges_dict = {
+                "Д1": format_edge(e_d1, current_mat_name),
+                "Д2": format_edge(e_d2, current_mat_name),
+                "Ш1": format_edge(e_sh1, current_mat_name),
+                "Ш2": format_edge(e_sh2, current_mat_name)
+            }
             
         elif tip == "Шкаф Колона":
             w = st.number_input("Ширина (W) мм", value=600, key="w_col")

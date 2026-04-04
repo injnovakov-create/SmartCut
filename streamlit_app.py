@@ -571,7 +571,7 @@ with col1:
             elif tip == "Шкаф за Фурна":
                 default_w = 600  # ТУК Е КЛЮЧЪТ - заковаваме 600 мм за фурната
             elif "Глух" in tip:
-            default_w = 1000
+                default_w = 1000
             w = st.number_input("Обща Ширина (W) мм", value=default_w, key="w_std")
             
             # Добавяме двете кутийки за вратата и глухото чело

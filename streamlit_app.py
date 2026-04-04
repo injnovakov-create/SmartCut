@@ -470,45 +470,45 @@ with col1:
             custom_mat_type = colE.selectbox("Вид материал", ["Корпус", "Лице", "Чекмеджета", "Фазер", "Специфичен"])
             custom_flader = colF.radio("Спазва фладер?", ["Да", "Не"], index=0, horizontal=True)
             
-            # Определяне на името на материала автоматично
+            # Автоматично определяне на декора според материала на проекта
             if custom_mat_type == "Корпус": current_mat = mat_korpus
             elif custom_mat_type == "Лице": current_mat = mat_lice
             elif custom_mat_type == "Чекмеджета": current_mat = mat_chekm
             elif custom_mat_type == "Фазер": current_mat = mat_fazer
             else: current_mat = "Специфичен"
 
-            st.markdown(f"##### 📏 Кантиране с декор: **{current_mat}**")
+            st.markdown(f"##### 📏 Кантиране (Декор: **{current_mat}**)")
             
-            # Функция за определяне на канта според отметките
-            def get_edge_val(c_08, c_2mm, mat_name):
-                if c_2mm: return f"{mat_name} 2мм"
-                if c_08: return f"{mat_name} 0.8мм"
+            # Вътрешна функция за кратко име на канта
+            def get_edge_val(c_08, c_2, mat_name):
+                if c_2: return f"{mat_name} 2"
+                if c_08: return f"{mat_name} 0.8"
                 return "Без"
 
-            # Създаваме 4 колони - по една за всяка страна
+            # 4 колони за 4-те страни на детайла
             c1, c2, c3, c4 = st.columns(4)
             
             with c1:
                 st.write("**Д1 (Горе)**")
-                d1_08 = st.checkbox("0.8мм", key="d1_08")
-                d1_2 = st.checkbox("2мм", key="d1_2")
+                d1_08 = st.checkbox("0.8", key="d1_08")
+                d1_2 = st.checkbox("2", key="d1_2")
             
             with c2:
                 st.write("**Д2 (Долу)**")
-                d2_08 = st.checkbox("0.8мм", key="d2_08")
-                d2_2 = st.checkbox("2мм", key="d2_2")
+                d2_08 = st.checkbox("0.8", key="d2_08")
+                d2_2 = st.checkbox("2", key="d2_2")
                 
             with c3:
                 st.write("**Ш1 (Ляво)**")
-                sh1_08 = st.checkbox("0.8мм", key="sh1_08")
-                sh1_2 = st.checkbox("2мм", key="sh1_2")
+                sh1_08 = st.checkbox("0.8", key="sh1_08")
+                sh1_2 = st.checkbox("2", key="sh1_2")
                 
             with c4:
                 st.write("**Ш2 (Дясно)**")
-                sh2_08 = st.checkbox("0.8мм", key="sh2_08")
-                sh2_2 = st.checkbox("2мм", key="sh2_2")
+                sh2_08 = st.checkbox("0.8", key="sh2_08")
+                sh2_2 = st.checkbox("2", key="sh2_2")
 
-            # Сглобяваме речника с кантовете
+            # Речник с резултатите (без "мм")
             custom_edges_dict = {
                 "Д1": get_edge_val(d1_08, d1_2, current_mat),
                 "Д2": get_edge_val(d2_08, d2_2, current_mat),
@@ -516,7 +516,6 @@ with col1:
                 "Ш2": get_edge_val(sh2_08, sh2_2, current_mat)
             }
             
-            # Подготвяме размерите за добавяне
             h, d, w = custom_l, custom_w, deb
             
         elif tip == "Шкаф Колона":

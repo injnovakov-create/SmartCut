@@ -951,41 +951,47 @@ with col2:
                     st.rerun()
         st.markdown("---")
         
-# --- ТАБЛИЦА (Без сортиране, за да са най-новите отгоре) ---
+# --- ТАБЛИЦА (С визуални разделители между модулите) ---
         df = pd.DataFrame(st.session_state.order_list)
         
         cols_order = ["Плоскост", "№", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
         df = df[[c for c in cols_order if c in df.columns]]
         
-        # Базов ключ, ако списъкът е празен
-        table_key = "editor_empty"
-        
-        # --- ВИЗУАЛНО ГРУПИРАНЕ ---
+        # --- ДОБАВЯНЕ НА ПРАЗНИ РЕДОВЕ (РАЗДЕЛИТЕЛИ) ---
         if not df.empty:
-            # Подсигуряваме, че всички номера се четат като текст
             df['№'] = df['№'].astype(str)
-            unique_mods = df['№'].unique()
+            records = df.to_dict('records')
+            visual_records = []
+            last_mod = None
             
-            # ТРИКЪТ: Динамичен ключ според броя на модулите!
-            # Така таблицата се опреснява с нови цветове само когато добавиш/изтриеш модул.
-            table_key = f"editor_mods_{len(unique_mods)}" 
-            
-            def highlight_modules(row):
-                mod_index = list(unique_mods).index(row['№'])
-                # 'aliceblue' е стандартен системен цвят (бледосиньо), който Streamlit не може да блокира
-                if mod_index % 2 == 1:
-                    return ['background-color: aliceblue; color: black;'] * len(row)
-                else:
-                    return ['background-color: white; color: black;'] * len(row)
-            
-            # Прилагаме стила върху таблицата
-            display_df = df.style.apply(highlight_modules, axis=1)
+            for row in records:
+                current_mod = row['№']
+                # Ако това не е първият ред и номерът на модула се е сменил
+                if last_mod is not None and current_mod != last_mod:
+                    # Създаваме "мним" разделителен ред
+                    empty_row = {col: None for col in cols_order}
+                    empty_row["№"] = "---" # Слагаме маркер, за да си го познаем после
+                    visual_records.append(empty_row)
+                
+                visual_records.append(row)
+                last_mod = current_mod
+                
+            display_df = pd.DataFrame(visual_records)
         else:
             display_df = df
         
-        # Подаваме стилизираната таблица с ДИНАМИЧНИЯ ключ!
-        edited_df = st.data_editor(display_df, num_rows="dynamic", use_container_width=True, height=600, key=table_key)
-        st.session_state.order_list = edited_df.to_dict('records')
+        # Подаваме таблицата на екрана (с разделителите)
+        edited_df = st.data_editor(display_df, num_rows="dynamic", use_container_width=True, height=600, key="editor")
+        
+        # --- ФИЛТРИРАНЕ И ЗАПАЗВАНЕ ---
+        # Важно: Махаме разделителните редове, преди да запазим реалните данни в паметта!
+        clean_records = []
+        for row in edited_df.to_dict('records'):
+            # Запазваме само редовете, които НЕ са нашите разделители
+            if str(row.get("№")) != "---":
+                clean_records.append(row)
+                
+        st.session_state.order_list = clean_records
         
         # --- ОБКОВ И ЕКСПОРТ КЪМ ЕКСЕЛ (Връщаме ги, защото липсваха) ---
         if st.session_state.hardware_list:

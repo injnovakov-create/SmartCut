@@ -911,7 +911,7 @@ with col1:
 
 with col2:
     # --- ЗАГЛАВИЕ И 3D СКИЦА НА ЕДИН РЕД ---
-    header_col, img_col = st.columns([4, 1.5]) # 4 части за заглавието, 1.5 за малката скица
+    header_col, img_col = st.columns([4, 1.5]) # 4 части за заглавието, 1.5 за дясната зона
     
     with header_col:
         st.subheader("📋 Списък за разкрой (Редактируем)")
@@ -930,7 +930,10 @@ with col2:
     with img_col:
         st.markdown("<div style='text-align: center; color: #008080; font-weight: bold; margin-bottom: 0px;'>👀 3D Изглед</div>", unsafe_allow_html=True)
         try:
-            st.image(draw_3d_preview(temp_meta, kraka), use_container_width=True)
+            # ТРИКЪТ: Разделяме пространството на картинката -> 25% празно, 50% картинка, 25% празно
+            _, inner_img_col, _ = st.columns([1, 2, 1])
+            with inner_img_col:
+                st.image(draw_3d_preview(temp_meta, kraka), use_container_width=True)
         except Exception:
             pass # Ако няма скица, остава празно
     

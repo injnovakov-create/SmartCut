@@ -2008,16 +2008,22 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
 
 # --- 3. ГЕНЕРИРАНЕ НА ЕТИКЕТИ С 44 БРОЯ НА А4 ---
 def generate_labels_pdf(boards_per_mat):
+    import os
+    import urllib.request
+    import io
+    from PIL import Image, ImageDraw, ImageFont
+
     font_path = "Roboto-Regular.ttf"
     if not os.path.exists(font_path):
         try: urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf", font_path)
         except: pass
     try:
         font_small = ImageFont.truetype(font_path, 20)
-        font_text = ImageFont.truetype(font_path, 24)
+        font_text = ImageFont.truetype(font_path, 26)  # Леко увеличен шрифт за името на детайла
         font_huge = ImageFont.truetype(font_path, 45)
-        # УВЕЛИЧЕН ШРИФТ ЗА КАНТОВЕТЕ
-        font_edge = ImageFont.truetype(font_path, 24) 
+        
+        # УВЕЛИЧЕН ШРИФТ ЗА КАНТОВЕТЕ (от 24 на 38)
+        font_edge = ImageFont.truetype(font_path, 38) 
     except:
         font_small = font_text = font_huge = font_edge = ImageFont.load_default()
 
@@ -2071,28 +2077,26 @@ def generate_labels_pdf(boards_per_mat):
         draw_edge_marking(draw, x, y, label_w, label_h, 'right', sh2_t, font_edge)
 
         m_num = str(lbl.get('mod_num', lbl.get('№', '0')))
-        m_tip = str(lbl.get('mod_tip', ''))
         p_name = str(lbl.get('part_name', lbl.get('Детайл', '')))
         mat_text = str(lbl.get('mat_label', lbl.get('Плоскост', '')))
         
-        if '|' in p_name:
-            p_name = p_name.split('|')[0].strip()
-
-        try: mod_abbr = get_module_abbrev(m_tip)
-        except: mod_abbr = m_tip
-        
-        if mod_abbr.strip().lower() == p_name.strip().lower() or not mod_abbr.strip():
-            top_text = f"[{m_num}] {p_name}"
-        else:
-            top_text = f"[{m_num}] {mod_abbr} | {p_name}"
+        # --- ИЗЧИСТВАНЕ НА ИМЕТО ---
+        # 1. Ако името съдържа скоба "]", махаме всичко до нея (чистим "[Шкаф Колона]")
+        if ']' in p_name:
+            p_name = p_name.split(']')[-1].strip()
             
-        top_text = top_text.replace("Стандартен", "Ст.").replace("Долен", "Дол.").replace("Горен", "Гор.")
+        # 2. Ако има вертикална черта (напр. "Рафт тв. | Рафт тв."), вземаме само чистото име
+        if '|' in p_name:
+            p_name = p_name.split('|')[-1].strip()
+
+        # Сглобяваме финалния текст: само Номер на шкафа и Име на детайла
+        top_text = f"[{m_num}] {p_name}"
 
         dim_text = f"{int(lbl.get('l', 0))} x {int(lbl.get('w', 0))}"
         bot_text = f"{mat_text[:22]}"
 
-        # СВАЛЯМЕ ГОРНИЯ ТЕКСТ ПО-НАДОЛУ (+20 пиксела), за да не пречи на канта
-        draw.text((x + label_w/2, y + padding + 20), top_text, fill="black", font=font_text, anchor="mt")
+        # СВАЛЯМЕ ГОРНИЯ ТЕКСТ ПО-НАДОЛУ (+24 пиксела), за да не се засича с големия кант
+        draw.text((x + label_w/2, y + padding + 24), top_text, fill="black", font=font_text, anchor="mt")
         draw.text((x + label_w/2, y + label_h/2), dim_text, fill="black", font=font_huge, anchor="mm")
         draw.text((x + label_w/2, y + label_h - padding), bot_text, fill="black", font=font_small, anchor="mb")
 

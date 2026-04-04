@@ -585,7 +585,15 @@ with col1:
                 h_box = st.number_input("Височина на корпуса без крака (мм)", value=760, key="h_box_low")
                 d = st.number_input("Дълбочина (D) мм", value=(550 if tip == "Шкаф Мивка" else 520), key="d_low")
                 h = h_box + kraka 
-                vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_low")
+                
+                # ТУК Е ПРОМЯНАТА:
+                if tip == "Шкаф за Фурна":
+                    # Фиксираме броя врати на 0, без да показваме менюто
+                    vrati_broi = 0
+                    st.info("ℹ️ Този модул е с ниша и чекмедже (без врати).")
+                else:
+                    # За всички останали (стандартен долен, мивка, бутилки) остава изборът
+                    vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_low")
 
         st.markdown("---")
         temp_meta = {

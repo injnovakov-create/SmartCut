@@ -1056,15 +1056,26 @@ with col2:
     # --- УПРАВЛЕНИЕ НА МОДУЛИ И ТАБЛИЦА ---
     if st.session_state.order_list:
         unique_modules = list(dict.fromkeys([str(item["№"]) for item in st.session_state.order_list]))
-        with st.expander("⚙️ Управление на добавени модули (Изтриване)"):
-            for m_num in unique_modules:
-                col_m1, col_m2 = st.columns([4, 1])
-                col_m1.write(f"📦 Модул: **{m_num}**")
-                if col_m2.button("🗑️ Изтрий", key=f"del_{m_num}"):
-                    st.session_state.order_list = [item for item in st.session_state.order_list if str(item["№"]) != m_num]
-                    st.session_state.hardware_list = [item for item in st.session_state.hardware_list if str(item.get("№", "")) != m_num]
-                    st.session_state.modules_meta = [item for item in st.session_state.modules_meta if str(item.get("№", "")) != m_num]
-                    st.rerun()
+        
+        st.markdown("###### 🗑️ Изтриване на конкретен модул")
+        col_del1, col_del2 = st.columns([4, 1])
+        
+        with col_del1:
+            # Слагаме format_func, за да изглежда красиво в менюто (напр. "📦 Модул: 1")
+            mod_to_delete = st.selectbox(
+                "Избери модул", 
+                options=unique_modules, 
+                format_func=lambda x: f"📦 Модул: {x}",
+                label_visibility="collapsed"
+            )
+            
+        with col_del2:
+            if st.button("❌ Изтрий", use_container_width=True):
+                st.session_state.order_list = [item for item in st.session_state.order_list if str(item["№"]) != mod_to_delete]
+                st.session_state.hardware_list = [item for item in st.session_state.hardware_list if str(item.get("№", "")) != mod_to_delete]
+                st.session_state.modules_meta = [item for item in st.session_state.modules_meta if str(item.get("№", "")) != mod_to_delete]
+                st.rerun()
+                
         st.markdown("---")
         
 # --- ТАБЛИЦА (С визуални разделители между модулите) ---

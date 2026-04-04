@@ -2061,7 +2061,14 @@ def generate_labels_pdf(boards_per_mat):
     labels = []
     for mat_name, boards in boards_per_mat.items():
         for board in boards:
-            for p in board:
+            # --- НОВО: СОРТИРАНЕ СПРЯМО СХЕМАТА НА РАЗКРОЙ ---
+            # Сортираме детайлите във всяка плоча:
+            # 1. По Y намаляващо (-y) -> Отгоре надолу
+            # 2. По X нарастващо (x) -> Отляво надясно
+            # Закръгляме леко Y (с // 10), за да групираме перфектно детайлите от една лента
+            sorted_board = sorted(board, key=lambda p: ( -int(p.get('y', 0) // 10), int(p.get('x', 0)) ))
+            
+            for p in sorted_board:
                 p_copy = p.copy()
                 p_copy['mat_label'] = mat_name
                 labels.append(p_copy)

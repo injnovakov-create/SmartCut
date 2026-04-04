@@ -965,9 +965,9 @@ with col2:
             color_map = {mod: i % 2 for i, mod in enumerate(unique_mods)}
             
             def highlight_modules(row):
-                # Редуваме стандартно бяло с много светло синьо-сиво
-                bg_color = '#ffffff' if color_map.get(row['№'], 0) == 0 else '#eef4f8'
-                return [f'background-color: {bg_color}'] * len(row)
+                # Редуваме стандартно бяло с по-наситен светлосин цвят и черен текст
+                bg_color = '#ffffff' if color_map.get(row['№'], 0) == 0 else '#dcecf7'
+                return [f'background-color: {bg_color}; color: #000000;'] * len(row)
             
             # Прилагаме стила върху таблицата
             display_df = df.style.apply(highlight_modules, axis=1)

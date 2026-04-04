@@ -2211,45 +2211,58 @@ with col_visuals:
                         px, py, pl, pw = p['x'] + trim, p['y'] + trim, p['l'], p['w']
                         new_free = []
                         for fr in free_rects:
-                            # Проверка дали детайлът застъпва това празно пространство
                             if not (px < fr['x'] + fr['w'] and px + pl > fr['x'] and py < fr['y'] + fr['h'] and py + pw > fr['y']):
                                 new_free.append(fr)
                                 continue
                             
-                            # Разделяне на празното пространство
-                            if px > fr['x']: 
-                                new_free.append({"x": fr['x'], "y": fr['y'], "w": px - fr['x'], "h": fr['h']})
-                            if px + pl < fr['x'] + fr['w']: 
-                                new_free.append({"x": px + pl, "y": fr['y'], "w": (fr['x'] + fr['w']) - (px + pl), "h": fr['h']})
-                            
-                            mid_x1 = max(fr['x'], px)
-                            mid_x2 = min(fr['x'] + fr['w'], px + pl)
-                            if py > fr['y']: 
-                                new_free.append({"x": mid_x1, "y": fr['y'], "w": mid_x2 - mid_x1, "h": py - fr['y']})
-                            if py + pw < fr['y'] + fr['h']: 
-                                new_free.append({"x": mid_x1, "y": py + pw, "w": mid_x2 - mid_x1, "h": (fr['y'] + fr['h']) - (py + pw)})
-                        
+                            if py > fr['y']:
+                                new_free.append({'x': fr['x'], 'y': fr['y'], 'w': fr['w'], 'h': py - fr['y']})
+                            if py + pw < fr['y'] + fr['h']:
+                                new_free.append({'x': fr['x'], 'y': py + pw, 'w': fr['w'], 'h': (fr['y'] + fr['h']) - (py + pw)})
+                            if px > fr['x']:
+                                new_free.append({'x': fr['x'], 'y': max(fr['y'], py), 'w': px - fr['x'], 'h': min(fr['y']+fr['h'], py+pw) - max(fr['y'], py)})
+                            if px + pl < fr['x'] + fr['w']:
+                                new_free.append({'x': px + pl, 'y': max(fr['y'], py), 'w': (fr['x']+fr['w']) - (px + pl), 'h': min(fr['y']+fr['h'], py+pw) - max(fr['y'], py)})
                         free_rects = new_free
 
-                    # Филтрираме припокриващи се парчета фира, за да покажем само най-големите цели площи
-                    final_free = []
-                    for fr1 in free_rects:
-                        if fr1['w'] >= 100 and fr1['h'] >= 100: # Само фира над 10х10 см
-                            is_covered = False
-                            for fr2 in free_rects:
-                                if fr1 != fr2 and fr1['x'] >= fr2['x'] and fr1['y'] >= fr2['y'] and fr1['x']+fr1['w'] <= fr2['x']+fr2['w'] and fr1['y']+fr1['h'] <= fr2['y']+fr2['h']:
-                                    if fr1['w'] * fr1['h'] < fr2['w'] * fr2['h']:
-                                        is_covered = True
-                                        break
-                            if not is_covered:
-                                final_free.append(fr1)
+                    # --- 2. СЛЕПВАНЕ НА СЪСЕДНИТЕ ФИРИ ---
+                    changed = True
+                    while changed:
+                        changed = False
+                        for i in range(len(free_rects)):
+                            for j in range(i + 1, len(free_rects)):
+                                r1, r2 = free_rects[i], free_rects[j]
+                                r1x, r1y, r1w, r1h = round(r1['x'], 1), round(r1['y'], 1), round(r1['w'], 1), round(r1['h'], 1)
+                                r2x, r2y, r2w, r2h = round(r2['x'], 1), round(r2['y'], 1), round(r2['w'], 1), round(r2['h'], 1)
+                                
+                                if r1x == r2x and r1w == r2w:
+                                    if r1y + r1h == r2y:
+                                        free_rects.append({'x': r1['x'], 'y': r1['y'], 'w': r1['w'], 'h': r1['h'] + r2['h']})
+                                        del free_rects[j], free_rects[i]
+                                        changed = True; break
+                                    elif r2y + r2h == r1y:
+                                        free_rects.append({'x': r2['x'], 'y': r2['y'], 'w': r2['w'], 'h': r2['h'] + r1['h']})
+                                        del free_rects[j], free_rects[i]
+                                        changed = True; break
+                                        
+                                elif r1y == r2y and r1h == r2h:
+                                    if r1x + r1w == r2x:
+                                        free_rects.append({'x': r1['x'], 'y': r1['y'], 'w': r1['w'] + r2['w'], 'h': r1['h']})
+                                        del free_rects[j], free_rects[i]
+                                        changed = True; break
+                                    elif r2x + r2w == r1x:
+                                        free_rects.append({'x': r2['x'], 'y': r2['y'], 'w': r2['w'] + r1['w'], 'h': r2['h']})
+                                        del free_rects[j], free_rects[i]
+                                        changed = True; break
+                            if changed: break
 
-                    # --- 2. ЧЕРТАЕНЕ НА ФИРАТА (Сив контур и текст) ---
-                    for fr in final_free:
-                        svg += f'<rect x="{fr["x"]}" y="{fr["y"]}" width="{fr["w"]}" height="{fr["h"]}" fill="#f2f2f2" stroke="#cccccc" stroke-width="3" stroke-dasharray="10,10"/>'
-                        svg += f'<text x="{fr["x"] + fr["w"]/2}" y="{fr["y"] + fr["h"]/2}" font-size="35" fill="#888888" text-anchor="middle" dominant-baseline="middle" font-weight="bold">Фира: {int(fr["w"])}x{int(fr["h"])}</text>'
+                    # --- 3. ЧЕРТАЕНЕ НА ФИРАТА ---
+                    for fr in free_rects:
+                        if fr['w'] >= 100 and fr['h'] >= 100:
+                            svg += f'<rect x="{fr["x"]}" y="{fr["y"]}" width="{fr["w"]}" height="{fr["h"]}" fill="#f9f9f9" stroke="#bbbbbb" stroke-width="2" stroke-dasharray="15,15"/>'
+                            svg += f'<text x="{fr["x"] + fr["w"]/2}" y="{fr["y"] + fr["h"]/2}" font-size="35" fill="#999999" text-anchor="middle" dominant-baseline="middle" font-weight="bold">Фира: {int(fr["w"])}x{int(fr["h"])}</text>'
 
-                    # --- 3. ЧЕРТАЕНЕ НА ДЕТАЙЛИТЕ ---
+                    # --- 4. ЧЕРТАЕНЕ НА ДЕТАЙЛИТЕ ---
                     for p in b_parts:
                         px, py, pl, pw = p['x'] + trim, p['y'] + trim, p['l'], p['w']
                         svg += f'<rect x="{px}" y="{py}" width="{pl}" height="{pw}" fill="#ffffff" stroke="#000000" stroke-width="2"/>'

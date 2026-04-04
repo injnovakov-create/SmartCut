@@ -574,14 +574,20 @@ with col1:
                 default_w = 1000
             w = st.number_input("Обща Ширина (W) мм", value=default_w, key="w_std")
             
+            elif "Глух" in tip:
+            default_w = 1000
+            w = st.number_input("Обща Ширина (W) мм", value=default_w, key="w_std")
+            
             # Добавяме двете кутийки за вратата и глухото чело
             col_g1, col_g2 = st.columns(2)
             w_vrata_input = col_g1.number_input("Ширина Врата (мм)", value=400, key="w_vr_g")
             w_gluha_input = col_g2.number_input("Ширина Глуха част (мм)", value=int(w - w_vrata_input - 20), key="w_gl_g")
             
-            else:
+        else:
+            # Тук влизат Стандартен долен, Фурна, Мивка и т.н.
             default_w = 600
             w = st.number_input("Ширина (W) мм", value=default_w, key="w_std")
+            
             if "Горен" in tip:
                 h = st.number_input("Височина (H) мм", value=720, key="h_up")
                 d = st.number_input("Дълбочина (D) мм", value=300, key="d_up")
@@ -592,13 +598,11 @@ with col1:
                 d = st.number_input("Дълбочина (D) мм", value=(550 if tip == "Шкаф Мивка" else 520), key="d_low")
                 h = h_box + kraka 
                 
-                # ТУК Е ПРОМЯНАТА:
+                # Специална проверка за Фурна
                 if tip == "Шкаф за Фурна":
-                    # Фиксираме броя врати на 0, без да показваме менюто
                     vrati_broi = 0
                     st.info("ℹ️ Този модул е с чекмедже (без врати).")
                 else:
-                    # За всички останали (стандартен долен, мивка, бутилки) остава изборът
                     vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_low")
 
         st.markdown("---")

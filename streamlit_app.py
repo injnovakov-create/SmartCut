@@ -959,18 +959,22 @@ with col2:
         
         # --- ВИЗУАЛНО ГРУПИРАНЕ (Редуване на цветовете по модул) ---
         if not df.empty:
-            # Вземаме уникалните имена на модулите в реда, в който се появяват
-            unique_mods = df['№'].unique()
-            # Създаваме речник, който редува 0 и 1 за всеки модул
+            # Превръщаме всичко в колона "№" в текст, за да няма объркване между цифри и думи
+            df['№_str'] = df['№'].astype(str) 
+            unique_mods = df['№_str'].unique()
             color_map = {mod: i % 2 for i, mod in enumerate(unique_mods)}
             
             def highlight_modules(row):
-                # Използваме rgba за прозрачност - това гарантирано работи в Streamlit!
-                bg_color = 'background-color: rgba(0, 128, 128, 0.15);' if color_map.get(row['№'], 0) == 1 else ''
-                return [bg_color] * len(row)
+                # Добавяме !important, за да "преборим" базовия дизайн на Streamlit
+                if color_map.get(str(row['№']), 0) == 1:
+                    # Светлосиньо за единия модул
+                    return ['background-color: #dcecf7 !important; color: #000000 !important;'] * len(row)
+                else:
+                    # Бяло за другия модул
+                    return ['background-color: #ffffff !important; color: #000000 !important;'] * len(row)
             
-            # Прилагаме стила върху таблицата
-            display_df = df.style.apply(highlight_modules, axis=1)
+            # Прилагаме стила и махаме помощната колона
+            display_df = df.drop(columns=['№_str']).style.apply(highlight_modules, axis=1)
         else:
             display_df = df
         

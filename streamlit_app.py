@@ -1588,27 +1588,46 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
 
 # --- ПОМОЩНА ФУНКЦИЯ ЗА ЧЕРТАНЕ НА ЛИНИИТЕ НА КАНТА ВЪРХУ ЕТИКЕТА ---
 def draw_edge_marking(draw, x, y, w, h, side, text, font):
-    if not text or text == "" or text.lower() in ["без", "none"]: return
+    if not text or str(text).strip() == "" or str(text).strip().lower() in ["без", "none", "няма"]: return
     
-    # Форматираме текста да изглежда както поиска: --- 0.8 ---
-    display_text = f"--- {text} ---"
+    display_text = str(text).strip()
     
     line_w = 4
-    inset_x = 20  # Скъсява линията в краищата (беше 40)
-    inset_y = 15  # ПРЕМЕСТЕНО: Мести линията много по-близо до ръба на етикета (беше 50)
+    inset_x = 20  # Скъсява линията в краищата
+    inset_y = 15  # Избутва линията плътно към периферията на етикета
+    
+    # Вземаме размерите на текста, за да прекъснем линията
+    try:
+        bbox = draw.textbbox((0, 0), display_text, font=font)
+        tw = bbox[2] - bbox[0]
+    except:
+        tw = len(display_text) * 15 # Резервен вариант при стари версии на Pillow
+        
+    gap = (tw / 2) + 12  # Разстояние от центъра, където линията спира (дава малко "въздух" около цифрата)
     
     if side == 'top':
-        draw.line([x + inset_x, y + inset_y, x + w - inset_x, y + inset_y], fill="black", width=line_w)
-        draw.text((x + w/2, y + inset_y + 5), display_text, fill="black", font=font, anchor="mt")
+        cx, cy = x + w / 2, y + inset_y
+        if cx - gap > x + inset_x: draw.line([x + inset_x, cy, cx - gap, cy], fill="black", width=line_w)
+        if cx + gap < x + w - inset_x: draw.line([cx + gap, cy, x + w - inset_x, cy], fill="black", width=line_w)
+        draw.text((cx, cy), display_text, fill="black", font=font, anchor="mm")
+        
     elif side == 'bottom':
-        draw.line([x + inset_x, y + h - inset_y, x + w - inset_x, y + h - inset_y], fill="black", width=line_w)
-        draw.text((x + w/2, y + h - inset_y - 5), display_text, fill="black", font=font, anchor="mb")
+        cx, cy = x + w / 2, y + h - inset_y
+        if cx - gap > x + inset_x: draw.line([x + inset_x, cy, cx - gap, cy], fill="black", width=line_w)
+        if cx + gap < x + w - inset_x: draw.line([cx + gap, cy, x + w - inset_x, cy], fill="black", width=line_w)
+        draw.text((cx, cy), display_text, fill="black", font=font, anchor="mm")
+        
     elif side == 'left':
-        draw.line([x + inset_y, y + inset_x, x + inset_y, y + h - inset_x], fill="black", width=line_w)
-        draw.text((x + inset_y + 5, y + h/2), display_text, fill="black", font=font, anchor="lm")
+        cx, cy = x + inset_y, y + h / 2
+        if cy - gap > y + inset_x: draw.line([cx, y + inset_x, cx, cy - gap], fill="black", width=line_w)
+        if cy + gap < y + h - inset_x: draw.line([cx, cy + gap, cx, y + h - inset_x], fill="black", width=line_w)
+        draw.text((cx, cy), display_text, fill="black", font=font, anchor="mm")
+        
     elif side == 'right':
-        draw.line([x + w - inset_y, y + inset_x, x + w - inset_y, y + h - inset_x], fill="black", width=line_w)
-        draw.text((x + w - inset_y - 5, y + h/2), display_text, fill="black", font=font, anchor="rm")
+        cx, cy = x + w - inset_y, y + h / 2
+        if cy - gap > y + inset_x: draw.line([cx, y + inset_x, cx, cy - gap], fill="black", width=line_w)
+        if cy + gap < y + h - inset_x: draw.line([cx, cy + gap, cx, y + h - inset_x], fill="black", width=line_w)
+        draw.text((cx, cy), display_text, fill="black", font=font, anchor="mm")
         
 # --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (ИСТИНСКИ НЕСТИНГ С БЛОКОВЕ 1, 2, 3...) ---
 def get_optimized_boards(list_for_cutting):

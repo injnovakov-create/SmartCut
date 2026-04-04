@@ -574,7 +574,7 @@ with col1:
                 default_w = 1000
             w = st.number_input("Обща Ширина (W) мм", value=default_w, key="w_std")
             
-elif "Глух" in tip:
+        elif "Глух" in tip:
             default_w = 1000
             w = st.number_input("Обща Ширина (W) мм", value=default_w, key="w_std")
             

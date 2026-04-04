@@ -1032,16 +1032,7 @@ with col2:
     with header_col:
         st.subheader("📋 Списък за разкрой (Редактируем)")
         
-        # --- БУТОН ЗА ВРЪЩАНЕ НАЗАД ---
-        if st.session_state.get("history"):
-            c_undo, _ = st.columns([1.5, 4]) # Свиваме бутона, за да не е дълъг
-            with c_undo:
-                if st.button("↩️ Върни една стъпка назад"):
-                    last_state = st.session_state.history.pop()
-                    st.session_state.order_list = last_state["order"]
-                    st.session_state.hardware_list = last_state["hw"]
-                    st.session_state.modules_meta = last_state["meta"]
-                    st.rerun()
+        
                     
     with img_col:
         st.markdown("<div style='text-align: center; color: #008080; font-weight: bold; margin-bottom: 0px;'>👀 3D Изглед</div>", unsafe_allow_html=True)

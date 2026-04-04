@@ -958,14 +958,36 @@ with col1:
                 lf, wf, nf = get_front_dims(h - fuga_obshto, int(w/vrati_broi - fuga_obshto))
                 new_items.append(add_item(name, tip, "Врата", vrati_broi, lf, wf, "4 страни", mat_lice, val_fl_lice, nf))
 
-            elif tip == "Нестандартен":
-                if custom_mat_type == "Лице": m_choice = mat_lice
-                elif custom_mat_type == "Чекмеджета": m_choice = mat_chekm
-                elif custom_mat_type == "Фазер": m_choice = mat_fazer
-                elif custom_mat_type == "Специфичен (въведи)": m_choice = custom_mat_name
-                else: m_choice = mat_korpus
+            elif tip == "ДОБАВИ ДЕТАЙЛ":
+                # Избор на материал според селекцията в менюто
+                if custom_mat_type == "Лице": 
+                    m_choice = mat_lice
+                elif custom_mat_type == "Чекмеджета": 
+                    m_choice = mat_chekm
+                elif custom_mat_type == "Фазер": 
+                    m_choice = mat_fazer
+                elif custom_mat_type == "Специфичен": 
+                    m_choice = "Специфичен"
+                else: 
+                    m_choice = mat_korpus
+                
                 f_choice = custom_flader 
-                new_items.append(add_item(name, tip, custom_detail, custom_count, custom_l, custom_w, "", m_choice, f_choice, custom_edges=custom_edges_dict))
+                
+                # Добавяне в списъка с новите кантове (custom_edges_dict)
+                new_items.append(
+                    add_item(
+                        name, 
+                        tip, 
+                        custom_detail, 
+                        int(custom_count), 
+                        custom_l, 
+                        custom_w, 
+                        "Спец.", 
+                        m_choice, 
+                        f_choice, 
+                        custom_edges=custom_edges_dict
+                    )
+                )
 
             elif tip == "Дублираща страница долен":
                 lf, wf, _ = get_front_dims(h, d) 

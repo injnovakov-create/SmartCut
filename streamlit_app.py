@@ -957,31 +957,34 @@ with col2:
         cols_order = ["Плоскост", "№", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
         df = df[[c for c in cols_order if c in df.columns]]
         
-        # Твърдо превръщаме всички номера в текст, за да няма грешки при групирането
-        df['№'] = df['№'].astype(str)
+        # Базов ключ, ако списъкът е празен
+        table_key = "editor_empty"
         
-        # --- ВИЗУАЛНО ГРУПИРАНЕ (Матричен метод - най-сигурен за Streamlit) ---
+        # --- ВИЗУАЛНО ГРУПИРАНЕ ---
         if not df.empty:
+            # Подсигуряваме, че всички номера се четат като текст
+            df['№'] = df['№'].astype(str)
             unique_mods = df['№'].unique()
-            color_map = {mod: i % 2 for i, mod in enumerate(unique_mods)}
             
-            def apply_row_styles(data):
-                # Създаваме "сянка" на таблицата, която ще съдържа само CSS стилове
-                style_df = pd.DataFrame('', index=data.index, columns=data.columns)
-                for i in range(len(data)):
-                    mod_num = data.iloc[i]['№']
-                    if color_map.get(mod_num, 0) == 1:
-                        # Запълваме целия ред със светлосин фон и черен текст
-                        style_df.iloc[i, :] = 'background-color: #d3e5f5; color: #000000;'
-                return style_df
+            # ТРИКЪТ: Динамичен ключ според броя на модулите!
+            # Така таблицата се опреснява с нови цветове само когато добавиш/изтриеш модул.
+            table_key = f"editor_mods_{len(unique_mods)}" 
             
-            # Прилагаме матрицата със стилове към реалната таблица (axis=None)
-            display_df = df.style.apply(apply_row_styles, axis=None)
+            def highlight_modules(row):
+                mod_index = list(unique_mods).index(row['№'])
+                # 'aliceblue' е стандартен системен цвят (бледосиньо), който Streamlit не може да блокира
+                if mod_index % 2 == 1:
+                    return ['background-color: aliceblue; color: black;'] * len(row)
+                else:
+                    return ['background-color: white; color: black;'] * len(row)
+            
+            # Прилагаме стила върху таблицата
+            display_df = df.style.apply(highlight_modules, axis=1)
         else:
             display_df = df
         
-        # Подаваме стилизираната таблица на data_editor
-        edited_df = st.data_editor(display_df, num_rows="dynamic", use_container_width=True, height=600, key="editor")
+        # Подаваме стилизираната таблица с ДИНАМИЧНИЯ ключ!
+        edited_df = st.data_editor(display_df, num_rows="dynamic", use_container_width=True, height=600, key=table_key)
         st.session_state.order_list = edited_df.to_dict('records')
         
         # --- ОБКОВ И ЕКСПОРТ КЪМ ЕКСЕЛ (Връщаме ги, защото липсваха) ---

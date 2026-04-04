@@ -1046,30 +1046,8 @@ with col2:
     
     # --- УПРАВЛЕНИЕ НА МОДУЛИ И ТАБЛИЦА ---
     if st.session_state.order_list:
-        unique_modules = list(dict.fromkeys([str(item["№"]) for item in st.session_state.order_list]))
         
-        st.markdown("###### 🗑️ Изтриване на конкретен модул")
-        col_del1, col_del2 = st.columns([4, 1])
-        
-        with col_del1:
-            # Слагаме format_func, за да изглежда красиво в менюто (напр. "📦 Модул: 1")
-            mod_to_delete = st.selectbox(
-                "Избери модул", 
-                options=unique_modules, 
-                format_func=lambda x: f"📦 Модул: {x}",
-                label_visibility="collapsed"
-            )
-            
-        with col_del2:
-            if st.button("❌ Изтрий", use_container_width=True):
-                st.session_state.order_list = [item for item in st.session_state.order_list if str(item["№"]) != mod_to_delete]
-                st.session_state.hardware_list = [item for item in st.session_state.hardware_list if str(item.get("№", "")) != mod_to_delete]
-                st.session_state.modules_meta = [item for item in st.session_state.modules_meta if str(item.get("№", "")) != mod_to_delete]
-                st.rerun()
-                
-        st.markdown("---")
-        
-# --- ТАБЛИЦА (С визуални разделители между модулите) ---
+        # --- 1. ПЪРВО: ТАБЛИЦАТА (С визуални разделители) ---
         df = pd.DataFrame(st.session_state.order_list)
         
         cols_order = ["Плоскост", "№", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
@@ -1098,7 +1076,7 @@ with col2:
         else:
             display_df = df
         
-        # Подаваме таблицата на екрана (с разделителите)
+        # Подаваме таблицата на екрана (с разделителите) - ТЯ ВЕЧЕ Е НАЙ-ОТГОРЕ
         edited_df = st.data_editor(display_df, num_rows="dynamic", use_container_width=True, height=600, key="editor")
         
         # --- ФИЛТРИРАНЕ И ЗАПАЗВАНЕ ---
@@ -1110,6 +1088,30 @@ with col2:
                 clean_records.append(row)
                 
         st.session_state.order_list = clean_records
+
+        # --- 2. ВТОРО: ИЗТРИВАНЕТО НА МОДУЛИ (Отива под таблицата) ---
+        st.markdown("---") # Слагаме черта, за да го отделим визуално
+        
+        unique_modules = list(dict.fromkeys([str(item["№"]) for item in st.session_state.order_list]))
+        
+        st.markdown("###### 🗑️ Изтриване на конкретен модул")
+        col_del1, col_del2 = st.columns([4, 1])
+        
+        with col_del1:
+            # Слагаме format_func, за да изглежда красиво в менюто (напр. "📦 Модул: 1")
+            mod_to_delete = st.selectbox(
+                "Избери модул", 
+                options=unique_modules, 
+                format_func=lambda x: f"📦 Модул: {x}",
+                label_visibility="collapsed"
+            )
+            
+        with col_del2:
+            if st.button("❌ Изтрий", use_container_width=True):
+                st.session_state.order_list = [item for item in st.session_state.order_list if str(item["№"]) != mod_to_delete]
+                st.session_state.hardware_list = [item for item in st.session_state.hardware_list if str(item.get("№", "")) != mod_to_delete]
+                st.session_state.modules_meta = [item for item in st.session_state.modules_meta if str(item.get("№", "")) != mod_to_delete]
+                st.rerun()
         
         # --- ОБКОВ И ЕКСПОРТ КЪМ ЕКСЕЛ (Връщаме ги, защото липсваха) ---
         if st.session_state.hardware_list:

@@ -903,9 +903,9 @@ with col1:
                 lf, wf, _ = get_front_dims(h, d) 
                 new_items.append(add_item(name, tip, "Дублираща страница", 1, lf, wf, "4 страни", mat_lice, val_fl_lice))
 
-            # ФИНАЛИЗИРАНЕ
-            st.session_state.order_list.extend(new_items)
-            st.session_state.hardware_list.extend(new_hw)
+# --- Слагаме новите детайли НАЙ-ОТГОРЕ (пред старите) ---
+            st.session_state.order_list = new_items + st.session_state.order_list
+            st.session_state.hardware_list = new_hw + st.session_state.hardware_list
             st.success(f"Модул {name} е добавен!")
             st.rerun()
 

@@ -149,7 +149,6 @@ def calculate_hinges(height):
     elif height <= 1300: return 3
     else: return 4
 
-# --- НОВА ФУНКЦИЯ ЗА ЖИВА 3D СКИЦА ---
 # --- НОВА ФУНКЦИЯ ЗА ЖИВА 3D СКИЦА (КАТО В PDF-А) ---
 def draw_3d_preview(meta, kraka_height):
     from PIL import Image, ImageDraw, ImageFont
@@ -211,7 +210,9 @@ def draw_3d_preview(meta, kraka_height):
     box_h = h_total - kr if has_legs else h_total
     
     canvas_w, canvas_h = 600, 600
-    img = Image.new('RGB', (canvas_w, canvas_h), '#ffffff')
+    
+    # ТУК Е ПРОМЯНАТА: Създаваме прозрачен фон (RGBA), за да се слее със сивия интерфейс!
+    img = Image.new('RGBA', (canvas_w, canvas_h), (255, 255, 255, 0))
     draw = ImageDraw.Draw(img)
     
     center_x, center_y = canvas_w / 2, canvas_h / 2

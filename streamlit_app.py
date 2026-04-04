@@ -2048,11 +2048,12 @@ def generate_labels_pdf(boards_per_mat):
         try: urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf", font_path)
         except: pass
     try:
-        font_small = ImageFont.truetype(font_path, 20)
-        font_text = ImageFont.truetype(font_path, 26)  # Леко увеличен шрифт за името на детайла
+        # --- УВЕЛИЧЕНИ ШРИФТОВЕ ---
+        font_small = ImageFont.truetype(font_path, 22) # Увеличен от 20 на 22 (за материала)
+        font_text = ImageFont.truetype(font_path, 28)  # Увеличен от 26 на 28 (за детайла)
         font_huge = ImageFont.truetype(font_path, 45)
         
-        # УВЕЛИЧЕН ШРИФТ ЗА КАНТОВЕТЕ (от 24 на 38)
+        # УВЕЛИЧЕН ШРИФТ ЗА КАНТОВЕТЕ
         font_edge = ImageFont.truetype(font_path, 38) 
     except:
         font_small = font_text = font_huge = font_edge = ImageFont.load_default()
@@ -2111,33 +2112,34 @@ def generate_labels_pdf(boards_per_mat):
         mat_text = str(lbl.get('mat_label', lbl.get('Плоскост', '')))
         
         # --- ИЗЧИСТВАНЕ НА ИМЕТО ---
-        # 1. Ако името съдържа скоба "]", махаме всичко до нея (чистим "[Шкаф Колона]")
         if ']' in p_name:
             p_name = p_name.split(']')[-1].strip()
             
-        # 2. Ако има вертикална черта (напр. "Рафт тв. | Рафт тв."), вземаме само чистото име
         if '|' in p_name:
             p_name = p_name.split('|')[-1].strip()
 
-        # Сглобяваме финалния текст: само Номер на шкафа и Име на детайла
-        top_text = f"[{m_num}] {p_name}"
+        # --- СЪКРАЩАВАНЕ НА ТЕКСТА ---
+        full_top = f"[{m_num}] {p_name}"
+        # Ако е по-дълго от 20 символа, го режем и слагаме ".." накрая
+        top_text = full_top[:20] + ".." if len(full_top) > 20 else full_top
 
         dim_text = f"{int(lbl.get('l', 0))} x {int(lbl.get('w', 0))}"
-        bot_text = f"{mat_text[:22]}"
+        
+        # Съкращаваме и материала до 20 символа
+        bot_text = f"{mat_text[:20]}.." if len(mat_text) > 20 else mat_text
 
-        # СВАЛЯМЕ ГОРНИЯ ТЕКСТ ПО-НАДОЛУ (+24 пиксела), за да не се засича с големия кант
+        # СВАЛЯМЕ ГОРНИЯ ТЕКСТ ПО-НАДОЛУ (+24 пиксела)
         draw.text((x + label_w/2, y + padding + 24), top_text, fill="black", font=font_text, anchor="mt")
         draw.text((x + label_w/2, y + label_h/2), dim_text, fill="black", font=font_huge, anchor="mm")
         
-        # --- ВДИГАМЕ МАТЕРИАЛА НАГОРЕ С 18 ПИКСЕЛА ---
-        draw.text((x + label_w/2, y + label_h - padding - 18), bot_text, fill="black", font=font_small, anchor="mb")
+        # ВДИГАМЕ МАТЕРИАЛА НАГОРЕ С 20 ПИКСЕЛА (заради по-големия шрифт)
+        draw.text((x + label_w/2, y + label_h - padding - 20), bot_text, fill="black", font=font_small, anchor="mb")
 
     pages.append(current_page)
 
     pdf_bytes = io.BytesIO()
     pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
     return pdf_bytes.getvalue()
-
 # --- 4. ПОТРЕБИТЕЛСКИ ИНТЕРФЕЙС (БУТОНИ) ---
 st.markdown("---")
 col_visuals, col_pdf = st.columns(2)

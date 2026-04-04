@@ -356,79 +356,84 @@ def draw_3d_preview(meta, kraka_height):
     buf.seek(0)
     return buf
 
-# --- ГЛОБАЛНИ НАСТРОЙКИ (ГОРНО ПАДАЩО МЕНЮ) ---
-with st.expander("⚙️ КЛИКНИ ТУК ЗА ГЛОБАЛНИ НАСТРОЙКИ (Цветове, Дебелини, Кантове) 🔽"):
+# --- СТРАНИЧНО МЕНЮ ---
+with st.sidebar:
+    st.header("⚙️ Глобални Настройки")
+    deb = st.number_input("Дебелина ПДЧ (мм)", value=18)
+    fuga_obshto = st.number_input("Фуга врати/чела (мм)", value=3.0)
+    kraka = st.number_input("Височина крака (мм)", value=100)
     
-    col1, col2, col3 = st.columns(3)
+    deduct_edge = st.checkbox("Приспадай дебелината на канта от разкроя", value=False, key="deduct_edge")
+    # НОВО: Отметка за профил Gola
+    gola_profile = st.checkbox("Профил Gola (долни врати и чела -30мм)", value=False, key="gola_profile")
     
-    with col1:
-        st.header("⚙️ Размери")
-        deb = st.number_input("Дебелина ПДЧ (мм)", value=18)
-        fuga_obshto = st.number_input("Фуга врати/чела (мм)", value=3.0)
-        kraka = st.number_input("Височина крака (мм)", value=100)
+    st.markdown("---")
+    st.header("🎨 Материали и Фладер")
+    mat_korpus = st.text_input("Декор Корпус:", value="Бяло гладко 18мм")
+    val_fl_korpus = "Да" if st.checkbox("Има фладер - Корпус", value=False) else "Няма"
+    mat_lice = st.text_input("Декор Лице:", value="Дъб Вотан 18мм")
+    val_fl_lice = "Да" if st.checkbox("Има фладер - Лице", value=True) else "Няма"
+    mat_chekm = st.text_input("Декор Чекмеджета:", value="Бяло гладко 18мм")
+    val_fl_chekm = "Да" if st.checkbox("Има фладер - Чекмеджета", value=False) else "Няма"
+    mat_fazer = st.text_input("Декор Фазер:", value="Бял фазер 3мм")
+    
+    st.markdown("---")
+    st.header("🪚 Кантове (Библиотека)")
+    st.info("Въведи кантовете по един на ред. Те ще се появят в падащите менюта за нестандартни детайли.")
+    edges_input = st.text_area("Налични кантове:", value="Без кант\n0.8мм\n2мм\nБяло 0.8мм\nБяло 2мм\nДъб Вотан 0.8мм\nДъб Вотан 2мм", height=150)
+    available_edges = [e.strip() for e in edges_input.split('\n') if e.strip()]
+    if "Без кант" not in available_edges:
+        available_edges.insert(0, "Без кант")
         
-        deduct_edge = st.checkbox("Приспадай дебелината на канта от разкроя", value=False, key="deduct_edge")
-        gola_profile = st.checkbox("Профил Gola (долни врати и чела -30мм)", value=False, key="gola_profile")
-        
-    with col2:
-        st.header("🎨 Материали")
-        mat_korpus = st.text_input("Декор Корпус:", value="Бяло гладко 18мм")
-        val_fl_korpus = "Да" if st.checkbox("Има фладер - Корпус", value=False) else "Няма"
-        mat_lice = st.text_input("Декор Лице:", value="Дъб Вотан 18мм")
-        val_fl_lice = "Да" if st.checkbox("Има фладер - Лице", value=True) else "Няма"
-        mat_chekm = st.text_input("Декор Чекмеджета:", value="Бяло гладко 18мм")
-        val_fl_chekm = "Да" if st.checkbox("Има фладер - Чекмеджета", value=False) else "Няма"
-        mat_fazer = st.text_input("Декор Фазер:", value="Бял фазер 3мм")
-        
-    with col3:
-        st.header("🪚 Кантове")
-        st.info("Въведи кантовете по един на ред.")
-        edges_input = st.text_area("Налични кантове:", value="Без кант\n0.8мм\n2мм\nБяло 0.8мм\nБяло 2мм\nДъб Вотан 0.8мм\nДъб Вотан 2мм", height=150)
-        available_edges = [e.strip() for e in edges_input.split('\n') if e.strip()]
-        if "Без кант" not in available_edges:
-            available_edges.insert(0, "Без кант")
+    st.markdown("---")
+    if st.button("🗑️ Изчисти списъка"):
+        st.session_state.order_list = []
+        st.session_state.hardware_list = []
+        st.session_state.modules_meta = []
+        st.rerun()
 
+    # --- НОВО: ЗАПИС И ЗАРЕЖДАНЕ НА ПРОЕКТ ---
     st.markdown("---")
     st.header("💾 Управление на проекта")
     
-    colA, colB, colC = st.columns(3)
+    if st.session_state.order_list:
+        export_data = {
+            "order": st.session_state.order_list,
+            "hw": st.session_state.hardware_list,
+            "meta": st.session_state.modules_meta
+        }
+        json_data = json.dumps(export_data, ensure_ascii=False, indent=2)
+        st.download_button(
+            label="📥 Запази проекта (Файл)",
+            data=json_data,
+            file_name=f"proekt_kuhnya.json",
+            mime="application/json"
+        )
     
-    with colA:
-        if st.button("🗑️ Изчисти списъка"):
-            st.session_state.order_list = []
-            st.session_state.hardware_list = []
-            st.session_state.modules_meta = []
-            st.rerun()
+    uploaded_file = st.file_uploader("📂 Зареди проект", type="json", key="uploader")
+    
+    if uploaded_file is not None:
+        try:
+            # 1. Прочитаме данните от файла
+            file_content = json.load(uploaded_file)
             
-    with colB:
-        if st.session_state.order_list:
-            export_data = {
-                "order": st.session_state.order_list,
-                "hw": st.session_state.hardware_list,
-                "meta": st.session_state.modules_meta
-            }
-            json_data = json.dumps(export_data, ensure_ascii=False, indent=2)
-            st.download_button(
-                label="📥 Запази проекта (Файл)",
-                data=json_data,
-                file_name=f"proekt_kuhnya.json",
-                mime="application/json"
-            )
-            
-    with colC:
-        uploaded_file = st.file_uploader("📂 Зареди проект", type="json", key="uploader", label_visibility="collapsed")
-        if uploaded_file is not None:
-            try:
-                file_content = json.load(uploaded_file)
-                if st.button("🔄 ВЪЗСТАНОВИ ДАННИТЕ"):
-                    st.session_state.order_list = file_content.get("order", [])
-                    st.session_state.hardware_list = file_content.get("hw", [])
-                    st.session_state.modules_meta = file_content.get("meta", [])
-                    st.session_state.history = []
-                    st.success("✅ Проектът е зареден успешно!")
-                    st.rerun()
-            except Exception as e:
-                st.error(f"❌ Грешка: {e}")
+            # 2. Показваме бутон за потвърждение
+            if st.button("🔄 ВЪЗСТАНОВИ ДАННИТЕ В ТАБЛИЦАТА"):
+                # 3. Записваме ги в паметта (Session State)
+                st.session_state.order_list = file_content.get("order", [])
+                st.session_state.hardware_list = file_content.get("hw", [])
+                # Важно: ако във файла няма 'meta', слагаме празен списък
+                st.session_state.modules_meta = file_content.get("meta", [])
+                
+                # Изчистваме историята за Undo, за да не се обърка
+                st.session_state.history = []
+                
+                st.success("✅ Проектът е зареден успешно!")
+                # 4. Форсираме презареждане на страницата
+                st.rerun()
+                
+        except Exception as e:
+            st.error(f"❌ Грешка при четенето: {e}")
 
 # --- ОСНОВЕН ИНТЕРФЕЙС ---
 col1, col2 = st.columns([1, 4])

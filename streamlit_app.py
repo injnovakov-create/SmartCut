@@ -427,7 +427,8 @@ with col1:
             icons = {
                 "Шкаф Колона": "🏢", 
                 "Шкаф с меж. стр.": "🚪",  
-                "Добави детайл": "🧩"
+                "Дублираща страница долен": "🗂️", 
+                "Нестандартен": "🧩"
             }
 
         tip = st.selectbox("Тип модул", options=list(icons.keys()), format_func=lambda x: f"{icons.get(x, '📌')} {x}")

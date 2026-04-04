@@ -957,24 +957,26 @@ with col2:
         cols_order = ["Плоскост", "№", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
         df = df[[c for c in cols_order if c in df.columns]]
         
-        # --- ВИЗУАЛНО ГРУПИРАНЕ (Редуване на цветовете по модул) ---
+        # Твърдо превръщаме всички номера в текст, за да няма грешки при групирането
+        df['№'] = df['№'].astype(str)
+        
+        # --- ВИЗУАЛНО ГРУПИРАНЕ (Матричен метод - най-сигурен за Streamlit) ---
         if not df.empty:
-            # Превръщаме всичко в колона "№" в текст, за да няма объркване между цифри и думи
-            df['№_str'] = df['№'].astype(str) 
-            unique_mods = df['№_str'].unique()
+            unique_mods = df['№'].unique()
             color_map = {mod: i % 2 for i, mod in enumerate(unique_mods)}
             
-            def highlight_modules(row):
-                # Добавяме !important, за да "преборим" базовия дизайн на Streamlit
-                if color_map.get(str(row['№']), 0) == 1:
-                    # Светлосиньо за единия модул
-                    return ['background-color: #dcecf7 !important; color: #000000 !important;'] * len(row)
-                else:
-                    # Бяло за другия модул
-                    return ['background-color: #ffffff !important; color: #000000 !important;'] * len(row)
+            def apply_row_styles(data):
+                # Създаваме "сянка" на таблицата, която ще съдържа само CSS стилове
+                style_df = pd.DataFrame('', index=data.index, columns=data.columns)
+                for i in range(len(data)):
+                    mod_num = data.iloc[i]['№']
+                    if color_map.get(mod_num, 0) == 1:
+                        # Запълваме целия ред със светлосин фон и черен текст
+                        style_df.iloc[i, :] = 'background-color: #d3e5f5; color: #000000;'
+                return style_df
             
-            # Прилагаме стила и махаме помощната колона
-            display_df = df.drop(columns=['№_str']).style.apply(highlight_modules, axis=1)
+            # Прилагаме матрицата със стилове към реалната таблица (axis=None)
+            display_df = df.style.apply(apply_row_styles, axis=None)
         else:
             display_df = df
         

@@ -1887,6 +1887,11 @@ def get_optimized_boards(list_for_cutting):
     return boards_per_material, board_l, board_w, trim
 
 def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
+    import os
+    import urllib.request
+    import io
+    from PIL import Image, ImageDraw, ImageFont
+
     font_path = "Roboto-Regular.ttf"
     if not os.path.exists(font_path):
         try: urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf", font_path)
@@ -1948,7 +1953,9 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
             try:
                 f_title = ImageFont.truetype(font_path, 50)
                 f_info = ImageFont.truetype(font_path, 40)
-            except: f_title = f_info = ImageFont.load_default()
+                f_fira = ImageFont.truetype(font_path, 35) # Шрифт за размерите на фирата
+            except: 
+                f_title = f_info = f_fira = ImageFont.load_default()
 
             y_offset = 140
             draw.text((margin, y_offset), f"МАТЕРИАЛ: {mat_name} [2800x2070 мм]", fill="black", font=f_title)
@@ -1973,16 +1980,77 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
             sx = margin + (draw_w - act_w) / 2
             sy = y_offset + (draw_h - act_h) / 2 
             
+            # --- ЧЕРТАЕНЕ НА ОСНОВНАТА ПЛОЧА ---
             draw.rectangle([sx, sy, sx+act_w, sy+act_h], outline="black", width=4)
             t_px = trim * scale
             draw.rectangle([sx+t_px, sy+t_px, sx+act_w-t_px, sy+act_h-t_px], outline="#aaaaaa", width=2)
             
+            # =========================================================
+            # --- 1. АЛГОРИТЪМ ЗА ФИРАТА (ПРЕСМЯТАНЕ И СЛЕПВАНЕ) ---
+            # =========================================================
+            free_rects = [{"x": trim, "y": trim, "w": board_l - 2*trim, "h": board_w - 2*trim}]
+            for p in b_parts:
+                px, py, pl, pw = p['x'] + trim, p['y'] + trim, p['l'], p['w']
+                new_free = []
+                for fr in free_rects:
+                    if not (px < fr['x'] + fr['w'] and px + pl > fr['x'] and py < fr['y'] + fr['h'] and py + pw > fr['y']):
+                        new_free.append(fr)
+                        continue
+                    if py > fr['y']:
+                        new_free.append({'x': fr['x'], 'y': fr['y'], 'w': fr['w'], 'h': py - fr['y']})
+                    if py + pw < fr['y'] + fr['h']:
+                        new_free.append({'x': fr['x'], 'y': py + pw, 'w': fr['w'], 'h': (fr['y'] + fr['h']) - (py + pw)})
+                    if px > fr['x']:
+                        new_free.append({'x': fr['x'], 'y': max(fr['y'], py), 'w': px - fr['x'], 'h': min(fr['y']+fr['h'], py+pw) - max(fr['y'], py)})
+                    if px + pl < fr['x'] + fr['w']:
+                        new_free.append({'x': px + pl, 'y': max(fr['y'], py), 'w': (fr['x']+fr['w']) - (px + pl), 'h': min(fr['y']+fr['h'], py+pw) - max(fr['y'], py)})
+                free_rects = new_free
+
+            changed = True
+            while changed:
+                changed = False
+                for i in range(len(free_rects)):
+                    for j in range(i + 1, len(free_rects)):
+                        r1, r2 = free_rects[i], free_rects[j]
+                        r1x, r1y, r1w, r1h = round(r1['x'], 1), round(r1['y'], 1), round(r1['w'], 1), round(r1['h'], 1)
+                        r2x, r2y, r2w, r2h = round(r2['x'], 1), round(r2['y'], 1), round(r2['w'], 1), round(r2['h'], 1)
+                        
+                        if r1x == r2x and r1w == r2w:
+                            if r1y + r1h == r2y:
+                                free_rects.append({'x': r1['x'], 'y': r1['y'], 'w': r1['w'], 'h': r1['h'] + r2['h']}); del free_rects[j], free_rects[i]; changed = True; break
+                            elif r2y + r2h == r1y:
+                                free_rects.append({'x': r2['x'], 'y': r2['y'], 'w': r2['w'], 'h': r2['h'] + r1['h']}); del free_rects[j], free_rects[i]; changed = True; break
+                        elif r1y == r2y and r1h == r2h:
+                            if r1x + r1w == r2x:
+                                free_rects.append({'x': r1['x'], 'y': r1['y'], 'w': r1['w'] + r2['w'], 'h': r1['h']}); del free_rects[j], free_rects[i]; changed = True; break
+                            elif r2x + r2w == r1x:
+                                free_rects.append({'x': r2['x'], 'y': r2['y'], 'w': r2['w'] + r1['w'], 'h': r2['h']}); del free_rects[j], free_rects[i]; changed = True; break
+                    if changed: break
+
+            # --- 2. ИЗЧЕРТАВАНЕ НА ФИРАТА В PDF-а ---
+            for fr in free_rects:
+                if fr['w'] >= 100 and fr['h'] >= 100: # Само фира над 10x10 см
+                    fx = sx + fr['x'] * scale
+                    fy = sy + fr['y'] * scale
+                    fw = fr['w'] * scale
+                    fh = fr['h'] * scale
+                    
+                    # Рисуваме светло сив правоъгълник
+                    draw.rectangle([fx, fy, fx+fw, fy+fh], fill="#f4f4f4", outline="#cccccc", width=2)
+                    
+                    # Добавяме текста с размерите в средата
+                    fira_txt = f"Фира: {int(fr['w'])}x{int(fr['h'])}"
+                    draw.text((fx + fw/2, fy + fh/2), fira_txt, fill="#999999", font=f_fira, anchor="mm")
+            # =========================================================
+
+            # --- 3. ЧЕРТАЕНЕ НА САМИТЕ ДЕТАЙЛИ ---
             for p in b_parts:
                 px = sx + (p['x'] + trim) * scale
                 py = sy + (p['y'] + trim) * scale
                 pw = p['l'] * scale
                 ph = p['w'] * scale
-                draw.rectangle([px, py, px+pw, py+ph], outline="black", width=3)
+                # Чертаем ги бели, за да покрият всички линии отдолу
+                draw.rectangle([px, py, px+pw, py+ph], fill="white", outline="black", width=3)
                 
                 for side, width in [('d1', 8 if get_edge_label_text(p['d1'])=="2" else 3), 
                                     ('d2', 8 if get_edge_label_text(p['d2'])=="2" else 3),
@@ -2035,7 +2103,6 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
         pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
         return pdf_bytes.getvalue()
     return None
-
 # --- 3. ГЕНЕРИРАНЕ НА ЕТИКЕТИ С 44 БРОЯ НА А4 ---
 def generate_labels_pdf(boards_per_mat):
     import os

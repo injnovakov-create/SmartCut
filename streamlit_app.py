@@ -1920,28 +1920,6 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
         for idx, b_parts in enumerate(boards):
             img = Image.new('RGB', (page_w, page_h), 'white')
             draw = ImageDraw.Draw(img)
-            
-            kant_08_sum = 0
-            kant_20_sum = 0
-            max_x = 0 
-            
-            for p in b_parts:
-                if (p['x'] + p['l']) > max_x: max_x = p['x'] + p['l']
-                for side in ['d1', 'd2', 'sh1', 'sh2']:
-                    val = p.get(side, '')
-                    if val:
-                        thick = get_edge_label_text(val)
-                        length = p['l'] if side.startswith('d') else p['w']
-                        if thick == "0.8": kant_08_sum += length
-                        elif thick == "2": kant_20_sum += length
-            
-            k08_board_m = (kant_08_sum / 1000.0) * 1.10
-            k20_board_m = (kant_20_sum / 1000.0) * 1.10
-            kant_text = f"Кант за плочата (+10%): 0.8мм ≈ {k08_board_m:.1f}м | 2.0мм ≈ {k20_board_m:.1f}м"
-            
-            rem_l = max(0, board_l - max_x - (2 * trim))
-            rem_w = board_w - (2 * trim)
-            ost_text = f"Най-голям остатък: ≈ {int(rem_l)} x {int(rem_w)} мм"
 
             try: f_logo = ImageFont.truetype(font_path, 70)
             except: f_logo = ImageFont.load_default()
@@ -1961,15 +1939,15 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
             draw.text((margin, y_offset), f"МАТЕРИАЛ: {mat_name} [2800x2070 мм]", fill="black", font=f_title)
             y_offset += 60
             
+            # Общо кант само на първата плоча
             if idx == 0:
                 total_text = f"ОБЩО ЗА ДЕКОРА (+10% фира): 0.8мм ≈ {total_08_m:.1f}м | 2.0мм ≈ {total_20_m:.1f}м"
                 draw.text((margin, y_offset), total_text, fill="#FF0000", font=f_info)
                 y_offset += 50
             
-            draw.text((margin, y_offset), f"ПЛОЧА {idx+1} от {len(boards)} | {kant_text}", fill="#008080", font=f_info)
-            y_offset += 50
-            draw.text((margin, y_offset), ost_text, fill="#555555", font=f_info)
-            y_offset += 60 
+            # Изчистен надпис само за номера на плочата
+            draw.text((margin, y_offset), f"ПЛОЧА {idx+1} от {len(boards)}", fill="#008080", font=f_info)
+            y_offset += 70 
             
             draw_w = page_w - 2 * margin
             draw_h = page_h - margin - y_offset 

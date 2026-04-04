@@ -951,7 +951,7 @@ with col2:
                     st.rerun()
         st.markdown("---")
         
-        # --- ТАБЛИЦА (Без сортиране, за да са най-новите отгоре) ---
+# --- ТАБЛИЦА (Без сортиране, за да са най-новите отгоре) ---
         df = pd.DataFrame(st.session_state.order_list)
         
         cols_order = ["Плоскост", "№", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
@@ -965,9 +965,9 @@ with col2:
             color_map = {mod: i % 2 for i, mod in enumerate(unique_mods)}
             
             def highlight_modules(row):
-                # Редуваме стандартно бяло с много светло синьо-сиво
-                bg_color = '#ffffff' if color_map.get(row['№'], 0) == 0 else '#eef4f8'
-                return [f'background-color: {bg_color}'] * len(row)
+                # Използваме rgba за прозрачност - това гарантирано работи в Streamlit!
+                bg_color = 'background-color: rgba(0, 128, 128, 0.15);' if color_map.get(row['№'], 0) == 1 else ''
+                return [bg_color] * len(row)
             
             # Прилагаме стила върху таблицата
             display_df = df.style.apply(highlight_modules, axis=1)

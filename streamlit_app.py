@@ -2128,7 +2128,9 @@ def generate_labels_pdf(boards_per_mat):
         # СВАЛЯМЕ ГОРНИЯ ТЕКСТ ПО-НАДОЛУ (+24 пиксела), за да не се засича с големия кант
         draw.text((x + label_w/2, y + padding + 24), top_text, fill="black", font=font_text, anchor="mt")
         draw.text((x + label_w/2, y + label_h/2), dim_text, fill="black", font=font_huge, anchor="mm")
-        draw.text((x + label_w/2, y + label_h - padding), bot_text, fill="black", font=font_small, anchor="mb")
+        
+        # --- ВДИГАМЕ МАТЕРИАЛА НАГОРЕ С 18 ПИКСЕЛА ---
+        draw.text((x + label_w/2, y + label_h - padding - 18), bot_text, fill="black", font=font_small, anchor="mb")
 
     pages.append(current_page)
 

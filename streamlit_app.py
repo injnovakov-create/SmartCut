@@ -565,7 +565,16 @@ with col1:
             h = h_korpus + kraka
             
         else:
-            default_w = 150 if tip == "Шкаф Бутилки 15см" else (1000 if "Глух" in tip else 600)
+            # Правилно разпределяне на ширините по подразбиране
+            if tip == "Шкаф Бутилки 15см":
+                default_w = 150
+            elif tip == "Шкаф за Фурна":
+                default_w = 600  # ТУК Е КЛЮЧЪТ - заковаваме 600 мм за фурната
+            elif "Глух" in tip:
+                default_w = 1000
+            else:
+                default_w = 600
+                
             w = st.number_input("Ширина (W) мм", value=default_w, key="w_std")
             if "Горен" in tip:
                 h = st.number_input("Височина (H) мм", value=720, key="h_up")

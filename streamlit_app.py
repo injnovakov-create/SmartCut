@@ -951,7 +951,7 @@ with col2:
                     st.rerun()
         st.markdown("---")
         
-        # --- ТАБЛИЦА (Сортирана и напълно редактируема) ---
+        # --- ТАБЛИЦА (Без сортиране, за да са най-новите отгоре) ---
         df = pd.DataFrame(st.session_state.order_list)
         
         cols_order = ["Плоскост", "№", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
@@ -959,7 +959,7 @@ with col2:
         
         # --- ВИЗУАЛНО ГРУПИРАНЕ (Редуване на цветовете по модул) ---
         if not df.empty:
-            # Вземаме уникалните имена на модулите в реда, в който се появяват (най-новите първи)
+            # Вземаме уникалните имена на модулите в реда, в който се появяват
             unique_mods = df['№'].unique()
             # Създаваме речник, който редува 0 и 1 за всеки модул
             color_map = {mod: i % 2 for i, mod in enumerate(unique_mods)}
@@ -974,9 +974,27 @@ with col2:
         else:
             display_df = df
         
-        # Подаваме стилизираната таблица (display_df) на data_editor
+        # Подаваме стилизираната таблица на data_editor
         edited_df = st.data_editor(display_df, num_rows="dynamic", use_container_width=True, height=600, key="editor")
         st.session_state.order_list = edited_df.to_dict('records')
+        
+        # --- ОБКОВ И ЕКСПОРТ КЪМ ЕКСЕЛ (Връщаме ги, защото липсваха) ---
+        if st.session_state.hardware_list:
+            st.markdown("#### 🔩 Количествена сметка: Обков")
+            hw_df = pd.DataFrame(st.session_state.hardware_list)
+            hw_summary = hw_df.groupby("Артикул")["Брой"].sum().reset_index()
+            hw_summary["Брой"] = hw_summary["Брой"].apply(lambda x: f"{x:.1f}" if isinstance(x, float) and not x.is_integer() else f"{int(x)}")
+            st.table(hw_summary)
+        
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            edited_df.to_excel(writer, index=False, sheet_name='Разкрой')
+            if st.session_state.hardware_list:
+                pd.DataFrame(st.session_state.hardware_list).groupby("Артикул")["Брой"].sum().reset_index().to_excel(writer, index=False, sheet_name='Обков')
+        st.download_button(label="📊 Свали в Excel (.xlsx)", data=output.getvalue(), file_name="razkroi_vitya_kuhni.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    # ЕТО ГО ЛИПСВАЩОТО ELSE, КОЕТО ОПРАВЯ ПРОБЛЕМА:
+    else:
         st.info("Списъкът е празен. Добави първия си модул отляво!")
 # --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (СЕКЦИИ И ГАРДЕРОБИ) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):

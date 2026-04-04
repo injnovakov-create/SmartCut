@@ -953,7 +953,9 @@ with col2:
         
         # --- ТАБЛИЦА (Сортирана и напълно редактируема) ---
         df = pd.DataFrame(st.session_state.order_list)
-        cols_order = ["Плоскост", "№", "Тип", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
+        
+        # ТУК Е ПРОМЯНАТА: Премахнато е "Тип" от списъка с колони
+        cols_order = ["Плоскост", "№", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
         df = df[[c for c in cols_order if c in df.columns]]
         
         # Автоматично сортиране по номер на модул, за да са групирани перфектно
@@ -977,7 +979,6 @@ with col2:
         st.download_button(label="📊 Свали в Excel (.xlsx)", data=output.getvalue(), file_name="razkroi_vitya_kuhni.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
         st.info("Списъкът е празен. Добави първия си модул отляво!")
-
 # --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (СЕКЦИИ И ГАРДЕРОБИ) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
     import math

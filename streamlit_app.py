@@ -2212,7 +2212,7 @@ with col_visuals:
 
 # --- ФИНАНСОВ КАЛКУЛАТОР (ОСТАВА НА ЕКРАНА!) ---
 st.markdown("---")
-st.subheader("💰 Финанси и Оферта (Само за екрана)")
+st.subheader("💰 Финанси и Оферта ")
 
 if st.session_state.order_list:
     try:

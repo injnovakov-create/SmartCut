@@ -1258,7 +1258,6 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         num_sections = num_dividers + 1
 
         if has_divider and not section_shelves:
-            # Защита, ако липсват данни за секциите - слага по 2 рафта
             section_shelves = [2] * num_sections
 
         fronts_with_names.sort(key=lambda x: x[0])
@@ -1277,41 +1276,67 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             elif "чекмедже" in full_name_str: num_drawers = real_drawers if real_drawers > 0 else 3
             else: num_drawers = 0
 
+        # --- КЛЮЧОВА ПРОМЯНА: РАЗПОЗНАВАНЕ НА "ДОБАВИ ДЕТАЙЛ" ---
+        is_detail = "детайл" in m_tip_str
         is_upper = "горен" in full_name_str or "горни" in full_name_str
         is_col = "колона" in full_name_str
         is_lower = "долен" in full_name_str or "долни" in full_name_str
 
-        if not is_upper and not is_lower and not is_col and num_drawers == 0:
-            is_lower = True 
+        if is_detail:
+            # Ако е детайл, анулираме крака, чекмеджета и делители
+            is_lower = False
+            is_upper = False
+            is_col = False
+            num_drawers = 0
+            has_divider = False
+            kr = 0
+            
+            # Завъртаме размерите: Дължината (h) става Ширина на чертежа, Ширината (d) става Височина
+            draw_w = h 
+            draw_h = d 
+            draw_d = w 
+            box_h = d
+        else:
+            if not is_upper and not is_lower and not is_col and num_drawers == 0:
+                is_lower = True 
+
+            if is_upper:
+                kr = 0
+                box_h = h
+            else:
+                box_h = h - kr if h > kr and h >= 800 else h
+                
+            draw_w = w
+            draw_h = box_h
+            draw_d = d
 
         bottom_under_sides = is_lower or is_col or num_drawers > 0
 
-        if is_upper:
-            kr = 0
-            box_h = h
-        else:
-            box_h = h - kr if h > kr and h >= 800 else h
-
-        title = f"Шкаф [{m_num}] | {m_tip}"
+        # --- ЗАГЛАВИЯ И ТЕКСТ ---
+        title = f"Детайл [{m_num}] | {m_tip}" if is_detail else f"Шкаф [{m_num}] | {m_tip}"
         draw.text((150, 100), title, fill="black", font=f_title)
         draw.line([(150, 170), (2330, 170)], fill="black", width=5)
         
-        actual_total_h = box_h + kr
-        draw.text((150, 200), f"Габаритни размери: Ширина {int(w)} мм | Височина {int(actual_total_h)} мм | Дълбочина {int(d)} мм", fill="#555555", font=f_dim)
+        if is_detail:
+            draw.text((150, 200), f"Параметри: Дължина {int(h)} мм | Ширина {int(d)} мм | Дебелина {int(w)} мм", fill="#555555", font=f_dim)
+        else:
+            actual_total_h = box_h + kr
+            draw.text((150, 200), f"Габаритни размери: Ширина {int(w)} мм | Височина {int(actual_total_h)} мм | Дълбочина {int(d)} мм", fill="#555555", font=f_dim)
 
+        # --- ИЗЧИСЛЯВАНЕ НА МАЩАБА И КООРДИНАТИТЕ ---
         center_x, center_y = 1240, 1250
-        max_dim = max(w, box_h + kr, d)
+        max_dim = max(draw_w, draw_h, draw_d)
         scale = 1000 / max_dim if max_dim > 0 else 1
         
-        w_px = w * scale
-        h_px = box_h * scale
-        d_px = d * scale * 0.5  
+        w_px = draw_w * scale
+        h_px = draw_h * scale
+        d_px = draw_d * scale * 0.5  
         
         dx = d_px * 0.707
         dy = d_px * 0.707
 
         x0 = center_x - (w_px + dx) / 2
-        y0 = center_y - (h_px + kr*scale - dy) / 2
+        y0 = center_y - (h_px + (kr*scale if not is_detail else 0) - dy) / 2
         
         c_front = "black"
         c_back = "#aaaaaa"
@@ -1320,26 +1345,31 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
         t = t_mm * scale 
         
         boards = []
-        if bottom_under_sides:
-            boards.append( (x0, y0, t, h_px - t) ) 
-            boards.append( (x0 + w_px - t, y0, t, h_px - t) ) 
-            boards.append( (x0 + t, y0, w_px - 2*t, t) ) 
-            boards.append( (x0, y0 + h_px - t, w_px, t) ) 
+        if is_detail:
+            # Чертае само една единствена плоскост (детайла)
+            boards.append((x0, y0, w_px, h_px))
         else:
-            boards.append( (x0, y0, t, h_px) ) 
-            boards.append( (x0 + w_px - t, y0, t, h_px) ) 
-            boards.append( (x0 + t, y0, w_px - 2*t, t) ) 
-            boards.append( (x0 + t, y0 + h_px - t, w_px - 2*t, t) ) 
-            
-        # --- 3D ЧЕРТАЕНЕ НА ВЕРТИКАЛНИТЕ ДЕЛИТЕЛИ ---
-        if has_divider:
-            inner_w_px = (w_px - (2 + num_dividers) * t) / num_sections
-            for i in range(1, num_dividers + 1):
-                div_x = x0 + t + i * inner_w_px + (i - 1) * t
-                div_y = y0 + t
-                div_h = h_px - 2*t
-                boards.append( (div_x, div_y, t, div_h) )
+            # Сглобява корпус за шкафове
+            if bottom_under_sides:
+                boards.append( (x0, y0, t, h_px - t) ) 
+                boards.append( (x0 + w_px - t, y0, t, h_px - t) ) 
+                boards.append( (x0 + t, y0, w_px - 2*t, t) ) 
+                boards.append( (x0, y0 + h_px - t, w_px, t) ) 
+            else:
+                boards.append( (x0, y0, t, h_px) ) 
+                boards.append( (x0 + w_px - t, y0, t, h_px) ) 
+                boards.append( (x0 + t, y0, w_px - 2*t, t) ) 
+                boards.append( (x0 + t, y0 + h_px - t, w_px - 2*t, t) ) 
+                
+            if has_divider:
+                inner_w_px = (w_px - (2 + num_dividers) * t) / num_sections
+                for i in range(1, num_dividers + 1):
+                    div_x = x0 + t + i * inner_w_px + (i - 1) * t
+                    div_y = y0 + t
+                    div_h = h_px - 2*t
+                    boards.append( (div_x, div_y, t, div_h) )
 
+        # --- 3D РЕНДЕРИРАНЕ НА БЛОКОВЕТЕ ---
         for bx, by, bw, bh in boards:
             draw.rectangle([bx+dx, by-dy, bx+bw+dx, by+bh-dy], outline=c_back, width=2)
             draw.line([(bx, by), (bx+dx, by-dy)], fill=c_back, width=2)
@@ -1366,17 +1396,16 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
             real_front_heights = []
             
         # --- ПОДГОТОВКА НА РАФТОВЕТЕ ПО СЕКЦИИ ---
-        if has_divider:
+        if is_detail:
+            columns_data = [] # Предотвратява чертането на рафтове
+        elif has_divider:
             columns_data = []
             inner_w_px = (w_px - (2 + num_dividers) * t) / num_sections
             for s in range(num_sections):
                 ns = int(section_shelves[s]) if s < len(section_shelves) else 0
                 s_left = x0 + t + s * (inner_w_px + t)
-                
-                # Каскадно разделяне на размерите, за да не става мазало от цифри
                 dim_side = 'left' if s < num_sections / 2 else 'right'
                 dim_offset = s if dim_side == 'left' else (num_sections - 1 - s)
-                
                 columns_data.append({
                     's_left': s_left, 's_width': inner_w_px, 'ns': ns, 
                     'dim_side': dim_side, 'dim_offset': dim_offset
@@ -1426,7 +1455,6 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                 s_left = col['s_left']
                 s_width = col['s_width']
                 
-                # 3D Рафтове в съответната секция
                 draw.rectangle([s_left+dx, sy-t/2-dy, s_left+s_width+dx, sy+t/2-dy], outline=c_shelf, width=2)
                 draw.line([(s_left, sy-t/2), (s_left+dx, sy-t/2-dy)], fill=c_shelf, width=2)
                 draw.line([(s_left+s_width, sy-t/2), (s_left+s_width+dx, sy-t/2-dy)], fill=c_shelf, width=2)
@@ -1436,7 +1464,6 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
                 
                 y_baseline = (y0 + h_px - t) if bottom_under_sides else (y0 + h_px)
                 
-                # Каскадно изнасяне на размерите, за да са ясни и четливи
                 if col['dim_side'] == 'right':
                     dim_x = x0 + w_px + 80 + (col['dim_offset'] * 120) + ((idx+1) * 65)
                     draw_dim(img, draw, dim_x, y_baseline, dim_x, sy, f"{int(dim_val)}", f_dim, shelf_color_dim, rotate=True)
@@ -1484,21 +1511,27 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
 
         # --- ОСНОВНИ ГАБАРИТНИ РАЗМЕРИ ---
         dim_y = y0 + h_px + (kr * scale) + 80
-        draw_dim(img, draw, x0, dim_y, x0+w_px, dim_y, f"{int(w)}", f_dim, dim_color)
-        
         d_sx, d_sy = x0 + w_px + 40, y0 + h_px
         d_ex, d_ey = x0 + w_px + dx + 40, y0 + h_px - dy
-        draw_dim(img, draw, d_sx, d_sy, d_ex, d_ey, f"{int(d)}", f_dim, dim_color)
-
         dim_x_left = x0 - 80
-        draw_dim(img, draw, dim_x_left, y0, dim_x_left, y0+h_px, f"{int(box_h)}", f_dim, dim_color, rotate=True)
-        
-        if kr > 0:
-            kr_px = kr * scale
-            draw.rectangle([x0+40, y0+h_px, x0+80, y0+h_px+kr_px], fill="#333333")
-            draw.rectangle([x0+w_px-80, y0+h_px, x0+w_px-40, y0+h_px+kr_px], fill="#333333")
-            draw.line([(x0-150, y0+h_px+kr_px), (x0+w_px+150, y0+h_px+kr_px)], fill="#999999", width=2)
-            draw_dim(img, draw, dim_x_left, y0+h_px, dim_x_left, y0+h_px+kr_px, f"{int(kr)}", f_dim, dim_color, rotate=True)
+
+        if is_detail:
+            # Чертае размерите специфично за плосък детайл
+            draw_dim(img, draw, x0, dim_y, x0+w_px, dim_y, f"{int(h)}", f_dim, dim_color)
+            draw_dim(img, draw, d_sx, d_sy, d_ex, d_ey, f"{int(w)}", f_dim, dim_color)
+            draw_dim(img, draw, dim_x_left, y0, dim_x_left, y0+h_px, f"{int(d)}", f_dim, dim_color, rotate=True)
+        else:
+            # Стандартни размери за шкаф
+            draw_dim(img, draw, x0, dim_y, x0+w_px, dim_y, f"{int(w)}", f_dim, dim_color)
+            draw_dim(img, draw, d_sx, d_sy, d_ex, d_ey, f"{int(d)}", f_dim, dim_color)
+            draw_dim(img, draw, dim_x_left, y0, dim_x_left, y0+h_px, f"{int(box_h)}", f_dim, dim_color, rotate=True)
+            
+            if kr > 0:
+                kr_px = kr * scale
+                draw.rectangle([x0+40, y0+h_px, x0+80, y0+h_px+kr_px], fill="#333333")
+                draw.rectangle([x0+w_px-80, y0+h_px, x0+w_px-40, y0+h_px+kr_px], fill="#333333")
+                draw.line([(x0-150, y0+h_px+kr_px), (x0+w_px+150, y0+h_px+kr_px)], fill="#999999", width=2)
+                draw_dim(img, draw, dim_x_left, y0+h_px, dim_x_left, y0+h_px+kr_px, f"{int(kr)}", f_dim, dim_color, rotate=True)
 
         # --- ТАБЛИЦА С ДЕТАЙЛИ ---
         tab_y = 2350

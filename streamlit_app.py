@@ -980,7 +980,7 @@ with col2:
                 pd.DataFrame(st.session_state.hardware_list).groupby("Артикул")["Брой"].sum().reset_index().to_excel(writer, index=False, sheet_name='Обков')
         st.download_button(label="📊 Свали в Excel (.xlsx)", data=output.getvalue(), file_name="razkroi_vitya_kuhni.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-    # ЕТО ГО ЛИПСВАЩОТО ELSE, КОЕТО ОПРАВЯ ПРОБЛЕМА:
+# ЕТО ГО ЛИПСВАЩОТО ELSE, КОЕТО ОПРАВЯ ПРОБЛЕМА:
         else:
         st.info("Списъкът е празен. Добави първия си модул отляво!")
 # --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (СЕКЦИИ И ГАРДЕРОБИ) ---

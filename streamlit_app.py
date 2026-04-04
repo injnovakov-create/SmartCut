@@ -2204,6 +2204,52 @@ with col_visuals:
                 for idx, b_parts in enumerate(boards):
                     svg = f'<svg viewBox="0 0 {board_l} {board_w}" style="background-color:#ffffff; border:2px solid #333; margin-bottom: 20px; width: 100%; max-width: 900px;">'
                     svg += f'<rect x="{trim}" y="{trim}" width="{board_l - 2*trim}" height="{board_w - 2*trim}" fill="none" stroke="black" stroke-width="4" stroke-dasharray="20,20"/>'
+                    
+                    # --- 1. АЛГОРИТЪМ ЗА НАМИРАНЕ НА ФИРАТА ---
+                    free_rects = [{"x": trim, "y": trim, "w": board_l - 2*trim, "h": board_w - 2*trim}]
+                    for p in b_parts:
+                        px, py, pl, pw = p['x'] + trim, p['y'] + trim, p['l'], p['w']
+                        new_free = []
+                        for fr in free_rects:
+                            # Проверка дали детайлът застъпва това празно пространство
+                            if not (px < fr['x'] + fr['w'] and px + pl > fr['x'] and py < fr['y'] + fr['h'] and py + pw > fr['y']):
+                                new_free.append(fr)
+                                continue
+                            
+                            # Разделяне на празното пространство
+                            if px > fr['x']: 
+                                new_free.append({"x": fr['x'], "y": fr['y'], "w": px - fr['x'], "h": fr['h']})
+                            if px + pl < fr['x'] + fr['w']: 
+                                new_free.append({"x": px + pl, "y": fr['y'], "w": (fr['x'] + fr['w']) - (px + pl), "h": fr['h']})
+                            
+                            mid_x1 = max(fr['x'], px)
+                            mid_x2 = min(fr['x'] + fr['w'], px + pl)
+                            if py > fr['y']: 
+                                new_free.append({"x": mid_x1, "y": fr['y'], "w": mid_x2 - mid_x1, "h": py - fr['y']})
+                            if py + pw < fr['y'] + fr['h']: 
+                                new_free.append({"x": mid_x1, "y": py + pw, "w": mid_x2 - mid_x1, "h": (fr['y'] + fr['h']) - (py + pw)})
+                        
+                        free_rects = new_free
+
+                    # Филтрираме припокриващи се парчета фира, за да покажем само най-големите цели площи
+                    final_free = []
+                    for fr1 in free_rects:
+                        if fr1['w'] >= 100 and fr1['h'] >= 100: # Само фира над 10х10 см
+                            is_covered = False
+                            for fr2 in free_rects:
+                                if fr1 != fr2 and fr1['x'] >= fr2['x'] and fr1['y'] >= fr2['y'] and fr1['x']+fr1['w'] <= fr2['x']+fr2['w'] and fr1['y']+fr1['h'] <= fr2['y']+fr2['h']:
+                                    if fr1['w'] * fr1['h'] < fr2['w'] * fr2['h']:
+                                        is_covered = True
+                                        break
+                            if not is_covered:
+                                final_free.append(fr1)
+
+                    # --- 2. ЧЕРТАЕНЕ НА ФИРАТА (Сив контур и текст) ---
+                    for fr in final_free:
+                        svg += f'<rect x="{fr["x"]}" y="{fr["y"]}" width="{fr["w"]}" height="{fr["h"]}" fill="#f2f2f2" stroke="#cccccc" stroke-width="3" stroke-dasharray="10,10"/>'
+                        svg += f'<text x="{fr["x"] + fr["w"]/2}" y="{fr["y"] + fr["h"]/2}" font-size="35" fill="#888888" text-anchor="middle" dominant-baseline="middle" font-weight="bold">Фира: {int(fr["w"])}x{int(fr["h"])}</text>'
+
+                    # --- 3. ЧЕРТАЕНЕ НА ДЕТАЙЛИТЕ ---
                     for p in b_parts:
                         px, py, pl, pw = p['x'] + trim, p['y'] + trim, p['l'], p['w']
                         svg += f'<rect x="{px}" y="{py}" width="{pl}" height="{pw}" fill="#ffffff" stroke="#000000" stroke-width="2"/>'
@@ -2220,6 +2266,7 @@ with col_visuals:
                             
                             svg += f'<text x="{px + pl/2}" y="{py + pw/2 - shift}" font-size="{f_size_name}" fill="black" text-anchor="middle" dominant-baseline="middle" font-weight="bold">{name_str}</text>'
                             svg += f'<text x="{px + pl/2}" y="{py + pw/2 + shift}" font-size="{f_size_dim}" fill="black" text-anchor="middle" dominant-baseline="middle">{dim_str}</text>'
+                    
                     svg += '</svg>'
                     st.markdown(svg, unsafe_allow_html=True)
 

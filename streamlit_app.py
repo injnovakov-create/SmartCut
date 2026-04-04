@@ -458,8 +458,8 @@ with col1:
             h = st.number_input("Височина (H) в мм", value=350, key="h_tret")
             d = st.number_input("Дълбочина (D) в мм", value=500, key="d_tret")
             vrati_broi = st.radio("Брой врати:", [1, 2], index=0, horizontal=True, key="vr_tret")
-        elif tip == "Нестандартен":
-            custom_detail = st.text_input("Име на детайла", value="Нестандартен детайл")
+        elif tip == "ДОБАВИ ДЕТАЙЛ":
+            custom_detail = st.text_input("Име на детайла (напр. Рафт, Цокъл, Страница)", value="Допълнителен детайл")
             
             colA, colB, colC = st.columns(3)
             custom_l = colA.number_input("Дължина (L) мм", value=600)
@@ -516,6 +516,7 @@ with col1:
                 "Ш2": get_edge_val(sh2_08, sh2_2, current_mat)
             }
             
+            # Напасване на променливите за системата
             h, d, w = custom_l, custom_w, deb
             
         elif tip == "Шкаф Колона":

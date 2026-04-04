@@ -479,41 +479,33 @@ with col1:
 
             st.markdown(f"##### 📏 Кантиране (Декор: **{current_mat}**)")
             
-            # Вътрешна функция за кратко име на канта
-            def get_edge_val(c_08, c_2, mat_name):
-                if c_2: return f"{mat_name} 2"
-                if c_08: return f"{mat_name} 0.8"
-                return "Без"
+            # Нова функция, която работи с радио бутоните
+            def get_edge_val(choice, mat_name):
+                if choice == "Без": return "Без"
+                return f"{mat_name} {choice}"
 
             # 4 колони за 4-те страни на детайла
             c1, c2, c3, c4 = st.columns(4)
             
+            # Използваме st.radio вместо st.checkbox, за да ограничим избора до 1
             with c1:
-                st.write("**Д1 (Горе)**")
-                d1_08 = st.checkbox("0.8", key="d1_08")
-                d1_2 = st.checkbox("2", key="d1_2")
+                e_d1 = st.radio("**Д1 (Горе)**", ["Без", "0.8", "2"], key="r_d1")
             
             with c2:
-                st.write("**Д2 (Долу)**")
-                d2_08 = st.checkbox("0.8", key="d2_08")
-                d2_2 = st.checkbox("2", key="d2_2")
+                e_d2 = st.radio("**Д2 (Долу)**", ["Без", "0.8", "2"], key="r_d2")
                 
             with c3:
-                st.write("**Ш1 (Ляво)**")
-                sh1_08 = st.checkbox("0.8", key="sh1_08")
-                sh1_2 = st.checkbox("2", key="sh1_2")
+                e_sh1 = st.radio("**Ш1 (Ляво)**", ["Без", "0.8", "2"], key="r_sh1")
                 
             with c4:
-                st.write("**Ш2 (Дясно)**")
-                sh2_08 = st.checkbox("0.8", key="sh2_08")
-                sh2_2 = st.checkbox("2", key="sh2_2")
+                e_sh2 = st.radio("**Ш2 (Дясно)**", ["Без", "0.8", "2"], key="r_sh2")
 
-            # Речник с резултатите (без "мм")
+            # Речник с резултатите
             custom_edges_dict = {
-                "Д1": get_edge_val(d1_08, d1_2, current_mat),
-                "Д2": get_edge_val(d2_08, d2_2, current_mat),
-                "Ш1": get_edge_val(sh1_08, sh1_2, current_mat),
-                "Ш2": get_edge_val(sh2_08, sh2_2, current_mat)
+                "Д1": get_edge_val(e_d1, current_mat),
+                "Д2": get_edge_val(e_d2, current_mat),
+                "Ш1": get_edge_val(e_sh1, current_mat),
+                "Ш2": get_edge_val(e_sh2, current_mat)
             }
             
             # Напасване на променливите за системата

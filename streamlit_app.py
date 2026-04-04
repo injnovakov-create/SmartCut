@@ -1588,23 +1588,27 @@ def generate_technical_pdf(modules_meta, order_list, kraka_height):
 
 # --- ПОМОЩНА ФУНКЦИЯ ЗА ЧЕРТАНЕ НА ЛИНИИТЕ НА КАНТА ВЪРХУ ЕТИКЕТА ---
 def draw_edge_marking(draw, x, y, w, h, side, text, font):
-    if not text or text == "": return
+    if not text or text == "" or text.lower() in ["без", "none"]: return
+    
+    # Форматираме текста да изглежда както поиска: --- 0.8 ---
+    display_text = f"--- {text} ---"
+    
     line_w = 4
-    inset_x = 40  # Скъсява линията в краищата
-    inset_y = 50  # Мести линията НАВЪТРЕ към центъра (около 4.2 мм)
+    inset_x = 20  # Скъсява линията в краищата (беше 40)
+    inset_y = 15  # ПРЕМЕСТЕНО: Мести линията много по-близо до ръба на етикета (беше 50)
     
     if side == 'top':
         draw.line([x + inset_x, y + inset_y, x + w - inset_x, y + inset_y], fill="black", width=line_w)
-        draw.text((x + w/2, y + inset_y + 8), text, fill="black", font=font, anchor="mt")
+        draw.text((x + w/2, y + inset_y + 5), display_text, fill="black", font=font, anchor="mt")
     elif side == 'bottom':
         draw.line([x + inset_x, y + h - inset_y, x + w - inset_x, y + h - inset_y], fill="black", width=line_w)
-        draw.text((x + w/2, y + h - inset_y - 8), text, fill="black", font=font, anchor="mb")
+        draw.text((x + w/2, y + h - inset_y - 5), display_text, fill="black", font=font, anchor="mb")
     elif side == 'left':
         draw.line([x + inset_y, y + inset_x, x + inset_y, y + h - inset_x], fill="black", width=line_w)
-        draw.text((x + inset_y + 8, y + h/2), text, fill="black", font=font, anchor="lm")
+        draw.text((x + inset_y + 5, y + h/2), display_text, fill="black", font=font, anchor="lm")
     elif side == 'right':
         draw.line([x + w - inset_y, y + inset_x, x + w - inset_y, y + h - inset_x], fill="black", width=line_w)
-        draw.text((x + w - inset_y - 8, y + h/2), text, fill="black", font=font, anchor="rm")
+        draw.text((x + w - inset_y - 5, y + h/2), display_text, fill="black", font=font, anchor="rm")
         
 # --- ОПТИМИЗАЦИЯ НА РАЗКРОЯ (ИСТИНСКИ НЕСТИНГ С БЛОКОВЕ 1, 2, 3...) ---
 def get_optimized_boards(list_for_cutting):

@@ -931,53 +931,49 @@ with col2:
         st.markdown("<div style='text-align: center; color: #008080; font-weight: bold; margin-bottom: 0px;'>👀 3D Изглед</div>", unsafe_allow_html=True)
         try:
             st.image(draw_3d_preview(temp_meta, kraka), use_container_width=True)
-        except:
+        except Exception:
             pass # Ако няма скица, остава празно
     
     # --- УПРАВЛЕНИЕ НА МОДУЛИ И ТАБЛИЦА ---
     if st.session_state.order_list:
-        # ... ТУК НАДОЛУ ОСТАВА ТВОЯТ КОД ЗА ТАБЛИЦАТА (unique_modules и т.н.) ...
+        unique_modules = list(dict.fromkeys([str(item["№"]) for item in st.session_state.order_list]))
+        with st.expander("⚙️ Управление на добавени модули (Изтриване)"):
+            for m_num in unique_modules:
+                col_m1, col_m2 = st.columns([4, 1])
+                col_m1.write(f"📦 Модул: **{m_num}**")
+                if col_m2.button("🗑️ Изтрий", key=f"del_{m_num}"):
+                    st.session_state.order_list = [item for item in st.session_state.order_list if str(item["№"]) != m_num]
+                    st.session_state.hardware_list = [item for item in st.session_state.hardware_list if str(item.get("№", "")) != m_num]
+                    st.session_state.modules_meta = [item for item in st.session_state.modules_meta if str(item.get("№", "")) != m_num]
+                    st.rerun()
+        st.markdown("---")
         
-        # --- УПРАВЛЕНИЕ НА МОДУЛИ ---
-        if st.session_state.order_list:
-            unique_modules = list(dict.fromkeys([str(item["№"]) for item in st.session_state.order_list]))
-            with st.expander("⚙️ Управление на добавени модули (Изтриване)"):
-                for m_num in unique_modules:
-                    col_m1, col_m2 = st.columns([4, 1])
-                    col_m1.write(f"📦 Модул: **{m_num}**")
-                    if col_m2.button("🗑️ Изтрий", key=f"del_{m_num}"):
-                        st.session_state.order_list = [item for item in st.session_state.order_list if str(item["№"]) != m_num]
-                        st.session_state.hardware_list = [item for item in st.session_state.hardware_list if str(item.get("№", "")) != m_num]
-                        st.session_state.modules_meta = [item for item in st.session_state.modules_meta if str(item.get("№", "")) != m_num]
-                        st.rerun()
-            st.markdown("---")
-            
-            # --- ТАБЛИЦА (Сортирана и напълно редактируема) ---
-            df = pd.DataFrame(st.session_state.order_list)
-            cols_order = ["Плоскост", "№", "Тип", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
-            df = df[[c for c in cols_order if c in df.columns]]
-            
-            # Автоматично сортиране по номер на модул, за да са групирани перфектно
-            df = df.sort_values(by="№")
-            
-            edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, height=600, key="editor")
-            st.session_state.order_list = edited_df.to_dict('records')
-            
+        # --- ТАБЛИЦА (Сортирана и напълно редактируема) ---
+        df = pd.DataFrame(st.session_state.order_list)
+        cols_order = ["Плоскост", "№", "Тип", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
+        df = df[[c for c in cols_order if c in df.columns]]
+        
+        # Автоматично сортиране по номер на модул, за да са групирани перфектно
+        df = df.sort_values(by="№")
+        
+        edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, height=600, key="editor")
+        st.session_state.order_list = edited_df.to_dict('records')
+        
+        if st.session_state.hardware_list:
+            st.markdown("#### 🔩 Количествена сметка: Обков")
+            hw_df = pd.DataFrame(st.session_state.hardware_list)
+            hw_summary = hw_df.groupby("Артикул")["Брой"].sum().reset_index()
+            hw_summary["Брой"] = hw_summary["Брой"].apply(lambda x: f"{x:.1f}" if isinstance(x, float) and not x.is_integer() else f"{int(x)}")
+            st.table(hw_summary)
+        
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            edited_df.to_excel(writer, index=False, sheet_name='Разкрой')
             if st.session_state.hardware_list:
-                st.markdown("#### 🔩 Количествена сметка: Обков")
-                hw_df = pd.DataFrame(st.session_state.hardware_list)
-                hw_summary = hw_df.groupby("Артикул")["Брой"].sum().reset_index()
-                hw_summary["Брой"] = hw_summary["Брой"].apply(lambda x: f"{x:.1f}" if isinstance(x, float) and not x.is_integer() else f"{int(x)}")
-                st.table(hw_summary)
-            
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                edited_df.to_excel(writer, index=False, sheet_name='Разкрой')
-                if st.session_state.hardware_list:
-                    pd.DataFrame(st.session_state.hardware_list).groupby("Артикул")["Брой"].sum().reset_index().to_excel(writer, index=False, sheet_name='Обков')
-            st.download_button(label="📊 Свали в Excel (.xlsx)", data=output.getvalue(), file_name="razkroi_vitya_kuhni.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-        else:
-            st.info("Списъкът е празен. Добави първия си модул отляво!")
+                pd.DataFrame(st.session_state.hardware_list).groupby("Артикул")["Брой"].sum().reset_index().to_excel(writer, index=False, sheet_name='Обков')
+        st.download_button(label="📊 Свали в Excel (.xlsx)", data=output.getvalue(), file_name="razkroi_vitya_kuhni.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    else:
+        st.info("Списъкът е празен. Добави първия си модул отляво!")
 
 # --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (СЕКЦИИ И ГАРДЕРОБИ) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):

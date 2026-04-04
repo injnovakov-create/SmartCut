@@ -981,7 +981,7 @@ with col2:
         st.download_button(label="📊 Свали в Excel (.xlsx)", data=output.getvalue(), file_name="razkroi_vitya_kuhni.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
     # ЕТО ГО ПОДРАВНЕНОТО ELSE:
-    else:
+        else:
         st.info("Списъкът е празен. Добави първия си модул отляво!")
 
 # --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (СЕКЦИИ И ГАРДЕРОБИ) ---

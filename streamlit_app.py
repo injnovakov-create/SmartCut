@@ -954,30 +954,29 @@ with col2:
         # --- ТАБЛИЦА (Сортирана и напълно редактируема) ---
         df = pd.DataFrame(st.session_state.order_list)
         
-        # ТУК Е ПРОМЯНАТА: Премахнато е "Тип" от списъка с колони
         cols_order = ["Плоскост", "№", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
         df = df[[c for c in cols_order if c in df.columns]]
         
-        # Автоматично сортиране по номер на модул, за да са групирани перфектно
-        df = df.sort_values(by="№")
+        # --- ВИЗУАЛНО ГРУПИРАНЕ (Редуване на цветовете по модул) ---
+        if not df.empty:
+            # Вземаме уникалните имена на модулите в реда, в който се появяват (най-новите първи)
+            unique_mods = df['№'].unique()
+            # Създаваме речник, който редува 0 и 1 за всеки модул
+            color_map = {mod: i % 2 for i, mod in enumerate(unique_mods)}
+            
+            def highlight_modules(row):
+                # Редуваме стандартно бяло с много светло синьо-сиво
+                bg_color = '#ffffff' if color_map.get(row['№'], 0) == 0 else '#eef4f8'
+                return [f'background-color: {bg_color}'] * len(row)
+            
+            # Прилагаме стила върху таблицата
+            display_df = df.style.apply(highlight_modules, axis=1)
+        else:
+            display_df = df
         
-        edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, height=600, key="editor")
+        # Подаваме стилизираната таблица (display_df) на data_editor
+        edited_df = st.data_editor(display_df, num_rows="dynamic", use_container_width=True, height=600, key="editor")
         st.session_state.order_list = edited_df.to_dict('records')
-        
-        if st.session_state.hardware_list:
-            st.markdown("#### 🔩 Количествена сметка: Обков")
-            hw_df = pd.DataFrame(st.session_state.hardware_list)
-            hw_summary = hw_df.groupby("Артикул")["Брой"].sum().reset_index()
-            hw_summary["Брой"] = hw_summary["Брой"].apply(lambda x: f"{x:.1f}" if isinstance(x, float) and not x.is_integer() else f"{int(x)}")
-            st.table(hw_summary)
-        
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            edited_df.to_excel(writer, index=False, sheet_name='Разкрой')
-            if st.session_state.hardware_list:
-                pd.DataFrame(st.session_state.hardware_list).groupby("Артикул")["Брой"].sum().reset_index().to_excel(writer, index=False, sheet_name='Обков')
-        st.download_button(label="📊 Свали в Excel (.xlsx)", data=output.getvalue(), file_name="razkroi_vitya_kuhni.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    else:
         st.info("Списъкът е празен. Добави първия си модул отляво!")
 # --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (СЕКЦИИ И ГАРДЕРОБИ) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):

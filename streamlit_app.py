@@ -778,7 +778,7 @@ with col1:
                 new_items.extend([
                     add_item(name, tip, "Дъно", 1, w, d, "1д", mat_korpus, val_fl_korpus), 
                     add_item(name, tip, "Страница", 2, h_stranica, d, "1д", mat_korpus, val_fl_korpus),
-                    add_item(name, tip, "Бленда", 2, w-(2*deb), 112, "1д", mat_korpus, val_fl_korpus), 
+                    # ТУК БЕШЕ БЛЕНДАТА - ВЕЧЕ Е ИЗТРИТА
                     add_item(name, tip, "Рафт (под фурна)", 1, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
                     add_item(name, tip, "Чело чекмедже", 1, lf, wf, "4 страни", mat_lice, val_fl_lice, nf), 
                     add_item(name, tip, "Царги чекм.", 2, cargi_w, h_tsarga_furna, "1д", mat_chekm, val_fl_chekm),

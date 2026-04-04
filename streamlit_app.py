@@ -579,7 +579,7 @@ with col1:
             w_vrata_input = col_g1.number_input("Ширина Врата (мм)", value=400, key="w_vr_g")
             w_gluha_input = col_g2.number_input("Ширина Глуха част (мм)", value=int(w - w_vrata_input - 20), key="w_gl_g")
             
-        else:
+            else:
             default_w = 600
             w = st.number_input("Ширина (W) мм", value=default_w, key="w_std")
             if "Горен" in tip:

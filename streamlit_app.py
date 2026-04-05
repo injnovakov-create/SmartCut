@@ -474,6 +474,7 @@ with col1:
         runner_len = 500
         custom_mat_name = "ПДЧ 18мм (Друго)"
         custom_edges_dict = {}
+        overhang_door = False  # НОВО: Дефинираме я по подразбиране
         
         if tip == "Дублираща страница долен":
             h = st.number_input("Височина (H) мм", value=860)
@@ -564,6 +565,9 @@ with col1:
             st.info("Модул с вертикални делители")
             mod_podtip = st.radio("Избери вид шкаф:", ["Долен с делител", "Горен с делител"], horizontal=True)
             
+            if "Горен" in mod_podtip:
+                overhang_door = st.checkbox("Врати без дръжки (надстърчат 20мм надолу)")
+
             colA, colB, colC = st.columns(3)
             w = colA.number_input("Ширина (W) мм", value=1200)
             h_box = colB.number_input("Височина на корпуса (H) мм", value=760 if "Долен" in mod_podtip else 720)
@@ -640,6 +644,7 @@ with col1:
             if "Горен" in tip:
                 h = st.number_input("Височина (H) мм", value=720, key="h_up_gl")
                 d = st.number_input("Дълбочина (D) мм", value=300, key="d_up_gl")
+                overhang_door = st.checkbox("Врати без дръжки (надстърчат 20мм надолу)")
             else:
                 h_box = st.number_input("Височина на корпуса без крака (мм)", value=760, key="h_box_gl")
                 d = st.number_input("Дълбочина (D) мм", value=520, key="d_low_gl")
@@ -661,6 +666,7 @@ with col1:
                 h = st.number_input("Височина (H) мм", value=720, key="h_up")
                 d = st.number_input("Дълбочина (D) мм", value=300, key="d_up")
                 vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_up")
+                overhang_door = st.checkbox("Врати без дръжки (надстърчат 20мм надолу)")
             else:
                 h_box = st.number_input("Височина на корпуса без крака (мм)", value=760, key="h_box_low")
                 d = st.number_input("Дълбочина (D) мм", value=(550 if tip == "Шкаф Мивка" else 520), key="d_low")
@@ -673,6 +679,8 @@ with col1:
                     vrati_broi = st.radio("Брой врати:", [1, 2], index=1 if w > 500 else 0, horizontal=True, key="vr_low")
 
         st.markdown("---")
+        overhang_val = 20 if overhang_door else 0
+        
         temp_meta = {
             "Тип": tip, "W": w, "H": h, "D": d, 
             "vr_cnt": locals().get('vrati_broi', 0), 
@@ -680,7 +688,8 @@ with col1:
             "num_ch": locals().get('num_ch', 0),
             "lower_door_h": locals().get('lower_door_h', 0),
             "appliances_type": locals().get('appliances_type', "Без уреди"),
-            "fl_posoka": flader_posoka
+            "fl_posoka": flader_posoka,
+            "overhang_val": overhang_val
         }
         if st.button("➕ Добави към списъка"):
             current_snap = {
@@ -757,7 +766,7 @@ with col1:
                         add_item(name, tip, "Дъно", 1, w - 2*deb, d, "1д", mat_korpus, val_fl_korpus),
                         add_item(name, tip, "Междинна страница", num_dividers, h_k - 2*deb, d, "1д", mat_korpus, val_fl_korpus)
                     ])
-                    h_vrata = h_k - fuga_obshto
+                    h_vrata = h_k - fuga_obshto + overhang_val
                     
                 for i, sh_count in enumerate(section_shelves):
                     if sh_count > 0:
@@ -832,8 +841,8 @@ with col1:
                     ])
                 else:
                     shelves_count = 2 if h > 800 else 1
-                    lf, wf, nf = get_front_dims(h - fuga_obshto, int(w_vrata_input - fuga_obshto))
-                    lf_g, wf_g, nf_g = get_front_dims(h - fuga_obshto, int(w_gluha_input - fuga_obshto))
+                    lf, wf, nf = get_front_dims(h - fuga_obshto + overhang_val, int(w_vrata_input - fuga_obshto))
+                    lf_g, wf_g, nf_g = get_front_dims(h - fuga_obshto + overhang_val, int(w_gluha_input - fuga_obshto))
                     new_items.extend([
                         add_item(name, tip, "Страница", 2, h, d, "1д", mat_korpus, val_fl_korpus),
                         add_item(name, tip, "Дъно/Таван", 2, w-(2*deb), d, "1д", mat_korpus, val_fl_korpus),
@@ -974,10 +983,6 @@ with col1:
                 new_items.append(add_item(name, tip, "Врата горна", 2, lf_u, wf_u, "4", mat_lice, val_fl_lice, nf_u))
 
             elif tip == "Горен Шкаф":
-                # --- НОВО: Опция за надстърчащи врати ---
-                overhang_door = st.checkbox("Врати без дръжки (надстърчат 20мм надолу)")
-                overhang_val = 20 if overhang_door else 0
-
                 shelves_count = 2 if h > 800 else 1
                 new_items.extend([
                     add_item(name, tip, "Страница", 2, h, d, "1д", mat_korpus, val_fl_korpus),
@@ -1037,7 +1042,6 @@ with col2:
     
     with header_col:
         st.subheader("📋 Списък за разкрой (Редактируем)")
-        
         
                     
     with img_col:

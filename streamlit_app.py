@@ -744,6 +744,10 @@ with col1:
                     new_hw.append({"№": name, "Артикул": "Панти покрит кант", "Брой": hw_hinges})
                     new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": vrati_broi})
 
+            # НОВО: Добавяме дръжки само ако НЕ е избрано надстърчане на вратата
+                    if not overhang_door:
+                        new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": vrati_broi})
+            
             # ЛОГИКА ЗА РАЗКРОЙ 
             if tip == "Шкаф с меж. стр.":
                 inner_w = (w - (2 + num_dividers) * deb) / num_sections

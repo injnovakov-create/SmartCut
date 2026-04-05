@@ -1078,23 +1078,22 @@ with col2:
         except Exception:
             pass # Ако няма скица, остава празно
     
-    # --- УПРАВЛЕНИЕ НА МОДУЛИ И ТАБЛИЦА ---
+# --- УПРАВЛЕНИЕ НА МОДУЛИ И ТАБЛИЦА ---
 if st.session_state.order_list:
     # 1. ПРЕВРЪЩАНЕ В DATAFRAME
     df = pd.DataFrame(st.session_state.order_list)
     
-    # 2. ПОДРЕДБА ВЪТРЕ В МОДУЛА (БЕЗ ДА РАЗВАЛЯМЕ ОБЩАТА СТРУКТУРА)
-    # Дефинираме тежест на материалите, за да излизат винаги в този ред
+    # 2. ПОДРЕДБА ВЪТРЕ В МОДУЛА
+    # Дефинираме тежест на материалите (Корпус -> Чекмеджета -> Лице -> Фазер)
     mat_priority = {"Корпус": 1, "Чекмеджета": 2, "Лице": 3, "Фазер": 4}
     
     if not df.empty:
-        # Създаваме временна колона за сортиране, за да не се разбъркват модулите
-        # Сортираме по: 1. Индекс (реда на добавяне), 2. Материал (по приоритет)
+        # Помощна колона за сортиране по приоритет на материала
         df['mat_sort'] = df['Плоскост'].apply(lambda x: mat_priority.get(x, 5))
         
-        # Сортирането тук е ключово: първо по № (модула), после по приоритета на материала
+        # Сортираме първо по име на модул (№), после по вида материал вътре в него
         df = df.sort_values(by=["№", "mat_sort"], ascending=[True, True])
-        df = df.drop(columns=['mat_sort']) # махаме помощната колона
+        df = df.drop(columns=['mat_sort']) 
 
     cols_order = ["Плоскост", "№", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
     df = df[[c for c in cols_order if c in df.columns]]
@@ -1109,6 +1108,7 @@ if st.session_state.order_list:
         for row in records:
             current_mod = row['№']
             if last_mod is not None and current_mod != last_mod:
+                # Празен ред за визуално разделяне
                 empty_row = {col: None for col in cols_order}
                 empty_row["№"] = "---"
                 visual_records.append(empty_row)
@@ -1120,26 +1120,31 @@ if st.session_state.order_list:
     else:
         display_df = df
 
-    # --- 4. ОЦВЕТЯВАНЕ СПРЕД МАТЕРИАЛА ---
-    def color_material(val):
-        color = 'white'
-        if val == 'Лице': color = '#FFD700'  # Златисто за лице
-        elif val == 'Корпус': color = '#E0E0E0'  # Светло сиво за корпус
-        elif val == 'Фазер': color = '#FFA07A'  # Светло оранжево за фазер
-        return f'background-color: {color}; color: black'
+    # --- 4. ЛЕГЕНДА ЗА ЦВЕТОВЕТЕ (Визуална помощ над таблицата) ---
+    st.markdown("""
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <span style="background-color: #E0E0E0; padding: 2px 8px; border-radius: 4px; color: black;">⬜ Корпус</span>
+            <span style="background-color: #FFD700; padding: 2px 8px; border-radius: 4px; color: black;">🟨 Лице</span>
+            <span style="background-color: #FFA07A; padding: 2px 8px; border-radius: 4px; color: black;">🟧 Фазер</span>
+        </div>
+    """, unsafe_allow_html=True)
 
-    # Прилагаме стила само върху колоната "Плоскост"
-    styled_df = display_df.style.applymap(color_material, subset=['Плоскост'])
-
-    # 5. ПОКАЗВАНЕ НА ТАБЛИЦАТА
-    # Забележка: Когато ползваме .style, таблицата става само за четене в st.dataframe, 
-    # затова тук ползваме чистия display_df за редактиране, ако ти е нужна редакция:
-    edited_df = st.data_editor(display_df, num_rows="dynamic", use_container_width=True, height=600, key="editor")
+    # 5. ПОКАЗВАНЕ НА ТАБЛИЦАТА (РЕДАКТИРУЕМА)
+    # Ползваме display_df, защото styled_df заключва таблицата само за четене
+    edited_df = st.data_editor(
+        display_df, 
+        num_rows="dynamic", 
+        use_container_width=True, 
+        height=600, 
+        key="editor"
+    )
 
     # 6. ФИЛТРИРАНЕ И ЗАПАЗВАНЕ
     clean_records = []
     for row in edited_df.to_dict('records'):
-        if str(row.get("№")) != "---" and row.get("№") is not None:
+        # Проверка за None и за маркера "---"
+        mod_val = str(row.get("№", ""))
+        if mod_val != "---" and row.get("Детайл") is not None:
             clean_records.append(row)
             
     st.session_state.order_list = clean_records

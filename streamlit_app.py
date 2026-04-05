@@ -1084,7 +1084,6 @@ if st.session_state.order_list:
     df = pd.DataFrame(st.session_state.order_list)
     
     # 2. ПОДРЕДБА ВЪТРЕ В МОДУЛА
-    # Дефинираме тежест на материалите (Корпус -> Чекмеджета -> Лице -> Фазер)
     mat_priority = {"Корпус": 1, "Чекмеджета": 2, "Лице": 3, "Фазер": 4}
     
     if not df.empty:
@@ -1108,7 +1107,6 @@ if st.session_state.order_list:
         for row in records:
             current_mod = row['№']
             if last_mod is not None and current_mod != last_mod:
-                # Празен ред за визуално разделяне
                 empty_row = {col: None for col in cols_order}
                 empty_row["№"] = "---"
                 visual_records.append(empty_row)
@@ -1120,7 +1118,7 @@ if st.session_state.order_list:
     else:
         display_df = df
 
-    # --- 4. ЛЕГЕНДА ЗА ЦВЕТОВЕТЕ (Визуална помощ над таблицата) ---
+    # --- 4. ЛЕГЕНДА ЗА ЦВЕТОВЕТЕ ---
     st.markdown("""
         <div style="display: flex; gap: 10px; margin-bottom: 10px;">
             <span style="background-color: #E0E0E0; padding: 2px 8px; border-radius: 4px; color: black;">⬜ Корпус</span>
@@ -1130,7 +1128,6 @@ if st.session_state.order_list:
     """, unsafe_allow_html=True)
 
     # 5. ПОКАЗВАНЕ НА ТАБЛИЦАТА (РЕДАКТИРУЕМА)
-    # Ползваме display_df, защото styled_df заключва таблицата само за четене
     edited_df = st.data_editor(
         display_df, 
         num_rows="dynamic", 
@@ -1142,15 +1139,14 @@ if st.session_state.order_list:
     # 6. ФИЛТРИРАНЕ И ЗАПАЗВАНЕ
     clean_records = []
     for row in edited_df.to_dict('records'):
-        # Проверка за None и за маркера "---"
         mod_val = str(row.get("№", ""))
         if mod_val != "---" and row.get("Детайл") is not None:
             clean_records.append(row)
             
     st.session_state.order_list = clean_records
 
-    # --- 2. ВТОРО: ИЗТРИВАНЕТО НА МОДУЛИ (Отива под таблицата) ---
-    st.markdown("---") # Слагаме черта, за да го отделим визуално
+    # --- 7. ИЗТРИВАНЕ НА МОДУЛИ ---
+    st.markdown("---")
     
     unique_modules = list(dict.fromkeys([str(item["№"]) for item in st.session_state.order_list]))
     
@@ -1158,39 +1154,46 @@ if st.session_state.order_list:
     col_del1, col_del2 = st.columns([4, 1])
     
     with col_del1:
-        # Слагаме format_func, за да изглежда красиво в менюто (напр. "📦 Модул: 1")
         mod_to_delete = st.selectbox(
             "Избери модул", 
             options=unique_modules, 
             format_func=lambda x: f"📦 Модул: {x}",
-            label_visibility="collapsed"
+            label_visibility="collapsed",
+            key="delete_module_select"
         )
             
-        with col_del2:
-            if st.button("❌ Изтрий", use_container_width=True):
-                st.session_state.order_list = [item for item in st.session_state.order_list if str(item["№"]) != mod_to_delete]
-                st.session_state.hardware_list = [item for item in st.session_state.hardware_list if str(item.get("№", "")) != mod_to_delete]
-                st.session_state.modules_meta = [item for item in st.session_state.modules_meta if str(item.get("№", "")) != mod_to_delete]
-                st.rerun() 
-        
-        # --- ОБКОВ И ЕКСПОРТ КЪМ ЕКСЕЛ (Връщаме ги, защото липсваха) ---
-        if st.session_state.hardware_list:
-            st.markdown("#### 🔩 Количествена сметка: Обков")
-            hw_df = pd.DataFrame(st.session_state.hardware_list)
-            hw_summary = hw_df.groupby("Артикул")["Брой"].sum().reset_index()
-            hw_summary["Брой"] = hw_summary["Брой"].apply(lambda x: f"{x:.1f}" if isinstance(x, float) and not x.is_integer() else f"{int(x)}")
-            st.table(hw_summary)
-        
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            edited_df.to_excel(writer, index=False, sheet_name='Разкрой')
-            if st.session_state.hardware_list:
-                pd.DataFrame(st.session_state.hardware_list).groupby("Артикул")["Брой"].sum().reset_index().to_excel(writer, index=False, sheet_name='Обков')
-        st.download_button(label="📊 Свали в Excel (.xlsx)", data=output.getvalue(), file_name="razkroi_vitya_kuhni.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    with col_del2:
+        if st.button("❌ Изтрий", use_container_width=True):
+            st.session_state.order_list = [item for item in st.session_state.order_list if str(item["№"]) != mod_to_delete]
+            st.session_state.hardware_list = [item for item in st.session_state.hardware_list if str(item.get("№", "")) != mod_to_delete]
+            st.session_state.modules_meta = [item for item in st.session_state.modules_meta if str(item.get("№", "")) != mod_to_delete]
+            st.rerun() 
 
-    # ЕТО ГО ЛИПСВАЩОТО ELSE, КОЕТО ОПРАВЯ ПРОБЛЕМА:
-    else:
-        st.info("Списъкът е празен. Добави първия си модул отляво!")
+    # --- 8. ОБКОВ И ЕКСПОРТ КЪМ ЕКСЕЛ ---
+    if st.session_state.hardware_list:
+        st.markdown("#### 🔩 Количествена сметка: Обков")
+        hw_df = pd.DataFrame(st.session_state.hardware_list)
+        hw_summary = hw_df.groupby("Артикул")["Брой"].sum().reset_index()
+        hw_summary["Брой"] = hw_summary["Брой"].apply(lambda x: f"{x:.1f}" if isinstance(x, float) and not x.is_integer() else f"{int(x)}")
+        st.table(hw_summary)
+    
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        edited_df.to_excel(writer, index=False, sheet_name='Разкрой')
+        if st.session_state.hardware_list:
+            hw_summary_xl = pd.DataFrame(st.session_state.hardware_list).groupby("Артикул")["Брой"].sum().reset_index()
+            hw_summary_xl.to_excel(writer, index=False, sheet_name='Обков')
+            
+    st.download_button(
+        label="📊 Свали в Excel (.xlsx)", 
+        data=output.getvalue(), 
+        file_name="razkroi_vitya_kuhni.xlsx", 
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
+
+else:
+    st.info("📭 Списъкът е празен. Добави първия си модул отляво!")
 # --- 2. ГЕНЕРИРАНЕ НА ТЕХНИЧЕСКИ PDF ЧЕРТЕЖИ (СЕКЦИИ И ГАРДЕРОБИ) ---
 def generate_technical_pdf(modules_meta, order_list, kraka_height):
     import math

@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw, ImageFont
 from rectpack import newPacker, PackingMode, PackingBin, SORT_AREA, GuillotineBssfMaxas
 
 # Настройки на страницата (ТОВА ВИНАГИ ТРЯБВА ДА Е ПЪРВО)
-st.set_page_config(page_title="OPTIVIK: Витя-М", layout="wide")
+st.set_page_config(page_title="*OPTIVIK*: Проектиране", layout="wide")
 
 # --- ДИЗАЙН ЗА ГЛОБАЛНИТЕ НАСТРОЙКИ ---
 st.markdown("""

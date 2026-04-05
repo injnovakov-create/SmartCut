@@ -1079,49 +1079,70 @@ with col2:
             pass # Ако няма скица, остава празно
     
     # --- УПРАВЛЕНИЕ НА МОДУЛИ И ТАБЛИЦА ---
-    if st.session_state.order_list:
+if st.session_state.order_list:
+    # 1. ПРЕВРЪЩАНЕ В DATAFRAME
+    df = pd.DataFrame(st.session_state.order_list)
+    
+    # 2. ПОДРЕДБА ВЪТРЕ В МОДУЛА (БЕЗ ДА РАЗВАЛЯМЕ ОБЩАТА СТРУКТУРА)
+    # Дефинираме тежест на материалите, за да излизат винаги в този ред
+    mat_priority = {"Корпус": 1, "Чекмеджета": 2, "Лице": 3, "Фазер": 4}
+    
+    if not df.empty:
+        # Създаваме временна колона за сортиране, за да не се разбъркват модулите
+        # Сортираме по: 1. Индекс (реда на добавяне), 2. Материал (по приоритет)
+        df['mat_sort'] = df['Плоскост'].apply(lambda x: mat_priority.get(x, 5))
         
-        # --- 1. ПЪРВО: ТАБЛИЦАТА (С визуални разделители) ---
-        df = pd.DataFrame(st.session_state.order_list)
+        # Сортирането тук е ключово: първо по № (модула), после по приоритета на материала
+        df = df.sort_values(by=["№", "mat_sort"], ascending=[True, True])
+        df = df.drop(columns=['mat_sort']) # махаме помощната колона
+
+    cols_order = ["Плоскост", "№", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
+    df = df[[c for c in cols_order if c in df.columns]]
+
+    # 3. ДОБАВЯНЕ НА ПРАЗНИ РЕДОВЕ (РАЗДЕЛИТЕЛИ МЕЖДУ МОДУЛИТЕ)
+    if not df.empty:
+        df['№'] = df['№'].astype(str)
+        records = df.to_dict('records')
+        visual_records = []
+        last_mod = None
         
-        cols_order = ["Плоскост", "№", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
-        df = df[[c for c in cols_order if c in df.columns]]
-        
-        # --- ДОБАВЯНЕ НА ПРАЗНИ РЕДОВЕ (РАЗДЕЛИТЕЛИ) ---
-        if not df.empty:
-            df['№'] = df['№'].astype(str)
-            records = df.to_dict('records')
-            visual_records = []
-            last_mod = None
+        for row in records:
+            current_mod = row['№']
+            if last_mod is not None and current_mod != last_mod:
+                empty_row = {col: None for col in cols_order}
+                empty_row["№"] = "---"
+                visual_records.append(empty_row)
             
-            for row in records:
-                current_mod = row['№']
-                # Ако това не е първият ред и номерът на модула се е сменил
-                if last_mod is not None and current_mod != last_mod:
-                    # Създаваме "мним" разделителен ред
-                    empty_row = {col: None for col in cols_order}
-                    empty_row["№"] = "---" # Слагаме маркер, за да си го познаем после
-                    visual_records.append(empty_row)
-                
-                visual_records.append(row)
-                last_mod = current_mod
-                
-            display_df = pd.DataFrame(visual_records)
-        else:
-            display_df = df
-        
-        # Подаваме таблицата на екрана (с разделителите) - ТЯ ВЕЧЕ Е НАЙ-ОТГОРЕ
-        edited_df = st.data_editor(display_df, num_rows="dynamic", use_container_width=True, height=600, key="editor")
-        
-        # --- ФИЛТРИРАНЕ И ЗАПАЗВАНЕ ---
-        # Важно: Махаме разделителните редове, преди да запазим реалните данни в паметта!
-        clean_records = []
-        for row in edited_df.to_dict('records'):
-            # Запазваме само редовете, които НЕ са нашите разделители
-            if str(row.get("№")) != "---":
-                clean_records.append(row)
-                
-        st.session_state.order_list = clean_records
+            visual_records.append(row)
+            last_mod = current_mod
+            
+        display_df = pd.DataFrame(visual_records)
+    else:
+        display_df = df
+
+    # --- 4. ОЦВЕТЯВАНЕ СПРЕД МАТЕРИАЛА ---
+    def color_material(val):
+        color = 'white'
+        if val == 'Лице': color = '#FFD700'  # Златисто за лице
+        elif val == 'Корпус': color = '#E0E0E0'  # Светло сиво за корпус
+        elif val == 'Фазер': color = '#FFA07A'  # Светло оранжево за фазер
+        return f'background-color: {color}; color: black'
+
+    # Прилагаме стила само върху колоната "Плоскост"
+    styled_df = display_df.style.applymap(color_material, subset=['Плоскост'])
+
+    # 5. ПОКАЗВАНЕ НА ТАБЛИЦАТА
+    # Забележка: Когато ползваме .style, таблицата става само за четене в st.dataframe, 
+    # затова тук ползваме чистия display_df за редактиране, ако ти е нужна редакция:
+    edited_df = st.data_editor(display_df, num_rows="dynamic", use_container_width=True, height=600, key="editor")
+
+    # 6. ФИЛТРИРАНЕ И ЗАПАЗВАНЕ
+    clean_records = []
+    for row in edited_df.to_dict('records'):
+        if str(row.get("№")) != "---" and row.get("№") is not None:
+            clean_records.append(row)
+            
+    st.session_state.order_list = clean_records
 
         # --- 2. ВТОРО: ИЗТРИВАНЕТО НА МОДУЛИ (Отива под таблицата) ---
         st.markdown("---") # Слагаме черта, за да го отделим визуално

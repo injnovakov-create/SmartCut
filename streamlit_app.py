@@ -73,7 +73,7 @@ st.markdown("""
 <h1 style='font-size: 32px; margin-top: 10px;'>
     <span class='opti-text'>OPTI</span><span class='vik-text'>VIK</span>
 </h1>
-<p style='font-size: 18px; color: gray; margin-top: -10px; margin-bottom: 20px;'><i>оптимизирай умно</i></p>
+<p style='font-size: 18px; color: gray; margin-top: -10px; margin-bottom: 20px;'><i>Версия 1.0</i></p>
 """, unsafe_allow_html=True)
 
 # --- ИНИЦИАЛИЗАЦИЯ НА STATE ---

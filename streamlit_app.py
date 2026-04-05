@@ -2244,7 +2244,7 @@ with col_pdf:
                     kraka_val = kraka if 'kraka' in locals() or 'kraka' in globals() else 100
                     pdf_data = generate_technical_pdf(st.session_state.modules_meta, st.session_state.order_list, kraka_val)
                     if pdf_data:
-                        st.download_button(label="📥 ИЗТЕГЛИ PDF", data=pdf_data, file_name="OPTIVIK_Чертежи.pdf", mime="application/pdf")
+                        st.download_button(label="📥 ИЗТЕГЛИ PDF", data=pdf_data, file_name="*OPTIVIK*_Чертежи.pdf", mime="application/pdf")
                         
     with col_b2:
         if st.button("🏷️ Свали ЕТИКЕТИ (А4)"):
@@ -2256,7 +2256,7 @@ with col_pdf:
                     try:
                         labels_pdf = generate_labels_pdf(boards_per_mat) 
                         if labels_pdf:
-                            st.download_button(label="📥 ИЗТЕГЛИ ЕТИКЕТИ", data=labels_pdf, file_name="OPTIVIK_Етикети.pdf", mime="application/pdf")
+                            st.download_button(label="📥 ИЗТЕГЛИ ЕТИКЕТИ", data=labels_pdf, file_name="*OPTIVIK*_Етикети.pdf", mime="application/pdf")
                     except NameError:
                         st.error("Функцията за етикети липсва или не е заредена правилно.")
 

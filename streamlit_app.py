@@ -750,6 +750,23 @@ with col1:
                     # Добавяме дръжки САМО ако НЕ е избрано надстърчане на вратата
                     if not overhang_door:
                         new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": vrati_broi})
+
+            # --- НОВО: ОБКОВ ЗА ГЛУХ ЪГЪЛ ---
+            if "Глух" in tip:
+                if "Долен" in tip:
+                    h_door_hw = h_vrata_standart
+                else:
+                    h_door_hw = h - fuga_obshto
+                    
+                # Изчисляваме пантите (за глухия ъгъл вратата винаги е 1)
+                hw_hinges = calculate_hinges(h_door_hw)
+                
+                # Добавяме специалните панти
+                new_hw.append({"№": name, "Артикул": "Панти в една равнина", "Брой": hw_hinges})
+                
+                # Добавяме дръжка САМО ако НЕ е избрано надстърчане
+                if not overhang_door:
+                    new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": 1})
             
             # ЛОГИКА ЗА РАЗКРОЙ 
             if tip == "Шкаф с меж. стр.":

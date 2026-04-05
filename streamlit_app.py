@@ -751,22 +751,52 @@ with col1:
                     if not overhang_door:
                         new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": vrati_broi})
 
-            # --- НОВО: ОБКОВ ЗА ГЛУХ ЪГЪЛ ---
+            # --- ОБКОВ ЗА ГЛУХ ЪГЪЛ ---
             if "Глух" in tip:
-                if "Долен" in tip:
-                    h_door_hw = h_vrata_standart
-                else:
-                    h_door_hw = h - fuga_obshto
-                    
-                # Изчисляваме пантите (за глухия ъгъл вратата винаги е 1)
+                h_door_hw = h_vrata_standart if "Долен" in tip else (h - fuga_obshto)
                 hw_hinges = calculate_hinges(h_door_hw)
-                
-                # Добавяме специалните панти
                 new_hw.append({"№": name, "Артикул": "Панти в една равнина", "Брой": hw_hinges})
-                
-                # Добавяме дръжка САМО ако НЕ е избрано надстърчане
                 if not overhang_door:
                     new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": 1})
+
+            # --- НОВО: ОБКОВ ЗА ШКАФ КОЛОНА ---
+            if tip == "Шкаф Колона":
+                # 1. Логика за стандартна колона (без вградени уреди)
+                if appliances_type == "Без уреди":
+                    if split_doors:
+                        # Две врати (Долна + Горна)
+                        h_d1 = lower_door_h
+                        h_d2 = h - lower_door_h - fuga_obshto - kraka
+                        hw_hinges = (calculate_hinges(h_d1) + calculate_hinges(h_d2)) * vrati_broi
+                        total_handles = 2 * vrati_broi
+                    else:
+                        # Една цяла врата
+                        hw_hinges = calculate_hinges(h - kraka - fuga_obshto) * vrati_broi
+                        total_handles = 1 * vrati_broi
+                    
+                    new_hw.append({"№": name, "Артикул": "Панти покрит кант", "Брой": hw_hinges})
+                    new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": total_handles})
+                
+                # 2. Логика за колона с уреди (Фурна / Микровълнова)
+                else:
+                    # Панти за ГОРНАТА врата (над уредите)
+                    h_furn = 595
+                    h_mw = 380 if appliances_type == "Фурна + Микровълнова" else 0
+                    h_up_door = h - kraka - lower_door_h - h_furn - h_mw - (fuga_obshto * 2)
+                    
+                    up_hinges = calculate_hinges(h_up_door) * vrati_broi
+                    new_hw.append({"№": name, "Артикул": "Панти покрит кант", "Брой": up_hinges})
+
+                    # Долна част на колоната
+                    if lower_type == "Врата":
+                        low_hinges = calculate_hinges(lower_door_h) * vrati_broi
+                        new_hw.append({"№": name, "Артикул": "Панти покрит кант", "Брой": low_hinges})
+                        new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": vrati_broi * 2})
+                    else:
+                        # Долна част с чекмеджета
+                        num_drawers = 2 if lower_type == "2 Чекмеджета" else 3
+                        new_hw.append({"№": name, "Артикул": f"Водач {runner_len}мм", "Брой": num_drawers})
+                        new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": vrati_broi + num_drawers})
             
             # ЛОГИКА ЗА РАЗКРОЙ 
             if tip == "Шкаф с меж. стр.":

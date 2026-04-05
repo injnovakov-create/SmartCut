@@ -1171,7 +1171,7 @@ if st.session_state.order_list:
                 st.session_state.order_list = [item for item in st.session_state.order_list if str(item["№"]) != mod_to_delete]
                 st.session_state.hardware_list = [item for item in st.session_state.hardware_list if str(item.get("№", "")) != mod_to_delete]
                 st.session_state.modules_meta = [item for item in st.session_state.modules_meta if str(item.get("№", "")) != mod_to_delete]
-                st.rerun()
+                st.rerun() 
         
         # --- ОБКОВ И ЕКСПОРТ КЪМ ЕКСЕЛ (Връщаме ги, защото липсваха) ---
         if st.session_state.hardware_list:

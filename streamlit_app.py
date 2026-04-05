@@ -974,6 +974,10 @@ with col1:
                 new_items.append(add_item(name, tip, "Врата горна", 2, lf_u, wf_u, "4", mat_lice, val_fl_lice, nf_u))
 
             elif tip == "Горен Шкаф":
+                # --- НОВО: Опция за надстърчащи врати ---
+                overhang_door = st.checkbox("Врати без дръжки (надстърчат 20мм надолу)")
+                overhang_val = 20 if overhang_door else 0
+
                 shelves_count = 2 if h > 800 else 1
                 new_items.extend([
                     add_item(name, tip, "Страница", 2, h, d, "1д", mat_korpus, val_fl_korpus),
@@ -981,7 +985,9 @@ with col1:
                     add_item(name, tip, "Рафт", shelves_count, w-(2*deb), d-10, "1д", mat_korpus, val_fl_korpus),
                     add_item(name, tip, "Гръб (Фазер)", 1, h - otstyp_fazer, w - otstyp_fazer, "Без", mat_fazer, "Няма")
                 ])
-                lf, wf, nf = get_front_dims(h - fuga_obshto, int(w/vrati_broi - fuga_obshto))
+                
+                # --- ПРОМЯНА: Добавяме overhang_val към височината на вратата (lf) ---
+                lf, wf, nf = get_front_dims(h - fuga_obshto + overhang_val, int(w/vrati_broi - fuga_obshto))
                 new_items.append(add_item(name, tip, "Врата", vrati_broi, lf, wf, "4 страни", mat_lice, val_fl_lice, nf))
 
             elif tip == "ДОБАВИ ДЕТАЙЛ":

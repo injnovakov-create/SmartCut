@@ -741,13 +741,13 @@ with col1:
                 if vrati_broi > 0:
                     h_door_hw = h_vrata_standart if "Горен" not in tip else (h - fuga_obshto if 'vrati_orientacia' not in locals() or vrati_orientacia == "Вертикални" else (h - fuga_obshto if vrati_broi == 1 else int((h/2) - fuga_obshto)))
                     
-                    # ПРЕМАХНАТО е умножението * vrati_broi
-                    hw_hinges = calculate_hinges(h_door_hw) 
+                    # Изчисляваме правилния брой панти спрямо броя врати
+                    hw_hinges = calculate_hinges(h_door_hw) * vrati_broi
                     
                     # Добавяме пантите
                     new_hw.append({"№": name, "Артикул": "Панти покрит кант", "Брой": hw_hinges})
 
-                    # НОВО: Добавяме дръжки САМО ако НЕ е избрано надстърчане на вратата
+                    # Добавяме дръжки САМО ако НЕ е избрано надстърчане на вратата
                     if not overhang_door:
                         new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": vrati_broi})
             

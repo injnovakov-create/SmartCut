@@ -1065,7 +1065,7 @@ with col2:
     header_col, img_col = st.columns([4, 1.5]) # 4 части за заглавието, 1.5 за дясната зона
     
     with header_col:
-        st.subheader("📋 Списък за разкрой (Редактируем)")
+        st.subheader("📋 *СПИСЪК С ДЕТАЙЛИ*")
         
                     
     with img_col:

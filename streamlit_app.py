@@ -1078,15 +1078,11 @@ with col2:
         except Exception:
             pass # Ако няма скица, остава празно
     
-# --- УПРАВЛЕНИЕ НА МОДУЛИ И ТАБЛИЦА ---
+    # --- УПРАВЛЕНИЕ НА МОДУЛИ И ТАБЛИЦА ---
     if st.session_state.order_list:
         
-        # --- 1. ПЪРВО: ТАБЛИЦАТА ---
+        # --- 1. ПЪРВО: ТАБЛИЦАТА (С визуални разделители) ---
         df = pd.DataFrame(st.session_state.order_list)
-        
-        # Сортиране по материал и после по модул
-        if not df.empty:
-            df = df.sort_values(by=["Плоскост", "№"], ascending=[True, True])
         
         cols_order = ["Плоскост", "№", "Детайл", "Дължина", "Ширина", "Фладер", "Бр", "Д1", "Д2", "Ш1", "Ш2", "Забележка"]
         df = df[[c for c in cols_order if c in df.columns]]
@@ -1097,27 +1093,24 @@ with col2:
             records = df.to_dict('records')
             visual_records = []
             last_mod = None
-            last_mat = None
             
             for row in records:
                 current_mod = row['№']
-                current_mat = row['Плоскост']
-                
-                # Разделител при смяна на модул ИЛИ материал
-                if last_mod is not None and (current_mod != last_mod or current_mat != last_mat):
+                # Ако това не е първият ред и номерът на модула се е сменил
+                if last_mod is not None and current_mod != last_mod:
+                    # Създаваме "мним" разделителен ред
                     empty_row = {col: None for col in cols_order}
-                    empty_row["№"] = "---"
+                    empty_row["№"] = "---" # Слагаме маркер, за да си го познаем после
                     visual_records.append(empty_row)
                 
                 visual_records.append(row)
                 last_mod = current_mod
-                last_mat = current_mat
                 
             display_df = pd.DataFrame(visual_records)
         else:
             display_df = df
         
-        # Показване на редактируемата таблица
+        # Подаваме таблицата на екрана (с разделителите) - ТЯ ВЕЧЕ Е НАЙ-ОТГОРЕ
         edited_df = st.data_editor(display_df, num_rows="dynamic", use_container_width=True, height=600, key="editor")
         
         # --- ФИЛТРИРАНЕ И ЗАПАЗВАНЕ ---

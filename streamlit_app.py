@@ -2190,8 +2190,15 @@ def generate_labels_pdf(boards_per_mat):
 
     label_w = int(44 * px_per_mm)
     label_h = int(20 * px_per_mm)
-    margin_x = int(10 * px_per_mm)
-    margin_y = int(12 * px_per_mm)
+
+    # -------------------------------------------------------------
+    # ПРОМЯНА: Намален margin_x от 10 на 7 (мести всичко с 3мм НАЛЯВО)
+    margin_x = int(7 * px_per_mm)
+    
+    # ЗАДЪРЖАМЕ ПРОМЯНАТА: Намален margin_y от 12 на 9 (мести всичко с 3мм НАГОРЕ)
+    margin_y = int(9 * px_per_mm)
+    # -------------------------------------------------------------
+    
     gap_x = int(6 * px_per_mm)
     gap_y = int(7 * px_per_mm)
     padding = int(3 * px_per_mm)
@@ -2256,6 +2263,7 @@ def generate_labels_pdf(boards_per_mat):
     pdf_bytes = io.BytesIO()
     pages[0].save(pdf_bytes, format="PDF", save_all=True, append_images=pages[1:], resolution=300)
     return pdf_bytes.getvalue()
+
 # --- 4. ПОТРЕБИТЕЛСКИ ИНТЕРФЕЙС (БУТОНИ) ---
 st.markdown("---")
 col_visuals, col_pdf = st.columns(2)
@@ -2274,7 +2282,7 @@ with col_pdf:
                     kraka_val = kraka if 'kraka' in locals() or 'kraka' in globals() else 100
                     pdf_data = generate_technical_pdf(st.session_state.modules_meta, st.session_state.order_list, kraka_val)
                     if pdf_data:
-                        st.download_button(label="📥 ИЗТЕГЛИ PDF", data=pdf_data, file_name="*OPTIVIK*_Чертежи.pdf", mime="application/pdf")
+                        st.download_button(label="📥 ИЗТЕГЛИ PDF", data=pdf_data, file_name="OPTIVIK_Чертежи.pdf", mime="application/pdf")
                         
     with col_b2:
         if st.button("🏷️ Свали ЕТИКЕТИ (А4)"):
@@ -2286,7 +2294,7 @@ with col_pdf:
                     try:
                         labels_pdf = generate_labels_pdf(boards_per_mat) 
                         if labels_pdf:
-                            st.download_button(label="📥 ИЗТЕГЛИ ЕТИКЕТИ", data=labels_pdf, file_name="*OPTIVIK*_Етикети.pdf", mime="application/pdf")
+                            st.download_button(label="📥 ИЗТЕГЛИ ЕТИКЕТИ", data=labels_pdf, file_name="OPTIVIK_Етикети.pdf", mime="application/pdf")
                     except NameError:
                         st.error("Функцията за етикети липсва или не е заредена правилно.")
 

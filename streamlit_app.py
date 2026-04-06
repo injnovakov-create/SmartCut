@@ -798,8 +798,8 @@ with col1:
                         new_hw.append({"№": name, "Артикул": f"Водач {runner_len}мм", "Брой": num_drawers})
                         new_hw.append({"№": name, "Артикул": "Дръжки", "Брой": vrati_broi + num_drawers})
             
-            # ЛОГИКА ЗА РАЗКРОЙ 
-            if tip == "Шкаф с меж. стр.":
+           # ЛОГИКА ЗА РАЗКРОЙ 
+            elif tip == "Шкаф с меж. стр.":
                 inner_w = (w - (2 + num_dividers) * deb) / num_sections
                 h_k = h_box
                 
@@ -818,7 +818,8 @@ with col1:
                         add_item(name, tip, "Страница дясна", 1, h_k, d, "1д", mat_korpus, val_fl_korpus),
                         add_item(name, tip, "Таван", 1, w - 2*deb, d, "1д", mat_korpus, val_fl_korpus),
                         add_item(name, tip, "Дъно", 1, w - 2*deb, d, "1д", mat_korpus, val_fl_korpus),
-                        add_item(name, tip, "Междинна страница", num_dividers, h_k - 2*deb, d, "1д", mat_korpus, val_fl_korpus)
+                        # --- ФИКС: Междинната страница на горен шкаф се кантира 1 дълга и 2 къси ---
+                        add_item(name, tip, "Междинна страница", num_dividers, h_k - 2*deb, d, "1д 2к", mat_korpus, val_fl_korpus)
                     ])
                     h_vrata = h_k - fuga_obshto + overhang_val
                     
@@ -828,7 +829,8 @@ with col1:
                 
                 # --- ТУК Е ЗАЩИТАТА ЗА ВРАТИТЕ И ДЕЛЕНЕТО НА НУЛА ---
                 if vrati_broi > 0:
-                    w_vrata = (w - (vrati_broi + 1) * fuga_obshto) / vrati_broi
+                    # --- ФИКС: Правилна формула за ширина на вратите ---
+                    w_vrata = int((w / vrati_broi) - fuga_obshto)
                     lf, wf, nf = get_front_dims(h_vrata, w_vrata)
                     new_items.append(add_item(name, tip, "Врата", vrati_broi, lf, wf, "4 страни", mat_lice, val_fl_lice, nf))
                 

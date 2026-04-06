@@ -1816,13 +1816,15 @@ def get_optimized_boards(list_for_cutting):
         
         import rectpack # Гарантираме, че имаме достъп до всички алгоритми
 
+        import rectpack
+
         packer = rectpack.newPacker(
             mode=rectpack.PackingMode.Offline, 
             bin_algo=rectpack.PackingBin.BFF, 
-            # Blsf (Bottom-Left) избутва всичко плътно долу-вляво
+            # ЗАДЪЛЖИТЕЛНО Гилотинен за циркуляр (избутва всичко плътно долу-вляво)
             pack_algo=rectpack.GuillotineBlsfMaxas, 
-            # Сортира детайлите от най-дългия към най-късия, за да прави правилни колони
-            sort_algo=rectpack.SORT_LSIDE, 
+            # ПРОМЯНА: Сортиране по ПЛОЩ (първо реди едрите детайли, за да остави голяма дупка накрая)
+            sort_algo=rectpack.SORT_AREA, 
             rotation=mat_can_rotate
         )
         

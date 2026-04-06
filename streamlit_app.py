@@ -1064,6 +1064,21 @@ with col1:
                 
                 f_choice = custom_flader 
                 
+                # --- НОВО: Изчисляване на точните милиметри за вадене спрямо канта ---
+                def get_deduction(edge_val):
+                    val = str(edge_val).strip()
+                    if val == "0.8": return 1
+                    elif val in ["2", "2.0"]: return 2
+                    return 0 # Ако е "Без" или няма кант, вади 0
+                
+                # Събираме колко трябва да се извади от дължината и ширината
+                deduct_l = get_deduction(custom_edges_dict.get('d1', '')) + get_deduction(custom_edges_dict.get('d2', ''))
+                deduct_w = get_deduction(custom_edges_dict.get('sh1', '')) + get_deduction(custom_edges_dict.get('sh2', ''))
+                
+                # Пресмятаме чистия размер за циркуляра
+                final_l = custom_l - deduct_l
+                final_w = custom_w - deduct_w
+                
                 # Добавяне в списъка с новите кантове (custom_edges_dict)
                 new_items.append(
                     add_item(
@@ -1071,8 +1086,8 @@ with col1:
                         tip, 
                         custom_detail, 
                         int(custom_count), 
-                        custom_l, 
-                        custom_w, 
+                        final_l,  # Подаваме коригираната дължина
+                        final_w,  # Подаваме коригираната ширина
                         "Спец.", 
                         m_choice, 
                         f_choice, 

@@ -814,11 +814,11 @@ with col1:
                     h_vrata = h_k - fuga_obshto - gola_offset
                 else: 
                     new_items.extend([
-                        add_item(name, tip, "Страница лява", 1, h_k, d, "1д", mat_korpus, val_fl_korpus),
-                        add_item(name, tip, "Страница дясна", 1, h_k, d, "1д", mat_korpus, val_fl_korpus),
+                        # --- ФИКС: Страниците на горен шкаф вече се кантират 1 дълга и 2 къси (1д 2к) ---
+                        add_item(name, tip, "Страница лява", 1, h_k, d, "1д 2к", mat_korpus, val_fl_korpus),
+                        add_item(name, tip, "Страница дясна", 1, h_k, d, "1д 2к", mat_korpus, val_fl_korpus),
                         add_item(name, tip, "Таван", 1, w - 2*deb, d, "1д", mat_korpus, val_fl_korpus),
                         add_item(name, tip, "Дъно", 1, w - 2*deb, d, "1д", mat_korpus, val_fl_korpus),
-                        # --- ФИКС: Междинната страница на горен шкаф се кантира 1 дълга и 2 къси ---
                         add_item(name, tip, "Междинна страница", num_dividers, h_k - 2*deb, d, "1д 2к", mat_korpus, val_fl_korpus)
                     ])
                     h_vrata = h_k - fuga_obshto + overhang_val
@@ -827,9 +827,7 @@ with col1:
                     if sh_count > 0:
                         new_items.append(add_item(name, tip, f"Рафт подв. Секция {i+1}", sh_count, inner_w - 1, d, "1д", mat_korpus, val_fl_korpus))
                 
-                # --- ТУК Е ЗАЩИТАТА ЗА ВРАТИТЕ И ДЕЛЕНЕТО НА НУЛА ---
                 if vrati_broi > 0:
-                    # --- ФИКС: Правилна формула за ширина на вратите ---
                     w_vrata = int((w / vrati_broi) - fuga_obshto)
                     lf, wf, nf = get_front_dims(h_vrata, w_vrata)
                     new_items.append(add_item(name, tip, "Врата", vrati_broi, lf, wf, "4 страни", mat_lice, val_fl_lice, nf))

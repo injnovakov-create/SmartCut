@@ -2031,8 +2031,15 @@ def generate_cutting_plan_pdf(boards_per_mat, board_l, board_w, trim):
                 draw.text((margin, y_offset), total_text, fill="#FF0000", font=f_info)
                 y_offset += 50
             
-            # Изчистен надпис само за номера на плочата
-            draw.text((margin, y_offset), f"ПЛОЧА {idx+1} от {len(boards)}", fill="#008080", font=f_info)
+           # --- ИЗЧИСЛЯВАНЕ НА РАНДЕМАН (ИЗПОЛЗВАЕМА ПЛОЩ) ---
+            # Събираме площта на всички детайли в текущата плоча
+            used_area = sum(p['l'] * p['w'] for p in b_parts)
+            # Общата площ на целия лист (2800 x 2070)
+            total_area = board_l * board_w 
+            randeman = (used_area / total_area) * 100
+            
+            # Изписваме номера на плочата + процента рандеман
+            draw.text((margin, y_offset), f"ПЛОЧА {idx+1} от {len(boards)}  |  Използваема площ: {randeman:.1f}%", fill="#008080", font=f_info)
             y_offset += 70 
             
             draw_w = page_w - 2 * margin

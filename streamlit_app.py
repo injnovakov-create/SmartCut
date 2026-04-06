@@ -1821,9 +1821,9 @@ def get_optimized_boards(list_for_cutting):
         packer = rectpack.newPacker(
             mode=rectpack.PackingMode.Offline, 
             bin_algo=rectpack.PackingBin.BFF, 
-            # ЗАДЪЛЖИТЕЛНО Гилотинен за циркуляр (избутва всичко плътно долу-вляво)
-            pack_algo=rectpack.GuillotineBlsfMaxas, 
-            # ПРОМЯНА: Сортиране по ПЛОЩ (първо реди едрите детайли, за да остави голяма дупка накрая)
+            # BSSF (Best Short Side Fit) дава математически най-висок рандеман за циркуляр
+            pack_algo=rectpack.GuillotineBssfSas, 
+            # Сортиране по площ, за да реди първо едрите детайли
             sort_algo=rectpack.SORT_AREA, 
             rotation=mat_can_rotate
         )

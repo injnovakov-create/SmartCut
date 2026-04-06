@@ -1814,10 +1814,15 @@ def get_optimized_boards(list_for_cutting):
         
         mat_can_rotate = all(p['can_rotate'] for p in all_mat_parts)
         
-        packer = newPacker(
-            mode=PackingMode.Offline, 
-            bin_algo=PackingBin.BFF, 
-            pack_algo=GuillotineBssfMaxas, 
+        import rectpack # Гарантираме, че имаме достъп до всички алгоритми
+
+        packer = rectpack.newPacker(
+            mode=rectpack.PackingMode.Offline, 
+            bin_algo=rectpack.PackingBin.BFF, 
+            # Blsf (Bottom-Left) избутва всичко плътно долу-вляво
+            pack_algo=rectpack.GuillotineBlsfMaxas, 
+            # Сортира детайлите от най-дългия към най-късия, за да прави правилни колони
+            sort_algo=rectpack.SORT_LSIDE, 
             rotation=mat_can_rotate
         )
         

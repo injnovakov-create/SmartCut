@@ -2192,15 +2192,16 @@ def generate_labels_pdf(boards_per_mat):
     label_h = int(20 * px_per_mm)
 
     # -------------------------------------------------------------
-    # ПРОМЯНА: Намален margin_x от 10 на 7 (мести всичко с 3мм НАЛЯВО)
-    margin_x = int(7 * px_per_mm)
+    # ОТСТЪПИ НА ЦЯЛАТА МРЕЖА ОТ КРАИЩАТА НА ЛИСТА
+    margin_x = int(7 * px_per_mm)  # (преместено с 3мм наляво спрямо оригиналните 10)
+    margin_y = int(9 * px_per_mm)  # (преместено с 3мм нагоре спрямо оригиналните 12)
     
-    # ЗАДЪРЖАМЕ ПРОМЯНАТА: Намален margin_y от 12 на 9 (мести всичко с 3мм НАГОРЕ)
-    margin_y = int(9 * px_per_mm)
+    # РАЗСТОЯНИЕ МЕЖДУ САМИТЕ ЕТИКЕТИ
+    gap_x = int(6 * px_per_mm)
+    # ПРОМЯНА: Намалено разстояние по вертикала от 7 на 6 (с 1мм по-малко)
+    gap_y = int(6 * px_per_mm)
     # -------------------------------------------------------------
     
-    gap_x = int(6 * px_per_mm)
-    gap_y = int(7 * px_per_mm)
     padding = int(3 * px_per_mm)
 
     pages = []
@@ -2297,7 +2298,6 @@ with col_pdf:
                             st.download_button(label="📥 ИЗТЕГЛИ ЕТИКЕТИ", data=labels_pdf, file_name="OPTIVIK_Етикети.pdf", mime="application/pdf")
                     except NameError:
                         st.error("Функцията за етикети липсва или не е заредена правилно.")
-
 with col_visuals:
     st.subheader("✂️ Схема на разкроя (Плочи)")
     

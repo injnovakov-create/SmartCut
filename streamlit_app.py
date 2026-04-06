@@ -1818,12 +1818,14 @@ def get_optimized_boards(list_for_cutting):
 
         import rectpack
 
+        import rectpack
+
         packer = rectpack.newPacker(
             mode=rectpack.PackingMode.Offline, 
             bin_algo=rectpack.PackingBin.BFF, 
-            # ЗАДЪЛЖИТЕЛНО Гилотинен за циркуляр (избутва всичко плътно долу-вляво)
-            pack_algo=rectpack.GuillotineBlsfMaxas, 
-            # ПРОМЯНА: Сортиране по ПЛОЩ (първо реди едрите детайли, за да остави голяма дупка накрая)
+            # --- ПРОМЯНА: Истински нестинг (Тетрис), който уплътнява максимално ---
+            pack_algo=rectpack.MaxRectsBlsf, 
+            # --- ПРОМЯНА: Сортиране по площ (първо слага най-големите детайли) ---
             sort_algo=rectpack.SORT_AREA, 
             rotation=mat_can_rotate
         )
